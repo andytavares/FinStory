@@ -6,11 +6,22 @@
 
 **Status**: Draft
 
-**Input**: User description: "Build a personal finance and money management app based on an article describing an automated budgeting system: bank/card/payment-app aggregation, AI categorization with confidence scoring, weekly pattern detection, real-time alerts, and automated monthly reporting. Core thesis: 'I don't have a budgeting problem, I have an awareness problem' — the system must require zero manual expense logging and change behavior through visibility, not discipline."
+**Input**: User description: "Build a personal finance and money management app based on an article describing an automated budgeting system: bank/card/payment-app aggregation, AI categorization with confidence scoring, weekly pattern detection, real-time alerts, and automated monthly reporting. Core thesis: 'I don't have a budgeting problem, I have an awareness problem' — the system must require zero manual expense logging and change behavior through visibility, not discipline." Scope resolved with the user: single-user desktop application running locally on the owner's own machine, with both an interactive interface and unprompted push delivery of alerts and reports.
 
 ## Product Thesis
 
 Existing budgeting tools fail because they require ongoing user effort: manual categorization, pre-allocation of every dollar, or daily spreadsheet upkeep. This product assumes the user has **no discipline and no time**. Its defining constraint is that a user who does nothing after initial setup still receives accurate, complete, and useful spending intelligence. Every requirement below is subordinate to that constraint.
+
+## Experience Principles
+
+The interface benchmark is a full-featured personal finance application in the mold of Quicken or Monarch Money — a real financial cockpit, not a notifications feed with a settings page. The product should feel like a modern, considered application that a user opens because it is pleasant and informative, not because a chore is due.
+
+Where it must differ from those products:
+
+- **Automation-first, not entry-first.** Conventional finance applications organize their interface around the user doing work: entering, matching, splitting, reconciling, allocating. Here the interface is organized around *reading* — every screen answers a question rather than requesting input. Data-entry affordances that exist in the reference products are deliberately absent.
+- **Modern, not dense-by-default.** The reference products expose everything at once. This one leads with the answer and lets the user drill toward detail, rather than opening onto a spreadsheet.
+- **Opinionated about what matters.** The system surfaces what changed and what is unusual on its own, instead of leaving the user to discover it by browsing reports.
+- **Optional to open.** The interface is the depth; the push notifications and scheduled reports are the floor. A user who never opens the application still gets the product's core value, which is not true of the reference products.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -134,6 +145,11 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - Duplicate-charge detection versus legitimate repeat purchases (two identical coffees in one day): the user must be able to dismiss a false positive without suppressing genuine future duplicate alerts.
 - The user's delivery destination for alerts or reports becomes unavailable: undelivered notifications must be retained and surfaced, not lost.
 - A single alert-worthy event that satisfies multiple triggers at once must not generate a burst of redundant notifications.
+- The application is closed for days or weeks: on next launch it must backfill, categorize, evaluate every alert rule against the backlog, and generate any missed scheduled reports — while making clear these are late, not live.
+- A long absence produces a large alert backlog: the user must receive a coherent digest of what happened rather than dozens of stale individual notifications.
+- The machine is offline or the aggregation provider is unreachable: all existing data stays viewable and is explicitly labeled as of the last successful sync.
+- The user's machine is lost, replaced, or the disk fails: without a backup there is no recovery, since no server-side copy exists — the system must make backup an obvious, prompted action rather than a buried option.
+- Account-access tokens expire while the application has been closed for an extended period, requiring re-authentication before any catch-up can occur.
 
 ## Requirements *(mandatory)*
 
@@ -207,10 +223,29 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - **FR-049**: System MUST NOT initiate, authorize, or modify any movement of the user's money; it is strictly read-and-report.
 - **FR-050**: System MUST retain transaction history long enough to support year-over-year comparison, at minimum 24 months.
 
-#### Scope Boundaries — Pending Clarification
+#### Deployment & Local Operation
 
-- **FR-051**: System MUST support [NEEDS CLARIFICATION: single-user self-hosted deployment for one owner, or a multi-tenant product serving many isolated users with accounts, onboarding, and per-user data isolation? This determines whether authentication, tenancy, billing, and user management are in scope at all.]
-- **FR-052**: System MUST deliver insights, alerts, and reports via [NEEDS CLARIFICATION: notification/messaging channels only (the source system used a chat channel plus an external document page and had no interface of its own), or a first-class application interface with a dashboard, on-demand breakdowns, and the review queue? This determines whether an interactive UI is in scope for v1.]
+- **FR-051**: System MUST be a single-user desktop application installed and run on the owner's own machine. There is no multi-tenancy, no user accounts, no sign-up, and no hosted service component operated for other users.
+- **FR-052**: System MUST deliver its value through both surfaces: (a) an interactive application interface providing a dashboard, on-demand category and merchant breakdowns, the recurring-charge ledger, and the flagged-transaction review queue; and (b) unprompted push delivery of alerts and scheduled reports that reach the user without opening the application.
+- **FR-053**: System MUST store all transaction history, categorizations, baselines, and generated reports locally on the user's machine. No user financial data may be persisted on any third-party server operated as part of this product.
+- **FR-054**: System MUST encrypt locally stored financial data and any stored account-access tokens at rest.
+- **FR-055**: System MUST retrieve transactions by polling the aggregation provider on a recurring interval, and MUST NOT require the user to operate a publicly reachable server or endpoint.
+- **FR-056**: System MUST catch up on all transactions that occurred while the application was closed or the machine was offline, on next launch, and MUST evaluate alert rules against that backlog rather than silently skipping it.
+- **FR-057**: System MUST clearly distinguish, when delivering a backlogged alert, that the triggering event occurred earlier and state when it occurred.
+- **FR-058**: System MUST generate any scheduled digest or report whose scheduled time elapsed while the application was not running, on next launch.
+- **FR-059**: System MUST function without a network connection for all views of already-captured data — breakdowns, ledger, review queue, and past reports — and MUST indicate that data is not current while offline.
+- **FR-060**: System MUST allow the user to export a complete backup of their local data and to restore from one, since no server-side copy exists.
+- **FR-061**: System MUST disclose to the user which transaction details, if any, are transmitted to external services for categorization, and MUST make that behavior a user-visible setting rather than an invisible default.
+
+#### Interface
+
+- **FR-062**: System MUST present a primary dashboard giving the user their whole financial position at a glance: current balance across all connected accounts, cash flow for the current period, spending by category, and what has changed or is unusual since last viewed.
+- **FR-063**: Users MUST be able to drill from any presented figure — a category total, a trend line, a report line item, a recurring charge — down to the individual transactions composing it.
+- **FR-064**: System MUST provide a searchable, filterable transaction register across all connected accounts, filterable by date range, category, merchant, amount range, account, and confirmation status.
+- **FR-065**: System MUST present spending over time in visual form, supporting comparison of a period against the user's prior periods.
+- **FR-066**: System MUST NOT require or present data-entry workflows as a normal part of use: no manual transaction entry, no reconciliation step, no envelope or budget allocation gate. Every editing affordance is a correction to an automated result, never a prerequisite for one.
+- **FR-067**: System MUST make the flagged-transaction review queue resolvable in bulk, so that clearing a month of flags is a short session rather than a per-transaction chore.
+- **FR-068**: System MUST remain responsive when navigating, filtering, and drilling through the user's full retained history, not only recent periods.
 
 ### Key Entities
 
@@ -233,7 +268,8 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - **SC-003**: 100% of transactions from connected accounts are captured; no transaction that appears on a connected account statement is missing from the system.
 - **SC-004**: Category totals reconcile exactly to transaction totals for any period, with zero unaccounted amount.
 - **SC-005**: The system identifies at least 95% of the user's genuinely recurring charges, including those the user is unaware of, with a false-positive rate under 10%.
-- **SC-006**: Alerts for large purchases, daily-spend breaches, and duplicate charges reach the user within 15 minutes of the transaction becoming available from the source account.
+- **SC-006**: While the application is running, alerts for large purchases, daily-spend breaches, and duplicate charges reach the user within one polling interval of the transaction becoming available from the aggregation provider.
+- **SC-006a**: When the application has been closed, 100% of alerts that would have fired during the closed period are delivered on next launch, each labeled with when the triggering event actually occurred. No alert is lost to downtime.
 - **SC-007**: Ongoing user time investment averages 40 minutes per month or less — approximately 10 minutes reading the monthly report and 30 minutes resolving flagged transactions — with no daily or weekly obligation.
 - **SC-008**: The weekly digest and monthly report are delivered on schedule without user request at least 99% of the time.
 - **SC-009**: Setup — connecting all accounts and configuring alert thresholds — completes in under 30 minutes.
@@ -242,17 +278,31 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - **SC-012**: Within six months of continuous use, users can quantify a measurable change in monthly savings rate attributable to spending categories the system surfaced.
 - **SC-013**: Users remain active after six months at a materially higher rate than their own prior history with manual budgeting tools (which the source case abandoned within four days).
 - **SC-014**: No incomplete period is ever presented as complete: whenever an account feed is stale or disconnected, every affected total carries that qualification.
+- **SC-015**: All views of already-captured data open and remain fully usable with no network connection, clearly marked as of the last successful sync.
+- **SC-016**: All user financial data resides on the user's machine; a full audit of persisted data finds zero user transaction records on any third-party server operated as part of this product.
+- **SC-017**: A restore from exported backup onto a clean install reproduces the complete prior state — transactions, corrections, baselines, and reports.
+- **SC-018**: From the dashboard, a user can reach the individual transactions behind any headline figure in no more than two interactions.
+- **SC-019**: On opening the application, a user can state their current position — balances, period cash flow, and what is unusual — within 30 seconds and without navigating away from the first screen.
+- **SC-020**: Navigating, filtering, and drilling through the full retained transaction history feels immediate, with no perceptible wait on the user's own machine.
+- **SC-021**: The application contains zero workflows that require the user to enter or reconcile transaction data in order for the system to stay accurate.
 
 ## Assumptions
 
-- **Deployment origin**: The source article describes a system built for a single individual. This specification is written for that same core capability set; the single-user versus multi-tenant question is raised explicitly in FR-051 rather than assumed, because it materially changes scope.
+- **Deployment**: Single-user desktop application, installed and run on the owner's own machine. All data at rest is local. There is no multi-tenancy, no hosted backend operated for users, and no cloud copy of financial data.
+- **"Local" has a hard boundary**: The application cannot be network-isolated. Bank and card aggregation is inherently a call to an external provider, and no desktop application can connect to financial institutions directly. "Local" here means data is *stored* only on the user's machine and no server component is operated on their behalf — not that the application runs without network access.
+- **Polling, not webhooks**: Because a desktop application has no publicly reachable address, transactions are retrieved by polling on an interval rather than pushed by the provider. This is the direct cause of two constraints: alert latency is bounded by the polling interval, and nothing is detected while the application is not running. The source article's server-based design does not have this limitation; it was traded away deliberately in exchange for local-only data.
+- **Downtime is expected, data loss is not**: The application will routinely be closed. Correctness is therefore defined by complete catch-up on launch, not by continuous uptime.
+- **Backup is the user's responsibility, prompted by the system**: With no server-side copy, machine loss means data loss. The system must make export and restore first-class.
 - **Read-only by design**: The system observes and reports; it never moves money, cancels subscriptions, or acts on the user's behalf. The user acts on the information themselves. This is assumed, not stated in the source.
 - **Aggregation dependency**: Automatic capture depends on a third-party financial data aggregation service that supports the user's institutions. Any account the aggregator cannot reach cannot be tracked automatically; the source article's stated per-account cost tiers imply this dependency is a real and recurring operating cost.
 - **Technology is deferred**: The source article names specific vendors and tools for aggregation, workflow automation, AI categorization, storage, messaging, and document hosting. These are treated as implementation candidates, not requirements. Technology selection belongs to `/speckit-plan`.
 - **Categorization is probabilistic**: Perfect categorization is impossible. The 94% accuracy target and a confidence threshold near 80% come from the source system's observed behavior; both the threshold and the target are treated as tunable.
+- **Categorization privacy is an open decision** *(flagged for `/speckit-plan`)*: Context-aware categorization at the accuracy target described requires a capable language model. A hosted model API means transaction descriptors, amounts, and timestamps leave the machine — which is in tension with the local-only intent, though it sends no account credentials and no account numbers. A locally-run model keeps everything on the machine at some cost to accuracy and machine resources. FR-061 requires that whichever is chosen be disclosed and user-controllable. The choice itself belongs to planning.
+- **Aggregation provider access is a real prerequisite**: Live bank connections through a commercial aggregator require an approved production account and carry recurring per-connection cost. This is a gating dependency for the product to function at all, and must be validated during planning rather than discovered during implementation.
 - **Baselines are personal**: All "normal" and "unusual" judgments derive from the individual user's own history. No external benchmarks, peer comparisons, or population averages are used.
 - **History requirement**: Meaningful baselines, deviation detection, and projections require roughly 4–8 weeks of history. Before that, the system reports facts and withholds comparative claims.
+- **Experience benchmark**: Quicken and Monarch Money define the expected depth and polish of the interface — a complete financial application, not a utility. They are a benchmark for surface quality and breadth, not a specification of their feature set; their data-entry, reconciliation, and manual-budgeting workflows are explicitly not being reproduced.
 - **Currency and locale**: Single currency, US financial institutions, US date and dollar conventions. Multi-currency and international institutions are out of scope for v1.
 - **Income regularity**: Balance-shortfall projection assumes a broadly predictable income cadence. Irregular income degrades projection confidence, and the system must qualify rather than assert in that case.
-- **Notification channels exist**: The user has at least one reachable delivery destination for alerts and scheduled reports.
-- **Out of scope for v1**: Investment and retirement account tracking, net worth calculation, debt payoff planning, tax preparation and categorization, bill payment, goal-based savings automation, multi-currency, shared or household budgets, and credit score monitoring.
+- **Notification channels exist**: Unprompted delivery uses native desktop notifications at minimum, so alerts reach the user without opening the application. Any additional destination (messaging, email) is optional and secondary.
+- **Out of scope for v1**: Investment and retirement account tracking, net worth calculation, debt payoff planning, tax preparation and categorization, bill payment, goal-based savings automation, multi-currency, shared or household budgets, credit score monitoring, mobile applications, and any cross-device sync.

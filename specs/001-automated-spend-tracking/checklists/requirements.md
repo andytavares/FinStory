@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,14 +31,34 @@
 
 ## Notes
 
-- **2 open [NEEDS CLARIFICATION] markers** (FR-051, FR-052) are blocking. Both are scope-defining and have no
-  defensible default:
-  - FR-051 — single-user self-hosted vs. multi-tenant product. Determines whether auth, tenancy, onboarding,
-    and billing are in scope at all.
-  - FR-052 — notification-channel delivery only vs. a first-class application interface. Determines whether an
-    interactive UI (dashboard, on-demand breakdowns, review queue) exists in v1.
-- Vendor and tool names from the source article (aggregation, workflow, AI, storage, messaging, docs) were
-  deliberately kept out of the spec and recorded in Assumptions as implementation candidates for `/speckit-plan`.
-- The source article's stated metrics (94% categorization accuracy, ~80% confidence threshold, 30 min/month
-  maintenance) were adopted as targets in Success Criteria and flagged as tunable in Assumptions.
-- Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`.
+**Status: all items pass. Spec is ready for `/speckit-plan`.**
+
+Resolved since first draft:
+
+- **FR-051** — Single-user desktop application running locally on the owner's machine. No multi-tenancy, no hosted
+  backend, no cloud copy of financial data. Drove FR-053 through FR-061 and SC-015 through SC-017.
+- **FR-052** — Both surfaces: a full interactive application interface *and* unprompted push delivery. Drove the
+  Experience Principles section, FR-062 through FR-068, and SC-018 through SC-021.
+- **UX direction** — Quicken / Monarch Money as the benchmark for depth and polish, minus their data-entry,
+  reconciliation, and manual-allocation workflows. Captured in Experience Principles and FR-066.
+
+Carried into planning (not spec gaps — genuine technology decisions):
+
+- **Categorization privacy.** Hosted model API (better accuracy, transaction descriptors leave the machine) vs.
+  local model (nothing leaves, lower accuracy, real machine cost). FR-061 requires disclosure and user control
+  either way; the choice itself is a `/speckit-plan` decision. Documented in Assumptions.
+- **Aggregation provider access.** Live bank connections require an approved production account with a commercial
+  aggregator plus recurring per-connection cost. This is a hard gating dependency and must be validated during
+  planning, not discovered during implementation.
+- **Polling interval.** Alert latency and background-execution behavior both fall out of this. It is the direct
+  consequence of choosing a local desktop app over the source article's server design, and is recorded as an
+  explicit trade in Assumptions.
+
+Other notes:
+
+- Vendor and tool names from the source article were deliberately kept out of the requirements and recorded in
+  Assumptions as implementation candidates.
+- The article's observed metrics (94% categorization accuracy, ~80% confidence threshold, ~30 min/month
+  maintenance) were adopted as targets and flagged as tunable.
+- The project constitution at `.specify/memory/constitution.md` is still an unfilled template. Worth running
+  `/speckit-constitution` before `/speckit-plan`, since plan-time decisions are checked against it.
