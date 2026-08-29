@@ -1,0 +1,30 @@
+specs/001-automated-spend-tracking/contracts/ipc-api.md
+  s_f1d20e583de5c0::t_48be21fce29348 1-80
+specs/001-automated-spend-tracking/contracts/external-services.md
+  s_f1d20e583de5c0::t_48be21fce29348 1-53
+specs/001-automated-spend-tracking/quickstart.md
+  s_f1d20e583de5c0::t_65af27e3acfe70 1-100
+specs/001-automated-spend-tracking/plan.md
+  s_f1d20e583de5c0::t_eb6573d8655bde 1-104
+  s_f1d20e583de5c0::t_087a459befb473 105-153
+specs/001-automated-spend-tracking/data-model.md
+  s_f1d20e583de5c0::t_7f34b08f2d5426 1-186
+specs/001-automated-spend-tracking/research.md
+  s_f1d20e583de5c0::t_66c0974eff5efe 1-177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "28b7470adde4b7e8beec6640bf50b22bebf8e134",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
