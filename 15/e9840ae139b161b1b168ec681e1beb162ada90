@@ -1,0 +1,19 @@
+.specify/memory/constitution.md
+  s_f1d20e583de5c0::t_96312eb80d8374 1-46,50-134,136-137,139-145,147,149-150,152-164,166,168-169,171-288,292-302,304
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "15e9840ae139b161b1b168ec681e1beb162ada90",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
