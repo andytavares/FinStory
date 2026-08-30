@@ -1,7 +1,20 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: [unversioned template] → 1.0.0 (initial population)
+Version change: [unversioned template] → 1.0.0 (initial population) → 1.1.0
+
+v1.1.0 (2026-08-29) — MINOR: Principle III materially revised.
+  The v1.0.0 rule ("a package maintained by a single individual MUST NOT be
+  adopted, regardless of fit") used npm publisher count as its sole signal.
+  That proxy proved unsound on first contact: better-sqlite3 has 69 GitHub
+  contributors and 10.4M weekly downloads behind a single npm publisher, and
+  the rule could not distinguish it from an abandoned hobby package. It also
+  put III in direct conflict with Principle VII (encryption at rest,
+  NON-NEGOTIABLE), because no multi-publisher encrypted-SQLite driver exists
+  that the project's ORM supports.
+  III now assesses community health on contributors, usage, release cadence,
+  and responsiveness, with npm publisher count as one input among several.
+  Evidence must be recorded at adoption time.
 
 Basis: adapted from the Terminator project constitution v1.4.0
 (~/repos/terminator/.specify/memory/constitution.md).
@@ -83,8 +96,19 @@ than no number, because the user acts on it.
 Dependencies are a long-term liability. Every addition MUST be justified and evaluated
 for community health before adoption.
 
-- A package MUST have an active community and multiple active maintainers.
-  A package maintained by a single individual MUST NOT be adopted, regardless of fit.
+- A package MUST demonstrate active community health before adoption. Health MUST be
+  assessed on the full picture — contributor count, download volume, release cadence,
+  issue responsiveness, and the number of publishers — not on any single metric.
+  npm publisher count alone MUST NOT be treated as the deciding signal; a widely used
+  package with many contributors and regular releases is not disqualified by having one
+  publisher of record.
+- A package showing genuine bus-factor risk — a lone contributor, stalled releases, or
+  unanswered issues — MUST NOT be adopted when a healthier alternative exists.
+- The health evidence behind an adoption decision MUST be recorded in the PR at the time
+  of adoption, so the judgment can be re-examined later rather than reconstructed.
+- Adopting a package that carries known bus-factor risk because no healthier alternative
+  satisfies a NON-NEGOTIABLE principle MUST be recorded as an ADR, including the risk
+  accepted and the condition that would trigger migration.
 - When a well-known, battle-tested alternative exists, it MUST be preferred over a
   niche or newer package.
 - All version constraints MUST be pinned — unpinned `latest` is forbidden in production.
@@ -301,4 +325,4 @@ Compliance is not optional.
 - The constitution version and amendment history are the authoritative record of governance
   decisions affecting this project.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-29 | **Last Amended**: 2026-08-29
+**Version**: 1.1.0 | **Ratified**: 2026-08-29 | **Last Amended**: 2026-08-29

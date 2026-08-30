@@ -123,7 +123,7 @@ Correctness is therefore defined as **complete catch-up, not continuous uptime**
 
 **Backlog burst control**: a long absence could produce dozens of stale alerts. Above a threshold, alerts collapse into a single "while you were away" summary — required by the spec's own edge case and by FR-031.
 
-**Timers**: use a monotonic scheduler that compares "last run" timestamps against the wall clock rather than a naive interval, because `setInterval` does not fire reliably across sleep. `node-cron` (4.6.0) handles cadence; the on-launch reconciliation is what makes it correct.
+**Timers**: use a monotonic scheduler that compares "last run" timestamps against the wall clock rather than a naive interval, because `setInterval` does not fire reliably across sleep. `cron` (4.4.0) handles cadence; the on-launch reconciliation is what makes it correct.
 
 ---
 
@@ -144,14 +144,50 @@ All versions verified against the npm registry on 2026-08-29; all are current, a
 | Aggregation | plaid | 46.0.0 | Official client. |
 | Categorization | @anthropic-ai/sdk | 0.122.0 | Official client. |
 | Validation | Zod | 4.5.4 | IPC boundary and structured-output schemas. |
-| Scheduling | node-cron | 4.6.0 | Cadence for digests and polling. |
+| Icons | lucide-react | latest | Required by Constitution Principle XIV. |
+| Scheduling | cron | 4.4.0 | Cadence for digests and polling. Swapped from `node-cron` under Principle III: 3 publishers vs 1, 6.9M weekly downloads. |
 | Dates | date-fns | 4.4.0 | Period math, timezone-correct boundaries. |
+
+**Dependency health evidence** (required at adoption time by Principle III as amended in constitution v1.1.0):
+
+| Package | Publishers | Contributors | Downloads/wk | Verdict |
+|---|---|---|---|---|
+| better-sqlite3-multiple-ciphers | 1 | 35 | 74,626 | Adopted under ADR — see R9 |
+| cron | 3 | — | 6,878,233 | Healthy |
+| drizzle-orm | 4 | — | — | Healthy |
+| recharts | 3 | — | — | Healthy |
+| plaid / @anthropic-ai/sdk | vendor-published | — | — | Official clients |
 
 **Process split**: all secrets, network calls, and database access live in the **main** process. The renderer gets no Node integration, `contextIsolation: true`, and reaches main only through a typed, Zod-validated preload IPC surface. No API key or `access_token` ever enters the renderer.
 
 ---
 
-## R8. Known deviation: Plaid credentials on the client
+## R9. Encrypted SQLite driver vs. dependency stewardship (ADR-worthy)
+
+**Decision**: Adopt `better-sqlite3-multiple-ciphers` 13.0.3, under a recorded exception. Constitution Principle III amended to 1.1.0 to make the judgment sound.
+
+**The conflict**: Principle III as originally written (carried over from the Terminator constitution) forbade any package with a single npm publisher, "regardless of fit." Principle VII requires encryption at rest and is NON-NEGOTIABLE. Every encrypted-SQLite option for Node has one npm publisher, so the two principles could not both be satisfied.
+
+**Why the original rule was unsound**: npm publisher count turned out to be a poor proxy for bus-factor risk.
+
+| Package | npm publishers | GitHub contributors | Downloads/week |
+|---|---|---|---|
+| better-sqlite3 (upstream) | 1 | 69 | 10,357,275 |
+| better-sqlite3-multiple-ciphers | 1 | 35 | 74,626 |
+| @journeyapps/sqlcipher | 2 | 88 | 9,394 |
+
+The rule would have rejected a package with 69 contributors and 10.4M weekly downloads while accepting one with 4% of the usage — on a metric that reflects who holds the publish token, not who maintains the code.
+
+**Alternatives considered**:
+- *`@journeyapps/sqlcipher`*: passes the original rule (2 company publishers, 88 contributors) and is genuinely maintained. Rejected because Drizzle ships no driver for it — Drizzle's SQLite drivers are `better-sqlite3`, `bun-sqlite`, `durable-sqlite`, `expo-sqlite`, and `op-sqlite` only. Adopting it means hand-rolling a typed query layer and migration runner, which is more code we own and maintain, cutting against Principle IV (minimalism) and adding surface that Principle V then requires us to cover at 80%. Its async API also diverges from the synchronous model the ingestion path is designed around.
+- *`@libsql/client` / `libsql`*: built-in encryption and company-backed, but a single npm publisher — no better on the original rule, and a larger dependency.
+- *Drop SQLCipher, rely on OS full-disk encryption*: directly violates Principle VII and FR-054. Not viable.
+
+**Accepted risk and migration trigger**: the fork tracks upstream better-sqlite3 closely (both at 13.0.3, published within two days of each other) and is API-compatible, so Drizzle's `better-sqlite3` driver works unmodified. **If the fork falls materially behind upstream or stops receiving releases, migrate to `@journeyapps/sqlcipher` and absorb the query-layer cost.** Because the schema is Drizzle-defined and all analysis logic is pure over data passed in (Principle XIII), that migration is bounded to the storage layer.
+
+---
+
+## R10. Known deviation: Plaid credentials on the client
 
 **Issue**: Plaid API calls require `client_id` + `secret`. Plaid's guidance for consumer applications is that the secret lives server-side and never ships to a client, because in a normal product one secret serves many users and its compromise exposes all of them.
 
@@ -160,6 +196,73 @@ All versions verified against the npm registry on 2026-08-29; all are current, a
 **What is required regardless**: the secret is entered by the user, stored `safeStorage`-encrypted, never bundled into the application, never logged, and never sent to the renderer.
 
 **What this forecloses**: this app cannot be distributed to other users as-is. Doing so would require a backend to hold the secret — which is the multi-tenant product the user explicitly ruled out in FR-051. Recorded here so the constraint is not rediscovered later as a surprise.
+
+---
+
+## R11. Income detection (FR-069–FR-073)
+
+**Decision**: Reuse the recurring-charge cadence detector against **credit-direction** transactions, with user confirmation and override.
+
+**Rationale**: Income is structurally the same problem as a subscription — a repeating amount at a repeating interval from a repeating counterparty — just with the sign flipped. Running one detector over both directions means one algorithm to write, test, and trust, and it satisfies the Zero-Input Doctrine (Principle VIII) because detection is the default and confirmation is optional.
+
+**Design consequences**:
+- Detection confidence gates the balance-shortfall alert. Below threshold, or with no detected pattern, the projection is **withheld** rather than computed against a guess (FR-073, Principle IX).
+- A changed pattern (raise, job change, missed pay period) must re-derive rather than hold a stale date. The detector re-runs on every ingestion cycle.
+- A user override pins the pattern and suppresses re-derivation for that source until they clear it.
+
+**Alternatives considered**: user-configured payday schedule (rejected — recurring input, violates VIII); rolling 30-day window with no payday concept (rejected — the user chose confirmation-capable detection, and a rolling window cannot express "before payday," which is the whole point of FR-029).
+
+---
+
+## R12. Retroactive category corrections (FR-074–FR-077)
+
+**Decision**: Forward-only by default; retroactive application is an explicit, counted, opt-in action that never overwrites a prior user correction.
+
+**Rationale**: The `categorizations` table already models corrections as an append-only chain with `superseded_by`, so a retroactive pass is a bulk insert of new live categorizations, not a destructive update. History survives, and the restatement in FR-077 is the same pure recomputation that FR-015 already required.
+
+**Why the count matters before the action**: a retroactive correction can silently rewrite a year of reports. Stating "this will change 47 transactions" before the user commits makes the blast radius visible, which is the same honesty requirement Principle IX applies to reporting.
+
+**Ordering rule**: `is_confirmed = true` rows are excluded from the retroactive set. A deliberate past correction always outranks a bulk rule inferred from a later one.
+
+---
+
+## R13. Category taxonomy: defaults, editing, and comparison coherence (FR-078–FR-083)
+
+**Decision**: Ship a curated default taxonomy; allow add, rename, merge, and hide; cap nesting at one level.
+
+**Rationale**: A closed, curated set is what makes SC-002 (94% hands-off accuracy) achievable — the categorizer is prompted against a known list rather than an open vocabulary, and prompt caching on that stable taxonomy is what keeps the per-transaction cost near zero (R4). User extension is needed because no shipped list survives contact with a real person's spending. One nesting level is the user's explicit constraint and matches the data model's `parent_id`.
+
+**The hard part is FR-083 — comparison coherence.** Month-over-month comparison breaks if a category is renamed or merged between the two periods. Two rules resolve it:
+- Categories are referenced by **stable id**, never by name, so a rename is display-only and comparisons survive it untouched.
+- A **merge** rewrites transaction assignments and then forces recomputation of every derived figure that referenced either side. Historical reports regenerate under the current taxonomy rather than being left to reference a category that no longer exists.
+
+**Hide is not delete**: hidden categories stay in historical reporting and are removed only from new-assignment choices (FR-082). This keeps prior periods reconcilable, preserving SC-004.
+
+---
+
+## R14. Foreign-currency purchases (FR-084–FR-086)
+
+**Decision**: The settled account-currency amount is authoritative for every calculation. Original currency and amount are display-only metadata.
+
+**Rationale**: The account is USD-denominated; the card issuer has already performed the conversion, and the settled figure is what actually left the account. Treating it as the truth keeps every total, baseline, and alert correct with two nullable columns and no conversion logic, no rate source, and no rate-staleness problem. Plaid returns both the settled amount and `iso_currency_code`/`unofficial_currency_code`, so the metadata is free.
+
+**Consequence for duplicate detection**: exchange-rate variation means the same foreign merchant posts at slightly different dollar amounts. Duplicate detection matches on settled amount within a window, so normal variation will not trip it — but the merchant-matching key must normalize the descriptor rather than keying on amount.
+
+**Explicitly excluded**: the app performs no currency conversion of its own (FR-086). Introducing one would mean adopting a rate source, and a wrong rate silently corrupts every total — the exact failure mode Principle II exists to prevent.
+
+---
+
+## R15. Diagnostics and redaction (FR-087–FR-094)
+
+**Decision**: Rotating local log + in-app health view + local metrics, exportable as one file, with **financial detail redacted at the logging boundary**, not at export time.
+
+**Rationale**: A local app with no server has no other diagnostic story — when a sync silently fails for three weeks, there is nothing to check. The health view answers "is it working?" without the user going looking; the log answers "why not?"
+
+**Redaction is a write-time invariant, not an export-time filter.** If merchant names and amounts are written to disk and stripped on the way out, the log file is an unencrypted shadow copy of the exact data Principle VII protects — sitting outside the SQLCipher database. So the logger accepts only opaque identifiers and enumerated event types; there is no code path that can write a merchant name or amount. SC-023 is verified by an automated scan over a generated export.
+
+**Failure isolation** (FR-094): diagnostics must never break the pipeline. A logging failure is swallowed and counted, never propagated — the opposite of the fail-loudly rule for encryption, because unlike encryption, missing a log entry does not compromise anything.
+
+**Bounded growth** (FR-093): size- and age-based rotation. An unbounded log on a machine the user never inspects is a slow disk leak.
 
 ---
 
@@ -173,5 +276,11 @@ All versions verified against the npm registry on 2026-08-29; all are current, a
 | R4 | Categorization privacy (spec open decision) | Resolved — local-first, hosted fallback, offline mode available |
 | R5 | Encryption at rest | Resolved — SQLCipher + `safeStorage` async API |
 | R6 | Operation while closed | Resolved — tray + launch-at-login + catch-up on wake |
-| R7 | Stack | Resolved — versions pinned above |
-| R8 | Plaid secret on client | Accepted deviation, scoped and documented |
+| R7 | Stack | Resolved — versions pinned above, health evidence recorded |
+| R9 | Encrypted SQLite driver vs. Principle III | Resolved — constitution amended to 1.1.0; adoption recorded as ADR with migration trigger |
+| R10 | Plaid secret on client | Accepted deviation, scoped and documented |
+| R11 | Income detection | Resolved — shared cadence detector, user-confirmable |
+| R12 | Retroactive corrections | Resolved — opt-in, counted, never overwrites manual corrections |
+| R13 | Category taxonomy | Resolved — curated defaults, editable, stable ids for comparison coherence |
+| R14 | Foreign currency | Resolved — settled amount authoritative, original display-only |
+| R15 | Diagnostics | Resolved — redaction at the write boundary, not at export |

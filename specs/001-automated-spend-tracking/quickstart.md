@@ -1,6 +1,6 @@
 # Quickstart & Validation Guide
 
-How to run the app and prove it works. Scenarios map to the user stories and success criteria in `spec.md`.
+How to run the app and prove it works. Scenarios map to the user stories and success criteria in `spec.md`. 23 scenarios cover 94 functional requirements and 25 success criteria.
 
 ## Prerequisites
 
@@ -88,6 +88,24 @@ Grep the renderer bundle for the API key and Plaid secret: zero hits. `settings:
 
 ### V16. Interface depth *(FR-062–FR-068, SC-018, SC-020)*
 From the dashboard, reach the transactions behind any headline figure in ≤2 interactions. Filter and drill through a full 24-month history with no perceptible wait. Clear a month of flags in one bulk action. Confirm there is **no** manual transaction entry, reconciliation step, or budget-allocation gate anywhere in the app *(SC-021)*.
+
+### V17. Income detection and projection honesty *(US3, FR-069–FR-073)*
+Fixture with biweekly deposits plus irregular non-income credits. The income source is detected with correct cadence and next date; the irregular credits are not. Confirm it, then change the fixture's pay pattern — a confirmed source holds until the override is cleared, an unconfirmed one re-derives. Remove all income: the balance-shortfall projection is **withheld**, not computed against a guess.
+
+### V18. Retroactive corrections *(FR-074–FR-077)*
+Merchant with 47 past transactions, 3 of which the user previously corrected by hand. Recategorize one: the response reports 44 retroactive candidates and **changes nothing** until confirmed. Apply it: 44 update, the 3 manual corrections are untouched and reported as skipped, and all affected periods restate.
+
+### V19. Category editing keeps comparisons coherent *(FR-078–FR-083)*
+Rename a category: prior reports and month-over-month comparisons are unaffected (ids are stable). Merge two categories: transactions reassign, derived figures recompute, and no report references a category that no longer exists. Hide a category: it disappears from assignment choices but its history still appears in past periods and totals still reconcile. Attempt a two-level-deep subcategory: rejected with `CATEGORY_NESTING_EXCEEDED`.
+
+### V20. Foreign-currency purchases *(FR-084–FR-086)*
+A €40 charge settling at $43.12 contributes exactly $43.12 to every total, category breakdown, baseline, and alert evaluation. The original currency and amount appear in transaction detail and **nowhere in any sum**. Two trips to the same foreign merchant at different exchange rates are not flagged as duplicates and resolve to one merchant.
+
+### V21. Diagnostics are redacted by construction *(FR-087–FR-094, SC-023)*
+Generate an export after a full ingestion run. Automated scan asserts zero merchant names, amounts, balances, account numbers, or credentials — assert against the **known fixture values**, not a regex guess. Force a logging failure: ingestion, categorization, alerting, and reporting all continue. Exceed the rotation bound: the log is capped, oldest entries drop, and the app keeps running.
+
+### V22. Persistent failure surfaces itself *(FR-092, SC-022)*
+Force an institution into repeated sync failure. Within the threshold, the user is notified — without having opened the health view. The health view shows the failure, its cause, and last successful sync; every failure shown there has a corresponding log entry sufficient to diagnose it *(SC-024)*.
 
 ---
 
