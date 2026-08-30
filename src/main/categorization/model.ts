@@ -62,6 +62,50 @@ export function renderOutboundPayload(input: ModelInput): string {
   ].join('\n');
 }
 
+/**
+ * Parse a categorization response.
+ *
+ * Exported as a pure function so its failure paths are testable without a
+ * network call — a malformed reply is the case that must not silently produce a
+ * wrong category, so it is exactly the path that needs coverage.
+ *
+ * Always JSON.parse; never string-match a serialized payload.
+ */
+export function parseModelResponse(response: {
+  content: ReadonlyArray<{ type: string; text?: string }>;
+}): ModelResult {
+  const block = response.content.find((b) => b.type === 'text');
+  if (!block?.text) {
+    throw new Error('Categorization response contained no text block');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(block.text);
+  } catch {
+    throw new Error('Categorization response was not valid JSON');
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Categorization response did not match the expected schema');
+  }
+  const candidate = parsed as Partial<ModelResult>;
+  if (typeof candidate.categoryId !== 'string' || candidate.categoryId.length === 0) {
+    throw new Error('Categorization response did not match the expected schema');
+  }
+  if (typeof candidate.confidence !== 'number' || Number.isNaN(candidate.confidence)) {
+    throw new Error('Categorization response did not match the expected schema');
+  }
+
+  return {
+    categoryId: candidate.categoryId,
+    // Clamp rather than trust: a model returning 1.4 must not defeat the
+    // confidence threshold that gates the review queue.
+    confidence: Math.max(0, Math.min(1, candidate.confidence)),
+    reasoning: typeof candidate.reasoning === 'string' ? candidate.reasoning : '',
+  };
+}
+
 export class ClaudeClassifier implements ModelClassifier {
   readonly #client: Anthropic;
   readonly #model: string;
@@ -95,28 +139,7 @@ export class ClaudeClassifier implements ModelClassifier {
       messages: [{ role: 'user', content: renderOutboundPayload(input) }],
     } as Anthropic.MessageCreateParamsNonStreaming);
 
-    return this.#parse(response);
+    return parseModelResponse(response);
   }
 
-  #parse(response: Anthropic.Message): ModelResult {
-    const block = response.content.find((b) => b.type === 'text');
-    if (!block || block.type !== 'text') {
-      throw new Error('Categorization response contained no text block');
-    }
-    // Always parse; never string-match a serialized tool input.
-    const parsed: unknown = JSON.parse(block.text);
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      typeof (parsed as ModelResult).categoryId !== 'string'
-    ) {
-      throw new Error('Categorization response did not match the expected schema');
-    }
-    const result = parsed as ModelResult;
-    return {
-      categoryId: result.categoryId,
-      confidence: Math.max(0, Math.min(1, result.confidence)),
-      reasoning: result.reasoning,
-    };
-  }
 }

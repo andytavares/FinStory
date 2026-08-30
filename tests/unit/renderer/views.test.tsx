@@ -12,6 +12,8 @@ import { Health } from '@renderer/views/Health';
 import { Settings } from '@renderer/views/Settings';
 import { Categories } from '@renderer/views/Categories';
 import { App } from '@renderer/App';
+import { Setup } from '@renderer/views/Setup';
+import { Alerts } from '@renderer/views/Alerts';
 
 afterEach(cleanup);
 
@@ -311,5 +313,111 @@ describe('App shell', () => {
     await waitFor(() => expect(screen.getByText('Dashboard')).toBeDefined());
     fireEvent.click(screen.getByText('Recurring'));
     await waitFor(() => expect(screen.getByText(/No recurring charges detected yet/)).toBeDefined());
+  });
+});
+
+describe('Setup (first run)', () => {
+  const ok = {
+    plaidConfigured: false,
+    categorizationConfigured: false,
+    accountCount: 0,
+    encryptionAvailable: true,
+  };
+
+  it('asks for Plaid credentials and makes the one-time promise explicit', () => {
+    render(<Setup status={ok} onComplete={() => {}} />);
+    expect(screen.getByText(/Connect your accounts/)).toBeDefined();
+    expect(screen.getByText(/no logging, no reconciling, no budgets to allocate/)).toBeDefined();
+  });
+
+  it('disables the save button until both required fields are filled', () => {
+    render(<Setup status={ok} onComplete={() => {}} />);
+    const button = screen.getByRole('button', { name: /Save and continue/ });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('enables saving once client id and secret are present', () => {
+    render(<Setup status={ok} onComplete={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Client ID'), { target: { value: 'abc' } });
+    fireEvent.change(screen.getByLabelText('Secret'), { target: { value: 'xyz' } });
+    expect((screen.getByRole('button', { name: /Save and continue/ }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it('carries the FR-061 disclosure beside the optional API key', () => {
+    render(<Setup status={ok} onComplete={() => {}} />);
+    expect(
+      screen.getByText(/never account numbers, balances, credentials, or totals/i),
+    ).toBeDefined();
+  });
+
+  it('refuses to continue when encryption is unavailable (Constitution VII)', () => {
+    render(<Setup status={{ ...ok, encryptionAvailable: false }} onComplete={() => {}} />);
+    expect(screen.getByText(/Money cannot start/)).toBeDefined();
+    expect(screen.queryByRole('button', { name: /Save and continue/ })).toBeNull();
+  });
+});
+
+describe('Alerts', () => {
+  const rule = {
+    id: 'r1',
+    type: 'large_purchase',
+    thresholdMinor: 20000,
+    windowMinutes: null,
+    enabled: true,
+  };
+
+  it('lets the user configure each rule (FR-033)', async () => {
+    installMoneyBridge({ 'alerts:list': [], 'alertRules:list': [rule] });
+    render(<Alerts />);
+    await waitFor(() => expect(screen.getByText(/Any single purchase over/)).toBeDefined());
+    expect(screen.getByRole('checkbox')).toBeDefined();
+  });
+
+  it('shows when an alert was detected late, while the app was closed (FR-057)', async () => {
+    installMoneyBridge({
+      'alerts:list': [
+        {
+          id: 'a1',
+          type: 'large_purchase',
+          eventOccurredAt: '2026-08-01T10:00:00Z',
+          detectedAt: '2026-08-29T10:00:00Z',
+          dismissed: false,
+        },
+      ],
+      'alertRules:list': [],
+    });
+    render(<Alerts />);
+    await waitFor(() =>
+      expect(screen.getByText(/detected later, while Money was closed/)).toBeDefined(),
+    );
+  });
+
+  it('dismisses an instance without disabling the rule (FR-032)', async () => {
+    installMoneyBridge({
+      'alerts:list': [
+        {
+          id: 'a1',
+          type: 'large_purchase',
+          eventOccurredAt: '2026-08-29T10:00:00Z',
+          detectedAt: '2026-08-29T10:05:00Z',
+          dismissed: false,
+        },
+      ],
+      'alertRules:list': [rule],
+    });
+    render(<Alerts />);
+    await waitFor(() => expect(screen.getByText('Not a problem')).toBeDefined());
+    // The rule toggle is still present and on.
+    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('says nothing has needed attention rather than showing a blank list', async () => {
+    installMoneyBridge({ 'alerts:list': [], 'alertRules:list': [] });
+    render(<Alerts />);
+    await waitFor(() =>
+      expect(screen.getByText(/Nothing has needed your attention/)).toBeDefined(),
+    );
   });
 });

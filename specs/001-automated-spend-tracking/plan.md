@@ -21,9 +21,9 @@ The governing design constraint is that all derived data — baselines, recurrin
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x on Node.js 22 LTS (Electron 44 bundled runtime)
+**Language/Version**: TypeScript 6.0.3 on Node.js 22+ (Electron 44 bundled runtime). TS 7 is excluded: it breaks `typescript-eslint`'s peer range.
 
-**Primary Dependencies**: Electron 44.0.0 · React 19.2.8 · electron-vite 5.0.0 / Vite 8.2.2 · Tailwind CSS 4.3.3 · Recharts 3.10.1 · better-sqlite3-multiple-ciphers 13.0.3 · Drizzle ORM 0.45.2 · plaid 46.0.0 · @anthropic-ai/sdk 0.122.0 · Zod 4.5.4 · date-fns 4.4.0 · electron-builder 26.15.3 · cron 4.4.0 · lucide-react
+**Primary Dependencies**: Electron 44.0.0 · React 19.2.8 · electron-vite 5.0.0 / Vite 7.3.6 · Tailwind CSS 4.3.3 · Recharts 3.10.1 · better-sqlite3-multiple-ciphers 13.0.3 · Drizzle ORM 0.45.2 · plaid 46.0.0 · @anthropic-ai/sdk 0.122.0 · Zod 4.5.4 · date-fns 4.4.0 · electron-builder 26.15.3 · cron 4.4.0 · lucide-react 1.37.0 · @date-fns/tz 1.5.0
 
 **Storage**: SQLite with SQLCipher page-level encryption, in the Electron `userData` directory. Database key generated once, `safeStorage`-encrypted (OS keychain / DPAPI / libsecret). Money stored as integer minor units throughout. No remote storage of any kind.
 

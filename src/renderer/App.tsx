@@ -9,6 +9,7 @@ import {
   Activity,
   Settings as SettingsIcon,
   Tags,
+  Bell,
 } from 'lucide-react';
 import { Dashboard } from './views/Dashboard';
 import { Register } from './views/Register';
@@ -19,6 +20,10 @@ import { Reports } from './views/Reports';
 import { Health } from './views/Health';
 import { Settings } from './views/Settings';
 import { Categories } from './views/Categories';
+import { Alerts } from './views/Alerts';
+import { Setup } from './views/Setup';
+import { useQuery } from './lib/ipc';
+import type { SetupStatus } from '@shared/types';
 
 type ViewId =
   | 'dashboard'
@@ -26,6 +31,7 @@ type ViewId =
   | 'recurring'
   | 'income'
   | 'review'
+  | 'alerts'
   | 'reports'
   | 'health'
   | 'categories'
@@ -37,6 +43,7 @@ const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboa
   { id: 'recurring', label: 'Recurring', Icon: RefreshCw },
   { id: 'income', label: 'Income', Icon: Wallet },
   { id: 'review', label: 'Review', Icon: Inbox },
+  { id: 'alerts', label: 'Alerts', Icon: Bell },
   { id: 'reports', label: 'Reports', Icon: FileText },
   { id: 'health', label: 'Health', Icon: Activity },
   { id: 'categories', label: 'Categories', Icon: Tags },
@@ -46,6 +53,14 @@ const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboa
 export function App(): React.JSX.Element {
   const [view, setView] = useState<ViewId>('dashboard');
   const [drillCategoryId, setDrillCategoryId] = useState<string | null>(null);
+  const [setupDismissed, setSetupDismissed] = useState(false);
+  const status = useQuery<SetupStatus>('setup:status');
+
+  // First run: there is nothing to show until an account is connected, so the
+  // setup screen is the app rather than a banner on an empty dashboard.
+  if (status.data && !status.data.plaidConfigured && !setupDismissed) {
+    return <Setup status={status.data} onComplete={() => setSetupDismissed(true)} />;
+  }
 
   const drill = (categoryId: string): void => {
     setDrillCategoryId(categoryId);
@@ -80,6 +95,7 @@ export function App(): React.JSX.Element {
           {view === 'recurring' && <Recurring />}
           {view === 'income' && <Income />}
           {view === 'review' && <Review />}
+          {view === 'alerts' && <Alerts />}
           {view === 'reports' && <Reports />}
           {view === 'health' && <Health />}
           {view === 'categories' && <Categories />}

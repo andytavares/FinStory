@@ -1,7 +1,20 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, dialog } from 'electron';
+import { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { assertEncryptionAvailable, EncryptionUnavailableError } from './secrets/availability';
 import { ElectronSecretBackend } from './secrets/electron-backend';
+import { Keyring } from './secrets/keyring';
+import { openDatabase, type DatabaseHandle } from './db/client';
+import { runMigrations } from './db/migrate';
+import { defaultCategories } from './db/seed-categories';
+import { categories as categoriesTable } from './db/schema';
+import { IpcRegistry } from './ipc/registry';
+import { registerHandlers } from './ipc/handlers/index';
+import { Services } from './services/index';
+import { CategorizationPipeline } from './categorization/pipeline';
+import type { ModelClassifier } from './categorization/pipeline';
+import { DiagnosticLogger } from './diagnostics/logger';
+import { MemorySink } from './diagnostics/sink';
+import { SystemClock } from '@shared/clock';
 
 /**
  * Application lifecycle.
@@ -14,6 +27,61 @@ import { ElectronSecretBackend } from './secrets/electron-backend';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let databaseHandle: DatabaseHandle | null = null;
+
+/**
+ * Assemble the application.
+ *
+ * Opens the encrypted database, applies migrations, seeds the default taxonomy
+ * on first run, builds the service layer, and binds every IPC channel through
+ * the registry so payloads are validated on this side of the boundary.
+ */
+async function bootstrap(): Promise<void> {
+  const userDataDir = app.getPath('userData');
+  const backend = new ElectronSecretBackend();
+  const keyring = new Keyring(backend);
+
+  const handle = await openDatabase(userDataDir, backend);
+  databaseHandle = handle;
+  runMigrations(handle);
+
+  // Seed once: the app must be usable with no configuration (FR-078).
+  const existing = await handle.db.select().from(categoriesTable);
+  if (existing.length === 0) {
+    await handle.db.insert(categoriesTable).values(defaultCategories());
+  }
+
+  const clock = new SystemClock();
+  const logger = new DiagnosticLogger(new MemorySink(), clock);
+
+  // Until Plaid credentials are configured, categorization has no model stage.
+  // Local-only is the correct behaviour then, not an error (FR-061).
+  const unavailableModel: ModelClassifier = {
+    classify: () => Promise.reject(new Error('Categorization is not configured')),
+  };
+  const pipeline = new CategorizationPipeline(unavailableModel, {
+    confidenceThreshold: 0.8,
+    localOnly: true,
+  });
+
+  const services = new Services({
+    handle,
+    userDataDir,
+    clock,
+    logger,
+    keyring,
+    pipeline,
+    sync: async () => {
+      // Wired once Plaid credentials exist; see docs/plaid-setup.md.
+    },
+  });
+
+  const registry = new IpcRegistry();
+  registerHandlers(registry, services);
+  for (const channel of registry.channels()) {
+    ipcMain.handle(channel, async (_event, payload: unknown) => registry.invoke(channel, payload));
+  }
+}
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -101,6 +169,19 @@ if (!app.requestSingleInstanceLock()) {
 
     // Launch at login so background sync resumes without the user thinking
     // about it. The window stays hidden until asked for.
+    // Compose the application. Everything below this point is real wiring:
+    // without it the process runs but no IPC channel is answered.
+    try {
+      await bootstrap();
+    } catch (error) {
+      dialog.showErrorBox(
+        'Money could not start',
+        error instanceof Error ? error.message : 'The local database could not be opened.',
+      );
+      app.quit();
+      return;
+    }
+
     app.setLoginItemSettings({ openAtLogin: true });
     mainWindow = createWindow();
     tray = createTray();
@@ -116,6 +197,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', () => {
     isQuitting = true;
     tray?.destroy();
+    databaseHandle?.close();
   });
 
   // Deliberately NOT quitting on window-all-closed: the app stays resident so

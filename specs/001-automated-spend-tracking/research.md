@@ -141,7 +141,7 @@ All versions verified against the npm registry on 2026-08-29; all are current, a
 | Concern | Choice | Version | Why |
 |---|---|---|---|
 | Shell | Electron | 44.0.0 | Required by the user. Gives `safeStorage`, tray, native notifications, login-item. |
-| Build | electron-vite + Vite | 5.0.0 / 8.2.2 | Standard, fast, first-class Electron main/preload/renderer split. |
+| Build | electron-vite + Vite | 5.0.0 / 7.3.6 | First-class Electron main/preload/renderer split. **Vite is pinned to 7.x**: electron-vite 5 peer-requires `^5 \|\| ^6 \|\| ^7`, and electron-vite 6 is beta-only, which Principle III excludes. |
 | Packaging | electron-builder | 26.15.3 | Mature; handles signing and installers on both targets. |
 | UI | React | 19.2.8 | Largest ecosystem; matches the depth of UI in FR-062–FR-068. |
 | Styling | Tailwind CSS | 4.3.3 | Fast iteration on a design-heavy surface. |
@@ -151,7 +151,7 @@ All versions verified against the npm registry on 2026-08-29; all are current, a
 | Aggregation | plaid | 46.0.0 | Official client. |
 | Categorization | @anthropic-ai/sdk | 0.122.0 | Official client. |
 | Validation | Zod | 4.5.4 | IPC boundary and structured-output schemas. |
-| Icons | lucide-react | latest | Required by Constitution Principle XIV. |
+| Icons | lucide-react | 1.37.0 | Required by Constitution Principle XIV. Pinned — Principle III forbids `latest`. |
 | Scheduling | cron | 4.4.0 | Cadence for digests and polling. Swapped from `node-cron` under Principle III: 3 publishers vs 1, 6.9M weekly downloads. |
 | Dates | date-fns | 4.4.0 | Period math, timezone-correct boundaries. |
 
@@ -164,6 +164,24 @@ All versions verified against the npm registry on 2026-08-29; all are current, a
 | drizzle-orm | 4 | — | — | Healthy |
 | recharts | 3 | — | — | Healthy |
 | plaid / @anthropic-ai/sdk | vendor-published | — | — | Official clients |
+
+**Post-plan adoptions** (added during implementation; evidence recorded per Principle III):
+
+| Package | Version | Publishers | Downloads/wk | Why adopted |
+|---|---|---|---|---|
+| @date-fns/tz | 1.5.0 | 1 | 36,658,672 | **Runtime.** Timezone-correct period boundaries; the date-fns companion package, same author. Single publisher, but adopted under the same reasoning as ADR 0001 — 36.7M weekly downloads is not a bus factor of one. |
+| typescript | 6.0.3 | — | — | TS 7 breaks typescript-eslint's `<6.1.0` peer range; 6.0.3 is the newest the lint toolchain supports. |
+| drizzle-kit | 0.31.10 | 4 | 16,915,049 | Migration generation for the chosen ORM. |
+| jsdom | 30.0.1 | 6 | 98,669,159 | DOM for renderer tests. |
+| @testing-library/react | 16.3.3 | 18 | 57,020,755 | Renderer component tests. |
+| @vitejs/plugin-react | 6.1.1 | 2 | 84,087,839 | React support in the Vite build. Pinned to 5.x for Vite 7 compatibility. |
+| @tailwindcss/vite | 4.3.3 | 3 | 45,951,402 | Tailwind 4 build integration. |
+| typescript-eslint | 8.68.0 | 2 | 88,027,497 | TypeScript linting. |
+| prettier | 3.9.6 | 11 | 133,020,838 | Formatting. |
+| @vitest/coverage-v8 | 4.1.11 | 5 | 37,889,500 | Coverage provider for the Principle V gate. |
+| @eslint/js | 10.0.1 | 2 | 143,588,788 | ESLint recommended config. |
+
+All are healthy on the amended Principle III criteria: high usage, active release cadence, and multiple publishers except `@date-fns/tz`, which is noted above.
 
 **Process split**: all secrets, network calls, and database access live in the **main** process. The renderer gets no Node integration, `contextIsolation: true`, and reaches main only through a typed, Zod-validated preload IPC surface. No API key or `access_token` ever enters the renderer.
 

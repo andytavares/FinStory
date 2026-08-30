@@ -8,6 +8,8 @@ description: "Task list for Automated Spend Tracking & Awareness"
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md, `.specify/memory/constitution.md` (v1.1.0)
 
+**Revision 2**: after the post-implementation `/speckit-analyze`, file paths were corrected to where work actually landed (several tasks consolidated into shared modules), and the composition root (`src/main/services/index.ts`) was added as T153.
+
 **Revision**: Phase 2 rescoped after `/speckit-analyze` — Plaid cost is no longer a gate (research.md R3 corrected). Nine coverage tasks added for SC-002, SC-005, SC-016, FR-017, FR-022, FR-049, FR-050.
 
 **Tests**: **MANDATORY, not optional.** Constitution Principle V (Test-Driven Development) is NON-NEGOTIABLE and supersedes the tasks template's "tests are optional" default. Every implementation task is preceded by a failing test. Coverage gate is 80% on statements, branches, functions, and lines; no new production file ships untested.
@@ -50,6 +52,11 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 - [X] T010 Plaid account access confirmed by the user; free **Trial plan** covers this scale (10 Production Items, Transactions included — research.md R3)
 - [X] T011 Configure Sandbox credentials for all development and document setup in `docs/plaid-setup.md`. **All development runs against Sandbox** — the 10-Item Trial cap is a lifetime create limit and re-linking permanently burns quota
+- [X] T153 Implement the composition root in `src/main/services/index.ts` and wire it in `src/main/index.ts` — opens the encrypted database, runs migrations, seeds the taxonomy, and binds every IPC channel. Without this the process runs but answers no channel
+- [X] T154 [P] Build first-run setup in `src/renderer/views/Setup.tsx` (FR-047, Constitution VII, VIII)
+- [X] T155 [P] Build alert history and rule configuration in `src/renderer/views/Alerts.tsx` (FR-032, FR-033, FR-057)
+- [X] T156 [P] Extract `parseModelResponse` and test its failure paths in `tests/unit/categorization/model.test.ts` (Constitution V)
+- [X] T157 [P] Record dependency health evidence for post-plan adoptions in `research.md` (Constitution III)
 - [ ] T012 Verify every institution the user banks with appears in Plaid's supported institution list; record results in `docs/adr/0003-plaid-viability.md`
 - [ ] T013 Confirm Trial plan eligibility (US/Canada teams created on or after 2026-04-15); record in `docs/adr/0003-plaid-viability.md`
 - [X] T014 Add a Production Item creation log to `docs/plaid-setup.md` so the lifetime 10-Item quota is tracked deliberately
@@ -82,9 +89,9 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T032 Generate and commit the initial migration in `src/main/db/migrations/`; implement the migration runner in `src/main/db/migrate.ts`
 - [X] T033 [P] Define shared cross-boundary types in `src/shared/types.ts` per contracts/ipc-api.md
 - [X] T034 [P] Define Zod schemas for every IPC channel payload in `src/shared/schemas.ts`
-- [X] T035 Implement the IPC registration skeleton in `src/main/ipc/index.ts` with **main-side Zod validation on every channel** and the `{code, message, recoverable, action}` error contract
+- [X] T035 Implement the IPC registration skeleton in `src/main/ipc/registry.ts` with **main-side Zod validation on every channel** and the `{code, message, recoverable, action}` error contract
 - [X] T036 Implement the `contextBridge` surface in `src/preload/index.ts` exposing only the documented channels
-- [X] T037 Write failing test asserting no secret value is reachable from the renderer and that `settings:get` returns presence booleans only, in `tests/unit/ipc/secret-isolation.test.ts` (FR-047, quickstart V15)
+- [X] T037 Write failing test asserting no secret value is reachable from the renderer and that `settings:get` returns presence booleans only, in `tests/unit/settings/settings.test.ts` (FR-047, quickstart V15)
 - [X] T038 Implement Electron app lifecycle in `src/main/index.ts`: single-instance lock, tray residency, `app.setLoginItemSettings` for launch-at-login (FR-056, research.md R6)
 - [X] T039 [P] Set up Tailwind and the base renderer shell in `src/renderer/main.tsx` and `src/renderer/App.tsx`
 - [X] T040 [P] Write ADR `docs/adr/0001-sqlcipher-driver-exception.md` recording the single-publisher adoption, health evidence, and migration trigger (Constitution III, XI; research.md R9)
@@ -104,17 +111,17 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T043 [P] [US1] Write failing tests for Hosted Link token creation and `/link/token/get` polling in `tests/unit/plaid/link.test.ts`
 - [X] T044 [P] [US1] Write failing tests for the `/transactions/sync` cursor loop — pagination, cursor persistence, and crash-mid-sync resumption — in `tests/unit/plaid/sync.test.ts`
 - [X] T045 [P] [US1] Write failing tests for `added`/`modified`/`removed` application, asserting exactly-once ingestion and in-place update, in `tests/unit/ingestion/apply.test.ts` (quickstart V3)
-- [X] T046 [P] [US1] Write failing tests for internal-transfer and refund/reversal detection in `tests/unit/ingestion/exclusions.test.ts` (FR-007, FR-008)
-- [X] T047 [P] [US1] Write failing tests for foreign-currency handling asserting settled amount is authoritative and `original_amount` never enters a sum, in `tests/unit/ingestion/currency.test.ts` (quickstart V20)
+- [X] T046 [P] [US1] Write failing tests for internal-transfer and refund/reversal detection in `tests/unit/ingestion/apply.test.ts` (FR-007, FR-008)
+- [X] T047 [P] [US1] Write failing tests for foreign-currency handling asserting settled amount is authoritative and `original_amount` never enters a sum, in `tests/unit/ingestion/apply.test.ts` (quickstart V20)
 - [X] T048 [P] [US1] Write failing tests for the local merchant-history classifier in `tests/unit/categorization/local.test.ts`
 - [X] T049 [P] [US1] Write failing tests for the model fallback, asserting structured output parsing and that **ingestion still succeeds when categorization fails**, in `tests/unit/categorization/model.test.ts`
 - [X] T050 [P] [US1] Write failing tests for the two-stage pipeline asserting confirmed merchants resolve locally **with no API call**, in `tests/unit/categorization/pipeline.test.ts` (quickstart V6)
-- [X] T051 [P] [US1] Write failing test asserting category totals reconcile exactly to transaction totals for any range, in `tests/unit/analysis/reconciliation.test.ts` (FR-018, SC-004, quickstart V4)
+- [X] T051 [P] [US1] Write failing test asserting category totals reconcile exactly to transaction totals for any range, in `tests/unit/analysis/spending.test.ts` (FR-018, SC-004, quickstart V4)
 - [X] T052 [P] [US1] Write failing tests for the category taxonomy — one-level nesting enforcement, rename by stable id, merge, hide — in `tests/unit/categories/taxonomy.test.ts` (quickstart V19)
 - [ ] T053 [P] [US1] Write failing integration test for the full Sandbox sync path in `tests/integration/plaid-sync.test.ts`
 - [X] T053a [P] [US1] Build a labeled transaction fixture corpus with known-correct categories in `tests/fixtures/categorization-corpus.ts`, spanning unambiguous merchants, mixed-use merchants, and generic descriptors
 - [X] T053b [P] [US1] Write failing test asserting hands-off categorization accuracy **meets 94%** against the labeled corpus, in `tests/unit/categorization/accuracy.test.ts` (SC-002) — this is the product's central quality bar and must be measurable, not assumed
-- [X] T053c [P] [US1] Write failing test asserting the system keeps operating and reporting on best-guess categories when the review queue is never opened, in `tests/unit/categorization/unreviewed.test.ts` (FR-017)
+- [X] T053c [P] [US1] Write failing test asserting the system keeps operating and reporting on best-guess categories when the review queue is never opened, in `tests/unit/categorization/pipeline.test.ts` (FR-017)
 
 ### Implementation for User Story 1
 
@@ -123,10 +130,10 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T056 [US1] Implement `/item/public_token/exchange` and encrypted `access_token` persistence in `src/main/plaid/link.ts`
 - [X] T057 [US1] Implement the `/transactions/sync` cursor loop in `src/main/plaid/sync.ts`, persisting the cursor **in the same database transaction as the data it describes**
 - [X] T058 [US1] Implement `added`/`modified`/`removed` application in `src/main/ingestion/apply.ts` — insert keyed on `plaid_transaction_id`, update in place, mark removed without deleting
-- [X] T059 [US1] Implement internal-transfer detection in `src/main/ingestion/transfers.ts` (FR-007)
-- [X] T060 [US1] Implement refund and reversal linkage in `src/main/ingestion/reversals.ts` (FR-008)
-- [X] T061 [US1] Implement foreign-currency metadata capture in `src/main/ingestion/currency.ts` — settled amount authoritative, original display-only (FR-084–FR-086)
-- [X] T062 [US1] Implement historical backfill on first connection in `src/main/plaid/backfill.ts` (FR-004)
+- [X] T059 [US1] Implement internal-transfer detection in `src/main/ingestion/apply.ts` (FR-007)
+- [X] T060 [US1] Implement refund and reversal linkage in `src/main/analysis/spending.ts` (FR-008)
+- [X] T061 [US1] Implement foreign-currency metadata capture in `src/main/ingestion/apply.ts` — settled amount authoritative, original display-only (FR-084–FR-086)
+- [X] T062 [US1] Implement historical backfill on first connection in `src/main/plaid/sync.ts` (FR-004)
 - [X] T063 [US1] Seed the curated default category taxonomy in `src/main/db/seed-categories.ts` (FR-078)
 - [X] T064 [US1] Implement category management — create with nesting check, rename, merge with restatement, hide — in `src/main/categories/manage.ts` (FR-079–FR-083)
 - [X] T065 [US1] Implement the merchant-profile store and local classifier in `src/main/categorization/local.ts` (data-model.md `merchant_profiles`)
@@ -134,13 +141,13 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T067 [US1] Implement the two-stage pipeline with confidence threshold and review flagging in `src/main/categorization/pipeline.ts` (FR-010–FR-013)
 - [X] T068 [US1] Implement `local_only` categorization mode as a settings-driven skip of the model stage in `src/main/categorization/pipeline.ts` (FR-061)
 - [X] T069 [US1] Implement the single canonical spending predicate (excludes removed, excludes transfers, nets reversals) in `src/main/analysis/spending.ts` — **this must live in exactly one place** (Constitution II)
-- [X] T070 [US1] Implement category and merchant breakdown queries in `src/main/analysis/breakdown.ts` (FR-043)
+- [X] T070 [US1] Implement category and merchant breakdown queries in `src/main/analysis/spending.ts` (FR-043)
 - [X] T071 [US1] Implement IPC handlers for `setup:*`, `link:*`, `institutions:*`, `dashboard:get`, `breakdown:*`, `transactions:query`, `categories:*`, `sync:now` in `src/main/ipc/handlers/`
 - [X] T072 [P] [US1] Build the first-run setup view in `src/renderer/views/Setup.tsx` — credentials, environment, Hosted Link launch
 - [X] T073 [P] [US1] Build the dashboard view in `src/renderer/views/Dashboard.tsx` — balances, cash flow, category breakdown, what changed (FR-062, SC-019)
 - [X] T074 [P] [US1] Build the transaction register with search and filters in `src/renderer/views/Register.tsx` (FR-064)
 - [X] T075 [P] [US1] Build category management UI in `src/renderer/views/Categories.tsx` (FR-079–FR-082)
-- [X] T076 [US1] Implement drill-down from any figure to underlying transactions in `src/renderer/components/DrillDown.tsx` — **≤2 interactions** (FR-063, SC-018)
+- [X] T076 [US1] Implement drill-down from any figure to underlying transactions in `src/renderer/App.tsx` — **≤2 interactions** (FR-063, SC-018)
 
 **Checkpoint**: MVP complete. Quickstart V2–V6 and V19–V20 pass.
 
@@ -155,17 +162,17 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 ### Tests for User Story 2 (MANDATORY — write first, must fail)
 
 - [X] T077 [P] [US2] Write failing tests for the shared cadence detector across monthly, quarterly, annual, and weekly patterns in `tests/unit/analysis/cadence.test.ts`
-- [X] T078 [P] [US2] Write failing tests asserting irregular repeat purchases are **not** classified as recurring in `tests/unit/analysis/recurring-negative.test.ts` (FR-025)
-- [X] T079 [P] [US2] Write failing tests for amount-change detection and inactive marking in `tests/unit/analysis/recurring-lifecycle.test.ts` (FR-023, FR-024)
+- [X] T078 [P] [US2] Write failing tests asserting irregular repeat purchases are **not** classified as recurring in `tests/unit/analysis/recurring.test.ts` (FR-025)
+- [X] T079 [P] [US2] Write failing tests for amount-change detection and inactive marking in `tests/unit/analysis/recurring.test.ts` (FR-023, FR-024)
 
 ### Implementation for User Story 2
 
 - [X] T080 [US2] Implement the shared cadence detector in `src/main/analysis/cadence.ts` as a **pure function over passed-in transactions** (Constitution XIII)
 - [X] T081 [US2] Implement recurring-charge detection and ledger construction in `src/main/analysis/recurring.ts` (FR-019–FR-021)
 - [X] T082 [US2] Implement amount-change tracking and inactive marking in `src/main/analysis/recurring.ts` (FR-023, FR-024)
-- [X] T082a [US2] Write failing test asserting a newly detected recurring charge notifies the user exactly once and respects `user_acknowledged`, in `tests/unit/analysis/recurring-notify.test.ts` (FR-022)
+- [X] T082a [US2] Write failing test asserting a newly detected recurring charge notifies the user exactly once and respects `user_acknowledged`, in `tests/unit/analysis/recurring.test.ts` (FR-022)
 - [X] T082b [US2] Implement new-recurring-charge notification in `src/main/analysis/recurring.ts`, delivered via `src/main/notifications/deliver.ts` (FR-022)
-- [X] T083 [US2] Implement IPC handlers for `recurring:list`, `recurring:acknowledge`, `recurring:markNotRecurring` in `src/main/ipc/handlers/recurring.ts`
+- [X] T083 [US2] Implement IPC handlers for `recurring:list`, `recurring:acknowledge`, `recurring:markNotRecurring` in `src/main/ipc/handlers/index.ts`
 - [X] T084 [US2] Build the recurring-charge ledger view in `src/renderer/views/Recurring.tsx` with cumulative totals and amount history
 
 **Checkpoint**: Quickstart V7 passes. The highest value-per-effort insight is now live.
@@ -181,21 +188,21 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 ### Tests for User Story 3 (MANDATORY — write first, must fail)
 
 - [X] T085 [P] [US3] Write failing tests for income detection against credit-direction transactions, including decoy irregular credits, in `tests/unit/analysis/income.test.ts`
-- [X] T086 [P] [US3] Write failing test asserting the balance projection is **withheld** when no income is detected or confidence is low, in `tests/unit/analysis/projection.test.ts` (FR-073)
+- [X] T086 [P] [US3] Write failing test asserting the balance projection is **withheld** when no income is detected or confidence is low, in `tests/unit/analysis/income.test.ts` (FR-073)
 - [X] T087 [P] [US3] Write failing tests for each alert rule with near-miss boundary cases in `tests/unit/analysis/alerts.test.ts`
-- [X] T088 [P] [US3] Write failing test asserting `dedupe_key` prevents duplicate alerts on re-ingestion and when one event satisfies multiple triggers, in `tests/unit/analysis/alert-dedupe.test.ts` (FR-031)
+- [X] T088 [P] [US3] Write failing test asserting `dedupe_key` prevents duplicate alerts on re-ingestion and when one event satisfies multiple triggers, in `tests/unit/analysis/alerts.test.ts` (FR-031)
 - [X] T089 [P] [US3] Write failing tests for downtime catch-up — backlog alerts carry true event time and collapse above threshold — in `tests/unit/scheduler/catchup.test.ts` (quickstart V9)
 
 ### Implementation for User Story 3
 
 - [X] T090 [US3] Implement income detection reusing `src/main/analysis/cadence.ts` against credit-direction transactions in `src/main/analysis/income.ts` (FR-069, FR-070)
 - [X] T091 [US3] Implement income confirmation and override with re-derivation suppression in `src/main/analysis/income.ts` (FR-071, FR-072)
-- [X] T092 [US3] Implement balance-forward projection with confidence-gated withholding in `src/main/analysis/projection.ts` (FR-029, FR-073)
+- [X] T092 [US3] Implement balance-forward projection with confidence-gated withholding in `src/main/analysis/income.ts` (FR-029, FR-073)
 - [X] T093 [US3] Implement alert rule evaluation for all five types in `src/main/analysis/alerts.ts` as pure functions (FR-026–FR-029)
 - [X] T094 [US3] Implement the `dedupe_key` unique-index enforcement in `src/main/analysis/alerts.ts` — **suppression is a database constraint, not application logic a catch-up path can bypass** (FR-031)
 - [X] T095 [US3] Implement false-positive dismissal that does not disable the rule in `src/main/analysis/alerts.ts` (FR-032)
 - [X] T096 [US3] Implement native notification delivery with a retained-undelivered queue in `src/main/notifications/deliver.ts` (FR-030, FR-034)
-- [X] T097 [US3] Implement the scheduler with cron cadence plus **on-launch catch-up reconciliation** in `src/main/scheduler/index.ts` (FR-056, FR-058, research.md R6)
+- [X] T097 [US3] Implement the scheduler with cron cadence plus **on-launch catch-up reconciliation** in `src/main/scheduler/catchup.ts` (FR-056, FR-058, research.md R6)
 - [X] T098 [US3] Implement backlog-burst collapse into a single "while you were away" summary in `src/main/scheduler/catchup.ts` (FR-031, FR-057)
 - [X] T099 [US3] Implement IPC handlers for `income:*`, `alerts:*`, `alertRules:*` in `src/main/ipc/handlers/`
 - [X] T100 [P] [US3] Build the income view with confirm and override in `src/renderer/views/Income.tsx`
@@ -214,15 +221,15 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 ### Tests for User Story 4 (MANDATORY — write first, must fail)
 
 - [X] T102 [P] [US4] Write failing tests for baseline computation and the `is_sufficient` gate in `tests/unit/analysis/baselines.test.ts`
-- [X] T103 [P] [US4] Write failing test asserting **no deviation claim is made** when history is insufficient, in `tests/unit/analysis/baselines-insufficient.test.ts` (FR-040, Constitution IX)
-- [X] T104 [P] [US4] Write failing tests for digest generation including the empty-week case in `tests/unit/analysis/digest.test.ts`
+- [X] T103 [P] [US4] Write failing test asserting **no deviation claim is made** when history is insufficient, in `tests/unit/analysis/baselines.test.ts` (FR-040, Constitution IX)
+- [X] T104 [P] [US4] Write failing tests for digest generation including the empty-week case in `tests/unit/analysis/reports.test.ts`
 
 ### Implementation for User Story 4
 
 - [X] T105 [US4] Implement personal baseline computation with the sufficiency gate in `src/main/analysis/baselines.ts` (FR-036, FR-039, FR-040)
-- [X] T106 [US4] Implement weekly digest generation in `src/main/analysis/digest.ts`, stating each projection's assumption (FR-035–FR-037, FR-041)
-- [X] T107 [US4] Wire digest generation into the scheduler with missed-run generation on launch in `src/main/scheduler/index.ts` (FR-058)
-- [X] T108 [US4] Implement `data_complete` qualification on digests when any institution was stale during the period in `src/main/analysis/digest.ts` (FR-009, SC-014)
+- [X] T106 [US4] Implement weekly digest generation in `src/main/analysis/reports.ts`, stating each projection's assumption (FR-035–FR-037, FR-041)
+- [X] T107 [US4] Wire digest generation into the scheduler with missed-run generation on launch in `src/main/scheduler/catchup.ts` (FR-058)
+- [X] T108 [US4] Implement `data_complete` qualification on digests when any institution was stale during the period in `src/main/analysis/reports.ts` (FR-009, SC-014)
 
 **Checkpoint**: Quickstart V12 passes.
 
@@ -236,14 +243,14 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ### Tests for User Story 5 (MANDATORY — write first, must fail)
 
-- [X] T109 [P] [US5] Write failing tests for savings rate, month-over-month comparison, and annual projection in `tests/unit/analysis/report.test.ts`
-- [X] T110 [P] [US5] Write failing test asserting all derived data recomputes byte-identically from scratch in `tests/unit/analysis/recompute.test.ts` (SC-010, quickstart V13)
+- [X] T109 [P] [US5] Write failing tests for savings rate, month-over-month comparison, and annual projection in `tests/unit/analysis/reports.test.ts`
+- [X] T110 [P] [US5] Write failing test asserting all derived data recomputes byte-identically from scratch in `tests/unit/analysis/restate.test.ts` (SC-010, quickstart V13)
 
 ### Implementation for User Story 5
 
 - [X] T111 [US5] Implement monthly report generation in `src/main/analysis/reports.ts` covering income, spending, category comparison, trend, largest purchases, recurring audit, savings rate, annual projection (FR-038)
 - [X] T112 [US5] Implement report regeneration when late-arriving transactions affect a closed period in `src/main/analysis/reports.ts` (FR-042)
-- [X] T113 [US5] Implement IPC handlers for `reports:list` and `reports:get` in `src/main/ipc/handlers/reports.ts`
+- [X] T113 [US5] Implement IPC handlers for `reports:list` and `reports:get` in `src/main/ipc/handlers/index.ts`
 - [X] T114 [P] [US5] Build the reports view in `src/renderer/views/Reports.tsx`
 - [X] T115 [P] [US5] Build spending-over-time charts in `src/renderer/charts/` using Recharts. **Load the `dataviz` skill before writing chart code** (FR-065)
 
@@ -260,18 +267,18 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 ### Tests for User Story 6 (MANDATORY — write first, must fail)
 
 - [X] T116 [P] [US6] Write failing tests for the correction chain — new categorization supersedes, history preserved — in `tests/unit/categorization/corrections.test.ts`
-- [X] T117 [P] [US6] Write failing test asserting a retroactive pass reports its count **before** applying and changes nothing until confirmed, in `tests/unit/categorization/retroactive.test.ts` (FR-074, FR-075)
-- [X] T118 [P] [US6] Write failing test asserting a retroactive pass **never overwrites** a prior user-confirmed categorization, in `tests/unit/categorization/retroactive-precedence.test.ts` (FR-076)
-- [X] T119 [P] [US6] Write failing test for restatement of all affected periods after correction in `tests/unit/analysis/restatement.test.ts` (FR-015, FR-077)
+- [X] T117 [P] [US6] Write failing test asserting a retroactive pass reports its count **before** applying and changes nothing until confirmed, in `tests/unit/categorization/corrections.test.ts` (FR-074, FR-075)
+- [X] T118 [P] [US6] Write failing test asserting a retroactive pass **never overwrites** a prior user-confirmed categorization, in `tests/unit/categorization/corrections.test.ts` (FR-076)
+- [X] T119 [P] [US6] Write failing test for restatement of all affected periods after correction in `tests/unit/analysis/restate.test.ts` (FR-015, FR-077)
 
 ### Implementation for User Story 6
 
-- [X] T120 [US6] Implement the review queue query in `src/main/categorization/review.ts`, returning guess, confidence, and reasoning (FR-013, US6 AS1)
+- [X] T120 [US6] Implement the review queue query in `src/main/services/index.ts`, returning guess, confidence, and reasoning (FR-013, US6 AS1)
 - [X] T121 [US6] Implement bulk recategorization in `src/main/categorization/corrections.ts` (FR-014, FR-067)
-- [X] T122 [US6] Implement retroactive-candidate counting and the separate confirmed apply path in `src/main/categorization/retroactive.ts` (FR-074–FR-076)
+- [X] T122 [US6] Implement retroactive-candidate counting and the separate confirmed apply path in `src/main/categorization/corrections.ts` (FR-074–FR-076)
 - [X] T123 [US6] Implement full restatement of derived data after any correction in `src/main/analysis/restate.ts` (FR-015, FR-077)
 - [X] T124 [US6] Implement merchant-profile updating so corrections deterministically drive future categorization in `src/main/categorization/local.ts` (FR-016)
-- [X] T125 [US6] Implement IPC handlers for `review:*` in `src/main/ipc/handlers/review.ts`
+- [X] T125 [US6] Implement IPC handlers for `review:*` in `src/main/ipc/handlers/index.ts`
 - [X] T126 [US6] Build the review queue view with bulk selection and the retroactive confirmation prompt in `src/renderer/views/Review.tsx` (FR-067, FR-074)
 
 **Checkpoint**: All six user stories complete. Quickstart V18 passes.
@@ -283,12 +290,12 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 **Purpose**: FR-087–FR-094. Depends on the Foundation logger; independent of all user stories.
 
 - [X] T127 [P] Write failing test asserting a generated export contains **zero** known fixture merchant names, amounts, balances, or credentials, in `tests/unit/diagnostics/export-scan.test.ts` (SC-023, quickstart V21)
-- [X] T128 [P] Write failing tests for persistent-failure threshold notification in `tests/unit/diagnostics/health.test.ts` (FR-092, SC-022)
-- [X] T129 Implement operational metrics collection — sync duration, categorization latency, local-vs-model resolution rate, job outcomes — in `src/main/diagnostics/metrics.ts` (FR-089)
-- [X] T130 Implement the health aggregation query in `src/main/diagnostics/health.ts` (FR-088)
-- [X] T131 Implement persistent-failure detection and notification in `src/main/diagnostics/health.ts` (FR-092)
+- [X] T128 [P] Write failing tests for persistent-failure threshold notification in `tests/unit/diagnostics/export-scan.test.ts` (FR-092, SC-022)
+- [X] T129 Implement operational metrics collection — sync duration, categorization latency, local-vs-model resolution rate, job outcomes — in `src/main/services/index.ts` (FR-089)
+- [X] T130 Implement the health aggregation query in `src/main/diagnostics/export.ts` (FR-088)
+- [X] T131 Implement persistent-failure detection and notification in `src/main/diagnostics/export.ts` (FR-092)
 - [X] T132 Implement diagnostic export in `src/main/diagnostics/export.ts` (FR-090)
-- [X] T133 Implement IPC handlers for `health:get` and `diagnostics:export` in `src/main/ipc/handlers/diagnostics.ts`
+- [X] T133 Implement IPC handlers for `health:get` and `diagnostics:export` in `src/main/ipc/handlers/index.ts`
 - [X] T134 Build the system health view in `src/renderer/views/Health.tsx` showing per-account status, last successful sync, and recent failures
 
 **Checkpoint**: Quickstart V21, V22 pass.
@@ -315,7 +322,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T146b Write a static assertion that no money-movement Plaid endpoint (transfer, payment_initiation, or any write operation) is referenced anywhere in `src/`, in `tests/unit/plaid/read-only.test.ts` (FR-049)
 - [X] T146c Write a test asserting recurring-charge detection meets 95% recall with under 10% false positives against a labeled fixture, in `tests/unit/analysis/recurring-rates.test.ts` (SC-005)
 - [X] T147 Audit the renderer bundle for secrets and confirm zero hits in `tests/e2e/secret-audit.spec.ts` (FR-047, quickstart V15)
-- [X] T148 Write an assertion sweep over `src/renderer/views/` confirming no manual-entry, reconciliation, or budget-allocation workflow exists, in `tests/e2e/zero-input-doctrine.spec.ts` (SC-021, Constitution VIII)
+- [X] T148 Write an assertion sweep over `src/renderer/views/` confirming no manual-entry, reconciliation, or budget-allocation workflow exists, in `tests/unit/ipc/zero-input-doctrine.test.ts` (SC-021, Constitution VIII)
 - [X] T149 Run `npx vitest run --coverage` and confirm all four metrics ≥ 80% with no file at 0% (Constitution V)
 - [X] T150 Run `npm run lint` and confirm 0 errors (Constitution XII)
 - [X] T151 Confirm every icon in the renderer is `lucide-react` with no emoji or unicode symbols (Constitution XIV)
