@@ -1,0 +1,47 @@
+src/renderer/views/Register.tsx
+  s_f1d20e583de5c0::t_6e78f1b4c696fd 14-15
+  s_f1d20e583de5c0::t_504a1d062fe322 42-44,58,65-68,85-86,91-120
+  s_f1d20e583de5c0::t_7f429c40960ced 121
+tests/integration/services-with-data.test.ts
+  s_f1d20e583de5c0::t_b0efd082bb32e3 1948-2082
+  s_f1d20e583de5c0::t_eec8063d3548ea 2083-2161
+src/main/services/index.ts
+  s_f1d20e583de5c0::t_b6252d98162b90 353,359,378-381,398,403,406
+  s_f1d20e583de5c0::t_03e77662e9cc4b 447,451,456,526
+  s_f1d20e583de5c0::t_1c2ea40d0b7877 484-493,527
+  s_f1d20e583de5c0::t_288cd0a4cde950 2184-2185,2187-2202,2204-2243
+  s_f1d20e583de5c0::t_e436d5c10b3b19 494
+src/shared/schemas.ts
+  s_f1d20e583de5c0::t_b7782c3e6306f1 48-54
+specs/001-automated-spend-tracking/contracts/ipc-api.md
+  s_f1d20e583de5c0::t_adfcfbaec953ea 30,32
+src/renderer/views/Dashboard.tsx
+  s_f1d20e583de5c0::t_0b9ec1b4c0aadb 104
+src/renderer/components/CategoryTree.tsx
+  s_f1d20e583de5c0::t_b84aa595de0fc0 128-131
+  s_f1d20e583de5c0::t_b6252d98162b90 12-13,32-33,56,66-68,163,175-184
+  s_f1d20e583de5c0::t_8f65e8c239547a 24-31,55,65
+  s_f1d20e583de5c0::t_0b9ec1b4c0aadb 154-157
+tests/unit/renderer/tree.test.tsx
+  s_f1d20e583de5c0::t_8e7f093ce981a2 2
+  s_f1d20e583de5c0::t_52c73703388f03 125-216
+tests/unit/renderer/register.test.tsx
+  s_f1d20e583de5c0::t_771577c7d4cdec 173-248
+  s_f1d20e583de5c0::t_f94e21fe963e9f 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "329db9a9019210b7bcf3981458e45ca776f5e8aa",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
