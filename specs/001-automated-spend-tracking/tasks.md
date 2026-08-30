@@ -220,9 +220,9 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 ### Implementation for User Story 4
 
 - [X] T105 [US4] Implement personal baseline computation with the sufficiency gate in `src/main/analysis/baselines.ts` (FR-036, FR-039, FR-040)
-- [ ] T106 [US4] Implement weekly digest generation in `src/main/analysis/digest.ts`, stating each projection's assumption (FR-035–FR-037, FR-041)
+- [X] T106 [US4] Implement weekly digest generation in `src/main/analysis/digest.ts`, stating each projection's assumption (FR-035–FR-037, FR-041)
 - [ ] T107 [US4] Wire digest generation into the scheduler with missed-run generation on launch in `src/main/scheduler/index.ts` (FR-058)
-- [ ] T108 [US4] Implement `data_complete` qualification on digests when any institution was stale during the period in `src/main/analysis/digest.ts` (FR-009, SC-014)
+- [X] T108 [US4] Implement `data_complete` qualification on digests when any institution was stale during the period in `src/main/analysis/digest.ts` (FR-009, SC-014)
 
 **Checkpoint**: Quickstart V12 passes.
 
@@ -236,12 +236,12 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ### Tests for User Story 5 (MANDATORY — write first, must fail)
 
-- [ ] T109 [P] [US5] Write failing tests for savings rate, month-over-month comparison, and annual projection in `tests/unit/analysis/report.test.ts`
+- [X] T109 [P] [US5] Write failing tests for savings rate, month-over-month comparison, and annual projection in `tests/unit/analysis/report.test.ts`
 - [ ] T110 [P] [US5] Write failing test asserting all derived data recomputes byte-identically from scratch in `tests/unit/analysis/recompute.test.ts` (SC-010, quickstart V13)
 
 ### Implementation for User Story 5
 
-- [ ] T111 [US5] Implement monthly report generation in `src/main/analysis/reports.ts` covering income, spending, category comparison, trend, largest purchases, recurring audit, savings rate, annual projection (FR-038)
+- [X] T111 [US5] Implement monthly report generation in `src/main/analysis/reports.ts` covering income, spending, category comparison, trend, largest purchases, recurring audit, savings rate, annual projection (FR-038)
 - [ ] T112 [US5] Implement report regeneration when late-arriving transactions affect a closed period in `src/main/analysis/reports.ts` (FR-042)
 - [ ] T113 [US5] Implement IPC handlers for `reports:list` and `reports:get` in `src/main/ipc/handlers/reports.ts`
 - [ ] T114 [P] [US5] Build the reports view in `src/renderer/views/Reports.tsx`
@@ -259,16 +259,16 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ### Tests for User Story 6 (MANDATORY — write first, must fail)
 
-- [ ] T116 [P] [US6] Write failing tests for the correction chain — new categorization supersedes, history preserved — in `tests/unit/categorization/corrections.test.ts`
-- [ ] T117 [P] [US6] Write failing test asserting a retroactive pass reports its count **before** applying and changes nothing until confirmed, in `tests/unit/categorization/retroactive.test.ts` (FR-074, FR-075)
-- [ ] T118 [P] [US6] Write failing test asserting a retroactive pass **never overwrites** a prior user-confirmed categorization, in `tests/unit/categorization/retroactive-precedence.test.ts` (FR-076)
-- [ ] T119 [P] [US6] Write failing test for restatement of all affected periods after correction in `tests/unit/analysis/restatement.test.ts` (FR-015, FR-077)
+- [X] T116 [P] [US6] Write failing tests for the correction chain — new categorization supersedes, history preserved — in `tests/unit/categorization/corrections.test.ts`
+- [X] T117 [P] [US6] Write failing test asserting a retroactive pass reports its count **before** applying and changes nothing until confirmed, in `tests/unit/categorization/retroactive.test.ts` (FR-074, FR-075)
+- [X] T118 [P] [US6] Write failing test asserting a retroactive pass **never overwrites** a prior user-confirmed categorization, in `tests/unit/categorization/retroactive-precedence.test.ts` (FR-076)
+- [X] T119 [P] [US6] Write failing test for restatement of all affected periods after correction in `tests/unit/analysis/restatement.test.ts` (FR-015, FR-077)
 
 ### Implementation for User Story 6
 
 - [ ] T120 [US6] Implement the review queue query in `src/main/categorization/review.ts`, returning guess, confidence, and reasoning (FR-013, US6 AS1)
-- [ ] T121 [US6] Implement bulk recategorization in `src/main/categorization/corrections.ts` (FR-014, FR-067)
-- [ ] T122 [US6] Implement retroactive-candidate counting and the separate confirmed apply path in `src/main/categorization/retroactive.ts` (FR-074–FR-076)
+- [X] T121 [US6] Implement bulk recategorization in `src/main/categorization/corrections.ts` (FR-014, FR-067)
+- [X] T122 [US6] Implement retroactive-candidate counting and the separate confirmed apply path in `src/main/categorization/retroactive.ts` (FR-074–FR-076)
 - [ ] T123 [US6] Implement full restatement of derived data after any correction in `src/main/analysis/restate.ts` (FR-015, FR-077)
 - [ ] T124 [US6] Implement merchant-profile updating so corrections deterministically drive future categorization in `src/main/categorization/local.ts` (FR-016)
 - [ ] T125 [US6] Implement IPC handlers for `review:*` in `src/main/ipc/handlers/review.ts`
