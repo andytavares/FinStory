@@ -1,0 +1,36 @@
+src/main/data/retention.ts
+  s_f1d20e583de5c0::t_5a0629b87a9e8d 1-29
+src/main/diagnostics/export.ts
+  s_f1d20e583de5c0::t_594c4155f82923 1-68
+src/main/categorization/model.ts
+  s_f1d20e583de5c0::t_ae765ee1660f24 42-64,95
+tests/unit/analysis/restate.test.ts
+  s_f1d20e583de5c0::t_5a0629b87a9e8d 1-60
+src/main/analysis/restate.ts
+  s_f1d20e583de5c0::t_5a0629b87a9e8d 1-52
+tests/unit/data/retention.test.ts
+  s_f1d20e583de5c0::t_5a0629b87a9e8d 1-37
+tests/integration/egress-audit.test.ts
+  s_f1d20e583de5c0::t_4edbd552652fbe 1-3,5-24,34,41,72-103
+  s_f1d20e583de5c0::t_ae765ee1660f24 4,25-33,35-40,42-71
+tests/unit/diagnostics/export-scan.test.ts
+  s_f1d20e583de5c0::t_594c4155f82923 1-95
+specs/001-automated-spend-tracking/tasks.md
+  s_f1d20e583de5c0::t_c93767ecafef99 224,245,272,285-290,306-307,314
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8a49193290f3fdbd65ea2ed234fc0159d8c7d5c4",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
