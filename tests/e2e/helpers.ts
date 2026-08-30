@@ -14,10 +14,21 @@ export interface Harness {
   close(): Promise<void>;
 }
 
+/** Get past first-run setup so nav-dependent tests can reach the shell. */
+export async function dismissSetup(page: Page): Promise<void> {
+  const clientId = page.getByLabel('Client ID');
+  if (await clientId.isVisible().catch(() => false)) {
+    await clientId.fill('e2e-client');
+    await page.getByLabel('Secret').fill('e2e-secret');
+    await page.getByRole('button', { name: /Save and continue/ }).click();
+    await page.getByText('Dashboard', { exact: true }).waitFor({ timeout: 15_000 });
+  }
+}
+
 export async function launch(): Promise<Harness> {
   const userDataDir = mkdtempSync(join(tmpdir(), 'money-e2e-'));
   const app = await electron.launch({
-    args: ['.', `--user-data-dir=${userDataDir}`],
+    args: ['./out/main/index.js', `--user-data-dir=${userDataDir}`],
     env: { ...process.env, MONEY_E2E: '1' },
   });
   const page = await app.firstWindow();

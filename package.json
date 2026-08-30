@@ -1,7 +1,7 @@
 {
   "name": "money",
   "version": "0.1.0",
-  "description": "Automated spend tracking and awareness — a local-first personal finance desktop application",
+  "description": "Automated spend tracking and awareness \u2014 a local-first personal finance desktop application",
   "main": "./out/main/index.js",
   "author": "Andrew",
   "license": "UNLICENSED",
@@ -17,7 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verify": "npm run typecheck && npm run lint && npm run test:coverage && npm run build && npm run test:e2e"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.122.0",

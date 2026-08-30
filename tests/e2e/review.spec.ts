@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { launch, type Harness } from './helpers';
+import { launch, dismissSetup, type Harness } from './helpers';
 
 /** US6: the review queue, bulk selection, and the retroactive prompt. */
 test.describe('review queue', () => {
@@ -7,6 +7,8 @@ test.describe('review queue', () => {
 
   test.beforeAll(async () => {
     harness = await launch();
+    await harness.page.locator('#root').waitFor({ timeout: 20_000 });
+    await dismissSetup(harness.page);
   });
   test.afterAll(async () => {
     await harness.close();

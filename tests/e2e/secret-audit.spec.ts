@@ -15,7 +15,10 @@ const SECRET_PATTERNS: ReadonlyArray<[RegExp, string]> = [
   [/PLAID-SECRET/i, 'Plaid secret header'],
   [/sk-ant-[A-Za-z0-9-]+/, 'Anthropic API key'],
   [/access-(sandbox|production)-[a-z0-9-]+/i, 'Plaid access token'],
-  [/anthropic.*apiKey\s*:/i, 'Anthropic client construction'],
+  // NOT a match on the field name: the setup form legitimately sends the key
+  // renderer -> main once, and it never comes back (settings reads return
+  // presence booleans). What must never appear is the SDK itself.
+  [/new Anthropic\s*\(|@anthropic-ai\/sdk/, 'Anthropic SDK in the renderer'],
 ];
 
 test('the renderer bundle contains no secrets or secret-bearing clients', () => {

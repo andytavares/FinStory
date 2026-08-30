@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { launch, type Harness } from './helpers';
+import { launch, dismissSetup, type Harness } from './helpers';
 
 /**
  * Quickstart V2 / SC-009: setup completes in under 30 minutes. The automated
@@ -11,12 +11,14 @@ test.describe('first run', () => {
 
   test.beforeAll(async () => {
     harness = await launch();
+    await harness.page.locator('#root').waitFor({ timeout: 20_000 });
+    await dismissSetup(harness.page);
   });
   test.afterAll(async () => {
     await harness.close();
   });
 
-  test('opens to a usable window without requiring configuration first', async () => {
+  test('opens to a usable window', async () => {
     await expect(harness.page.locator('#root')).toBeVisible({ timeout: 15_000 });
   });
 

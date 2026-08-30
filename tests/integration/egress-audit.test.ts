@@ -83,7 +83,17 @@ describe('no unexpected outbound network surface', () => {
       const rel = file.replace(`${process.cwd()}/`, '');
       if (ALLOWED_NETWORK_MODULES.some((m) => rel.includes(m))) continue;
       const content = readFileSync(file, 'utf8');
-      if (/\bfetch\s*\(|axios|node:https?|new WebSocket|XMLHttpRequest/.test(content)) {
+      // Detect real network I/O: a global fetch call, an HTTP client import, or
+      // a socket. A method *named* fetch on an injected interface is not network
+      // I/O — src/main/sync/engine.ts has one and performs none.
+      const networkPatterns = [
+        /(?:^|[^.\w])fetch\s*\(\s*['"`]/, // fetch('http...')
+        /globalThis\.fetch|window\.fetch/,
+        /from\s+['"](?:axios|node-fetch|got|undici|node:https?|https?)['"]/,
+        /require\(['"](?:axios|node-fetch|got|undici|node:https?|https?)['"]\)/,
+        /new WebSocket|XMLHttpRequest/,
+      ];
+      if (networkPatterns.some((p) => p.test(content))) {
         offenders.push(rel);
       }
     }

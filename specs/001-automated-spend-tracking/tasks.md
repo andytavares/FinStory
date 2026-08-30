@@ -57,6 +57,9 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T155 [P] Build alert history and rule configuration in `src/renderer/views/Alerts.tsx` (FR-032, FR-033, FR-057)
 - [X] T156 [P] Extract `parseModelResponse` and test its failure paths in `tests/unit/categorization/model.test.ts` (Constitution V)
 - [X] T157 [P] Record dependency health evidence for post-plan adoptions in `research.md` (Constitution III)
+- [X] T158 Fix app startup: download the Electron binary, copy migrations into the bundle, and correct the preload path (`.mjs`, not `.js`) in `src/main/index.ts`
+- [X] T159 Add a real launch test in `tests/e2e/launch.spec.ts` — the build never started the app, so three startup bugs shipped past a green build
+- [X] T160 Implement the sync engine in `src/main/sync/engine.ts` — the ingestion pipeline existed but nothing drove it
 - [ ] T012 Verify every institution the user banks with appears in Plaid's supported institution list; record results in `docs/adr/0003-plaid-viability.md`
 - [ ] T013 Confirm Trial plan eligibility (US/Canada teams created on or after 2026-04-15); record in `docs/adr/0003-plaid-viability.md`
 - [X] T014 Add a Production Item creation log to `docs/plaid-setup.md` so the lifetime 10-Item quota is tracked deliberately

@@ -89,3 +89,22 @@ describe('Plaid client construction', () => {
     ).toThrow(/environment/i);
   });
 });
+
+describe('Hosted Link session polling edge cases', () => {
+  it('returns null when a session exists but has no item result yet', async () => {
+    const client = { linkTokenGet: async () => ({ data: { link_sessions: [{ results: {} }] } }) } as never;
+    expect(await pollForPublicToken(client, 'lt_1')).toBeNull();
+  });
+
+  it('returns null when the response has no sessions field at all', async () => {
+    const client = { linkTokenGet: async () => ({ data: {} }) } as never;
+    expect(await pollForPublicToken(client, 'lt_1')).toBeNull();
+  });
+
+  it('skips an empty item_add_results array', async () => {
+    const client = {
+      linkTokenGet: async () => ({ data: { link_sessions: [{ results: { item_add_results: [] } }] } }),
+    } as never;
+    expect(await pollForPublicToken(client, 'lt_1')).toBeNull();
+  });
+});

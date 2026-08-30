@@ -90,7 +90,10 @@ function createWindow(): BrowserWindow {
     show: false,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      // The bundle is ESM (package.json "type": "module"), so electron-vite
+      // emits index.mjs. Electron loads an ESM preload only with sandbox off,
+      // which is why sandbox is false below.
+      preload: join(__dirname, '../preload/index.mjs'),
       // The configuration in which FR-047 is enforceable rather than merely
       // intended. Do not relax either of these.
       contextIsolation: true,

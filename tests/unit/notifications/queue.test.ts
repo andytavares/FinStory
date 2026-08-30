@@ -71,3 +71,26 @@ describe('queue ordering and partial failure', () => {
     expect(q.pending()).toHaveLength(0);
   });
 });
+
+describe('queue deduplication after delivery', () => {
+  it('does not requeue a notification already delivered', async () => {
+    const sent: string[] = [];
+    const q = new NotificationQueue({ deliver: async (n) => void sent.push(n.id) });
+    await q.push({ id: 'n1', title: 'a', body: 'b', occurredAt: '2026-08-29T12:00:00Z' });
+    await q.flush();
+    await q.push({ id: 'n1', title: 'a', body: 'b', occurredAt: '2026-08-29T12:00:00Z' });
+    expect(sent).toEqual(['n1']);
+  });
+
+  it('keeps a pending notification pending across repeated failures', async () => {
+    const q = new NotificationQueue({
+      deliver: async () => {
+        throw new Error('down');
+      },
+    });
+    await q.push({ id: 'n1', title: 'a', body: 'b', occurredAt: '2026-08-29T12:00:00Z' });
+    await q.flush();
+    await q.flush();
+    expect(q.pending()).toHaveLength(1);
+  });
+});
