@@ -1951,14 +1951,14 @@ describe('Services with realistic data', () => {
       const breakdown = (await services.breakdownByCategory({
         periodStart: '2000-01-01T00:00:00Z',
         periodEnd: '2100-01-01T00:00:00Z',
-      })) as { rows: Array<{ categoryId: string; txCount: number }> };
+      })) as { rows: Array<{ categoryId: string; countedCount: number }> };
       const row = breakdown.rows[0]!;
       const all = (await services.queryTransactions({
         categoryIds: [row.categoryId],
         limit: 500,
         offset: 0,
       })) as { totalCount: number };
-      return { categoryId: row.categoryId, counted: row.txCount, total: all.totalCount };
+      return { categoryId: row.categoryId, counted: row.countedCount, total: all.totalCount };
     }
 
     it('returns exactly the count the dashboard reported', async () => {
@@ -2064,7 +2064,14 @@ describe('Services with realistic data', () => {
       const breakdown = (await services.breakdownByCategory({
         periodStart: '2000-01-01T00:00:00Z',
         periodEnd: '2100-01-01T00:00:00Z',
-      })) as { rows: Array<{ categoryId: string; txCount: number; totalMinor: number }> };
+      })) as {
+        rows: Array<{
+          categoryId: string;
+          txCount: number;
+          countedCount: number;
+          totalMinor: number;
+        }>;
+      };
 
       for (const row of breakdown.rows) {
         const drilled = (await services.queryTransactions({
@@ -2073,9 +2080,18 @@ describe('Services with realistic data', () => {
           limit: 500,
           offset: 0,
         })) as { totalCount: number; rows: Array<{ amountMinor: number }> };
-        expect(drilled.totalCount).toBe(row.txCount);
+        expect(drilled.totalCount).toBe(row.countedCount);
         const sum = drilled.rows.reduce((a, r) => a + r.amountMinor, 0);
         expect(sum).toBe(row.totalMinor);
+
+        // The count shown beside the amount is every transaction in the
+        // category, which is what the unfiltered drill-down returns.
+        const everything = (await services.queryTransactions({
+          categoryIds: [row.categoryId],
+          limit: 500,
+          offset: 0,
+        })) as { totalCount: number };
+        expect(everything.totalCount).toBe(row.txCount);
       }
     });
   });
@@ -2156,6 +2172,95 @@ describe('Services with realistic data', () => {
         periodEnd: '2100-01-01T00:00:00Z',
       })) as { rows: Array<{ categoryId: string; uncountedCount: number }> };
       for (const row of breakdown.rows) expect(row.uncountedCount).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+
+  describe('transactions know when they are part of a recurring charge', () => {
+    async function seed(): Promise<void> {
+      const accountId = ((await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>)[0]!.accounts[0]!.id;
+      const insert = handle.raw.prepare(
+        'INSERT INTO transactions (id,plaid_transaction_id,account_id,amount_minor,merchant_name,merchant_key,description,posted_date,datetime,pending,settlement_state,is_internal_transfer,reverses_transaction_id,original_currency,original_amount_minor,user_excluded,first_seen_at,updated_at) VALUES (?,?,?,?,?,?,?,?,NULL,0,\'posted\',0,NULL,NULL,NULL,0,?,?)',
+      );
+      for (const [i, date] of ['2026-06-04', '2026-07-04', '2026-08-04'].entries()) {
+        insert.run(
+          `chip_${i}`,
+          `pchip_${i}`,
+          accountId,
+          -1599,
+          'Streamly',
+          'streamly',
+          'STREAMLY.COM',
+          date,
+          NOW.toISOString(),
+          NOW.toISOString(),
+        );
+      }
+    }
+
+    async function flagOf(id: string): Promise<boolean | undefined> {
+      const rows = (await services.queryTransactions({ limit: 500, offset: 0 })) as {
+        rows: Array<{ id: string; isRecurring: boolean }>;
+      };
+      return rows.rows.find((r) => r.id === id)?.isRecurring;
+    }
+
+    it('is false before anything says otherwise', async () => {
+      await seed();
+      expect(await flagOf('chip_0')).toBe(false);
+    });
+
+    it('is true for every instance once the charge is confirmed', async () => {
+      await seed();
+      await services.decideRecurring({
+        merchantKey: 'streamly',
+        amountMinor: -1599,
+        decision: 'recurring',
+        cadence: 'monthly',
+      });
+      for (const id of ['chip_0', 'chip_1', 'chip_2']) expect(await flagOf(id)).toBe(true);
+    });
+
+    it('follows the ledger without needing a per-transaction answer', async () => {
+      await seed();
+      handle.raw
+        .prepare(
+          "INSERT INTO recurring_charges (id,merchant_key,current_amount_minor,cadence,first_seen_date,last_seen_date,cumulative_paid_minor,detected_at,status,user_acknowledged) VALUES ('rec_x','streamly',-1599,'monthly','2026-06-04','2026-08-04',-4797,?,'active',0)",
+        )
+        .run(NOW.toISOString());
+      expect(await flagOf('chip_0')).toBe(true);
+    });
+
+    it("the user's answer beats the ledger", async () => {
+      await seed();
+      handle.raw
+        .prepare(
+          "INSERT INTO recurring_charges (id,merchant_key,current_amount_minor,cadence,first_seen_date,last_seen_date,cumulative_paid_minor,detected_at,status,user_acknowledged) VALUES ('rec_y','streamly',-1599,'monthly','2026-06-04','2026-08-04',-4797,?,'active',0)",
+        )
+        .run(NOW.toISOString());
+      await services.decideRecurring({
+        merchantKey: 'streamly',
+        amountMinor: -1599,
+        decision: 'not_recurring',
+      });
+      expect(await flagOf('chip_0')).toBe(false);
+    });
+
+    it('is reported in the review queue too', async () => {
+      await seed();
+      await services.decideRecurring({
+        merchantKey: 'streamly',
+        amountMinor: -1599,
+        decision: 'recurring',
+        cadence: 'monthly',
+      });
+      const queue = (await services.reviewQueue({ limit: 500, offset: 0 })) as {
+        rows: Array<{ transaction: { id: string; isRecurring: boolean } }>;
+      };
+      const row = queue.rows.find((r) => r.transaction.id === 'chip_0');
+      if (row) expect(row.transaction.isRecurring).toBe(true);
     });
   });
 

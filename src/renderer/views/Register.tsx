@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { transactionName } from '../lib/name';
+import { RecurringChip } from '../components/RecurringChip';
 import { Money } from '../components/Money';
 import { Qualification } from '../components/Qualification';
 import { EmptyState } from '../components/EmptyState';
@@ -39,9 +40,9 @@ export function Register({
   const [search, setSearch] = useState(initialMerchantKey ?? '');
   const [direction, setDirection] = useState<'all' | 'in' | 'out'>('all');
   const [categoryId] = useState(initialCategoryId);
-  // Arriving from a spending figure means the question is "what made up that
-  // number", so start with exactly those rows and offer the rest explicitly.
-  const [spendingOnly, setSpendingOnly] = useState(Boolean(initialCategoryId));
+  // Show everything in the category, which is what the count on the dashboard
+  // says. Narrowing to what built the amount is offered, not imposed.
+  const [spendingOnly, setSpendingOnly] = useState(false);
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
   const [changed, setChanged] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<string | null>(null);
@@ -91,12 +92,9 @@ export function Register({
       {/* The dashboard's count is spending in day-to-day accounts. Anything else
           in the category is still here, but it has to be asked for, and the
           reason it was left out has to be stated. */}
-      {data && spendingOnly && data.excludedCount > 0 && (
+      {data && spendingOnly && (
         <p className="text-[12px] text-[var(--color-ink-faint)]">
-          Showing what counted toward the spending total. {data.excludedCount} more{' '}
-          {data.excludedCount === 1 ? 'transaction is' : 'transactions are'} in this category but
-          not counted — money in, transfers between your own accounts, transactions you excluded,
-          or accounts not marked day-to-day.{' '}
+          Showing only what counted toward the spending total.{' '}
           <button
             type="button"
             onClick={() => setSpendingOnly(false)}
@@ -108,7 +106,8 @@ export function Register({
       )}
       {data && !spendingOnly && categoryId && (
         <p className="text-[12px] text-[var(--color-ink-faint)]">
-          Showing everything in this category.{' '}
+          Every transaction in this category. Spending totals leave out money in, transfers between
+          your own accounts, anything you excluded, and accounts not marked day-to-day.{' '}
           <button
             type="button"
             onClick={() => setSpendingOnly(true)}
@@ -226,6 +225,12 @@ export function Register({
                 </td>
                 <td className="px-3 py-2">
                   {transactionName(t)}
+                  {t.isRecurring && (
+                    <>
+                      {' '}
+                      <RecurringChip />
+                    </>
+                  )}
                   {t.originalCurrency && (
                     // Display-only; never enters a calculation (FR-085).
                     <span className="ml-2 text-[11px] text-[var(--color-ink-faint)]">

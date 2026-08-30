@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { transactionName } from '../lib/name';
+import { RecurringChip } from '../components/RecurringChip';
 import { RecategorizeButton } from '../components/RecategorizeButton';
 import { Money } from '../components/Money';
 import { EmptyState } from '../components/EmptyState';
@@ -204,7 +205,15 @@ export function Review(): React.JSX.Element {
               aria-label={`Select ${transactionName(item.transaction)}`}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px]">{transactionName(item.transaction)}</p>
+              <p className="truncate text-[13px]">
+                {transactionName(item.transaction)}
+                {item.transaction.isRecurring && (
+                  <>
+                    {' '}
+                    <RecurringChip />
+                  </>
+                )}
+              </p>
               <p className="text-[12px] text-[var(--color-ink-faint)]">
                 {shortDate(item.transaction.postedDate)} · guessed {item.guessCategoryName} at{' '}
                 {Math.round(item.confidence * 100)}%

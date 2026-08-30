@@ -448,12 +448,13 @@ export class Services implements AppServices {
       limit: number;
       offset: number;
     };
-    const [rows, live, completeness, aliases, everydayIds] = await Promise.all([
+    const [rows, live, completeness, aliases, everydayIds, recurringKeys] = await Promise.all([
       this.transactionsIn(q.periodStart, q.periodEnd),
       this.liveCategorizations(),
       this.completeness(),
       this.merchantAliases(),
       this.everydayAccountIds(),
+      this.activeRecurringKeys(),
     ]);
 
     let filtered = rows;
@@ -508,6 +509,7 @@ export class Services implements AppServices {
           amountMinor: r.amountMinor,
           merchantName: resolveMerchantName(r, aliases),
           merchantKey: r.merchantKey,
+          isRecurring: isRecurringRow(r, recurringKeys),
           description: r.description,
           postedDate: r.postedDate,
           categoryId: c?.categoryId ?? UNCATEGORIZABLE,
@@ -650,11 +652,12 @@ export class Services implements AppServices {
 
   async reviewQueue(page: unknown): Promise<unknown> {
     const { limit, offset } = page as { limit: number; offset: number };
-    const [live, txs, aliases, categoryNames] = await Promise.all([
+    const [live, txs, aliases, categoryNames, recurringKeys] = await Promise.all([
       this.liveCategorizations(),
       this.db.select().from(t.transactions),
       this.merchantAliases(),
       this.categoryNames(),
+      this.activeRecurringKeys(),
     ]);
     const byId = new Map(txs.map((x) => [x.id, x]));
     const flagged = [...live.values()].filter((c) => c.needsReview && !c.isConfirmed);
@@ -670,6 +673,7 @@ export class Services implements AppServices {
               amountMinor: tx.amountMinor,
               merchantName: resolveMerchantName(tx, aliases),
               merchantKey: tx.merchantKey,
+              isRecurring: isRecurringRow(tx, recurringKeys),
               description: tx.description,
               userMerchantName: tx.userMerchantName,
               userNote: tx.userNote,
@@ -2187,9 +2191,10 @@ export class Services implements AppServices {
     const describe = (
       categoryId: string,
       totalMinor: number,
-      txCount: number,
+      countedCount: number,
     ): Record<string, unknown> => {
       const parentId = parents.get(categoryId) ?? null;
+      const uncountedCount = uncounted.get(categoryId) ?? 0;
       return {
         categoryId,
         name: names.get(categoryId) ?? categoryId,
@@ -2197,8 +2202,12 @@ export class Services implements AppServices {
         parentId,
         parentName: parentId ? (names.get(parentId) ?? parentId) : null,
         totalMinor,
-        txCount,
-        uncountedCount: uncounted.get(categoryId) ?? 0,
+        // Every transaction in the category, which is what "how many are in
+        // here" means to a reader. The subset the amount was built from is
+        // reported separately rather than standing in for the whole.
+        txCount: countedCount + uncountedCount,
+        countedCount,
+        uncountedCount,
       };
     };
 
@@ -2241,6 +2250,12 @@ export class Services implements AppServices {
       out.set(categoryId, (out.get(categoryId) ?? 0) + 1);
     }
     return out;
+  }
+
+  /** Merchants with a live recurring charge, for flagging their transactions. */
+  private async activeRecurringKeys(): Promise<Set<string>> {
+    const rows = await this.db.select().from(t.recurringCharges);
+    return new Set(rows.filter((r) => r.status === 'active').map((r) => r.merchantKey));
   }
 
   /** categoryId -> parentId, for rolling a breakdown up one level. */
@@ -2517,4 +2532,17 @@ function normalizeLedgerCadence(
 function splitRuleTarget(target: string): [string, number] {
   const at = target.lastIndexOf(':');
   return [target.slice(0, at), Number(target.slice(at + 1))];
+}
+
+/**
+ * Whether a transaction is part of a recurring charge.
+ *
+ * The user's own answer wins in both directions; otherwise it follows the
+ * ledger, so a subscription is marked without having to be confirmed one
+ * transaction at a time.
+ */
+function isRecurringRow(row: TransactionRow, activeKeys: ReadonlySet<string>): boolean {
+  if (row.userRecurringOverride === 'recurring') return true;
+  if (row.userRecurringOverride === 'not_recurring') return false;
+  return row.merchantKey !== null && activeKeys.has(row.merchantKey);
 }

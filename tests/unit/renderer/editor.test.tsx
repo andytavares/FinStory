@@ -19,6 +19,7 @@ function tx(over: Partial<TransactionView> = {}): TransactionView {
     amountMinor: -4312,
     merchantName: 'Uber Eats',
     merchantKey: 'uber eats',
+    isRecurring: false,
     description: 'UBER EATS',
     postedDate: '2026-08-29',
     categoryId: 'dining',

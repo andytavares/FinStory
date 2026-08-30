@@ -37,6 +37,8 @@ export interface TransactionView {
   readonly merchantName: string | null;
   /** The stable grouping key. An identifier, never shown to the user. */
   readonly merchantKey: string | null;
+  /** Part of a recurring charge — by the user's answer, or by the ledger. */
+  readonly isRecurring: boolean;
   readonly description: string;
   readonly postedDate: string;
   readonly categoryId: string;

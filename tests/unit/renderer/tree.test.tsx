@@ -164,7 +164,7 @@ describe('the "Directly in" row', () => {
     render(
       <CategoryTree
         rows={[
-          row({ totalMinor: 0, txCount: 0, uncountedCount: 5 }),
+          row({ totalMinor: 0, txCount: 5, countedCount: 0 }),
           row({ categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food' }),
         ]}
         onDrill={() => {}}
@@ -198,11 +198,11 @@ describe('the "Directly in" row', () => {
     expect(onDrill).toHaveBeenCalledWith('food');
   });
 
-  it('says how many were counted and how many were not', () => {
+  it('counts every transaction, and says how many built the amount', () => {
     render(
       <CategoryTree
         rows={[
-          row({ txCount: 3, uncountedCount: 5 }),
+          row({ txCount: 8, countedCount: 3 }),
           row({ categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food' }),
         ]}
         onDrill={() => {}}
@@ -210,7 +210,7 @@ describe('the "Directly in" row', () => {
     );
     fireEvent.click(screen.getByLabelText('Expand Food'));
     const label = screen.getByLabelText('View transactions directly in Food');
-    expect(label.textContent).toContain('3');
-    expect(label.querySelector('[title*="5 not counted"]')).not.toBeNull();
+    expect(label.textContent).toContain('8');
+    expect(label.querySelector('[title*="3 counted in this amount"]')).not.toBeNull();
   });
 })

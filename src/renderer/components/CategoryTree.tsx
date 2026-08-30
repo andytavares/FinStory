@@ -8,7 +8,10 @@ export interface BreakdownRow {
   readonly parentId: string | null;
   readonly parentName: string | null;
   readonly totalMinor: number;
+  /** Every transaction in the category. */
   readonly txCount: number;
+  /** The subset the amount was built from. */
+  readonly countedCount?: number;
   /** In this category but left out of the spending figure. */
   readonly uncountedCount?: number;
 }
@@ -18,6 +21,7 @@ interface Group {
   readonly name: string;
   readonly totalMinor: number;
   readonly txCount: number;
+  readonly countedCount: number;
   readonly children: BreakdownRow[];
   /** Spending recorded on the parent itself, not one of its children. */
   readonly ownMinor: number;
@@ -29,8 +33,8 @@ interface Group {
    * there is no way to reach them.
    */
   readonly ownCount: number;
-  /** Transactions directly on the parent that the total does not include. */
-  readonly ownUncounted: number;
+  /** Of those, how many the amount was built from. */
+  readonly ownCounted: number;
 }
 
 /**
@@ -50,28 +54,43 @@ export function groupByParent(rows: readonly BreakdownRow[]): Group[] {
       name,
       totalMinor: 0,
       txCount: 0,
+      countedCount: 0,
       children: [],
       ownMinor: 0,
       ownCount: 0,
-      ownUncounted: 0,
+      ownCounted: 0,
     };
     groups.set(id, {
       ...existing,
       name: existing.name || name,
       totalMinor: existing.totalMinor + row.totalMinor,
       txCount: existing.txCount + row.txCount,
+      countedCount: existing.countedCount + (row.countedCount ?? row.txCount),
       children: row.parentId ? [...existing.children, row] : existing.children,
       ownMinor: row.parentId ? existing.ownMinor : existing.ownMinor + row.totalMinor,
       ownCount: row.parentId ? existing.ownCount : existing.ownCount + row.txCount,
-      ownUncounted: row.parentId
-        ? existing.ownUncounted
-        : existing.ownUncounted + (row.uncountedCount ?? 0),
+      ownCounted: row.parentId
+        ? existing.ownCounted
+        : existing.ownCounted + (row.countedCount ?? row.txCount),
     });
   }
 
   return [...groups.values()]
     .map((g) => ({ ...g, children: [...g.children].sort((a, b) => a.totalMinor - b.totalMinor) }))
     .sort((a, b) => a.totalMinor - b.totalMinor);
+}
+
+/**
+ * What the two numbers on a row mean.
+ *
+ * The count is every transaction in the category, because that is what a reader
+ * takes it to mean. The amount is spending only, so when the two disagree the
+ * difference has to be stated rather than left as an apparent contradiction.
+ */
+function countTitle(total: number, counted: number | undefined): string {
+  const inTotal = counted ?? total;
+  if (inTotal === total) return `${total} transactions, all counted in this amount`;
+  return `${total} transactions · ${inTotal} counted in this amount, ${total - inTotal} not (money in, transfers, exclusions, or accounts not marked day-to-day)`;
 }
 
 /** Spending by parent category, expandable to its subcategories. */
@@ -127,7 +146,7 @@ export function CategoryTree({
                 <Money minor={group.totalMinor} magnitude className="w-28 text-right text-[13px]" />
                 <span
                   className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]"
-                  title={`${group.txCount} transactions counted toward this total`}
+                  title={countTitle(group.txCount, group.countedCount)}
                 >
                   {group.txCount}
                 </span>
@@ -153,14 +172,14 @@ export function CategoryTree({
                   />
                   <span
                     className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]"
-                    title={`${child.txCount} transactions counted toward this total`}
+                    title={countTitle(child.txCount, child.countedCount)}
                   >
                     {child.txCount}
                   </span>
                 </button>
               ))}
 
-            {isOpen && group.ownCount + group.ownUncounted > 0 && (
+            {isOpen && group.ownCount > 0 && (
               // Spending sitting on the parent itself is a real set of
               // transactions, so it drills like any other row.
               <button
@@ -174,11 +193,7 @@ export function CategoryTree({
                 <Money minor={group.ownMinor} magnitude className="w-28 text-right" />
                 <span
                   className="numeric w-10 text-right text-[12px]"
-                  title={
-                    group.ownUncounted > 0
-                      ? `${group.ownCount} counted, ${group.ownUncounted} not counted toward this total`
-                      : `${group.ownCount} transactions counted toward this total`
-                  }
+                  title={countTitle(group.ownCount, group.ownCounted)}
                 >
                   {group.ownCount}
                 </span>
