@@ -2264,4 +2264,77 @@ describe('Services with realistic data', () => {
     });
   });
 
+
+  describe('the dashboard count is every transaction in the category', () => {
+    async function seedMixedCategory(): Promise<string> {
+      const accountId = ((await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>)[0]!.accounts[0]!.id;
+      const insert = handle.raw.prepare(
+        'INSERT INTO transactions (id,plaid_transaction_id,account_id,amount_minor,merchant_name,merchant_key,description,posted_date,datetime,pending,settlement_state,is_internal_transfer,reverses_transaction_id,original_currency,original_amount_minor,user_excluded,first_seen_at,updated_at) VALUES (?,?,?,?,?,?,?,?,NULL,0,\'posted\',0,NULL,NULL,NULL,0,?,?)',
+      );
+      const cat = handle.raw.prepare(
+        "INSERT INTO categorizations (id,transaction_id,category_id,confidence,source,is_confirmed,needs_review,reasoning,superseded_by,created_at) VALUES (?,?,'financial',1,'user',1,0,NULL,NULL,?)",
+      );
+      // Three real charges and five inflows, in one category: the shape that
+      // reported 3 when there were 8.
+      for (let i = 0; i < 3; i += 1) {
+        insert.run(`mix_out_${i}`, `pmo_${i}`, accountId, -10000, 'Card', 'card', 'CARD', '2026-08-10', NOW.toISOString(), NOW.toISOString());
+        cat.run(`cmo_${i}`, `mix_out_${i}`, NOW.toISOString());
+      }
+      for (let i = 0; i < 5; i += 1) {
+        insert.run(`mix_in_${i}`, `pmi_${i}`, accountId, 10000, 'Card', 'card', 'PAYMENT', '2026-08-11', NOW.toISOString(), NOW.toISOString());
+        cat.run(`cmi_${i}`, `mix_in_${i}`, NOW.toISOString());
+      }
+      return 'financial';
+    }
+
+    it('reports 8, not the 3 that built the amount', async () => {
+      const categoryId = await seedMixedCategory();
+      const dashboard = (await services.dashboard({
+        periodStart: '2026-08-01T00:00:00Z',
+        periodEnd: '2026-09-01T00:00:00Z',
+      })) as {
+        categoryBreakdown: {
+          rows: Array<{ categoryId: string; txCount: number; countedCount: number }>;
+        };
+      };
+      const row = dashboard.categoryBreakdown.rows.find((r) => r.categoryId === categoryId);
+      expect(row).toBeDefined();
+      expect(row?.txCount).toBe(8);
+      expect(row?.countedCount).toBe(3);
+    });
+
+    it('matches what the drill-down returns', async () => {
+      const categoryId = await seedMixedCategory();
+      const dashboard = (await services.dashboard({
+        periodStart: '2026-08-01T00:00:00Z',
+        periodEnd: '2026-09-01T00:00:00Z',
+      })) as {
+        categoryBreakdown: { rows: Array<{ categoryId: string; txCount: number }> };
+      };
+      const row = dashboard.categoryBreakdown.rows.find((r) => r.categoryId === categoryId)!;
+      const drilled = (await services.queryTransactions({
+        categoryIds: [categoryId],
+        periodStart: '2026-08-01T00:00:00Z',
+        periodEnd: '2026-09-01T00:00:00Z',
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number };
+      expect(drilled.totalCount).toBe(row.txCount);
+    });
+
+    it('still reports the spending amount from the three outflows only', async () => {
+      const categoryId = await seedMixedCategory();
+      const dashboard = (await services.dashboard({
+        periodStart: '2026-08-01T00:00:00Z',
+        periodEnd: '2026-09-01T00:00:00Z',
+      })) as {
+        categoryBreakdown: { rows: Array<{ categoryId: string; totalMinor: number }> };
+      };
+      const row = dashboard.categoryBreakdown.rows.find((r) => r.categoryId === categoryId);
+      expect(row?.totalMinor).toBe(-30000);
+    });
+  });
+
 });
