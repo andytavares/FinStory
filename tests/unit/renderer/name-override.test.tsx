@@ -79,3 +79,28 @@ describe('the review queue honours the name override', () => {
     expect(screen.getByLabelText('Edit Dinner delivery')).toBeDefined();
   });
 });
+
+describe('the review queue explains why nothing is categorized', () => {
+  it('says so when no model is configured', async () => {
+    installMoneyBridge({
+      'review:queue': reviewRow({}),
+      'categories:list': [],
+      'model:status': { localOnly: true, reason: 'No Anthropic API key set.' },
+    });
+    render(<Review />);
+    await waitFor(() =>
+      expect(screen.getByText(/No Anthropic API key set/)).toBeDefined(),
+    );
+  });
+
+  it('stays quiet when a model is configured', async () => {
+    installMoneyBridge({
+      'review:queue': reviewRow({}),
+      'categories:list': [],
+      'model:status': { localOnly: false, reason: 'Categorizing with claude-haiku-4-5.' },
+    });
+    render(<Review />);
+    await waitFor(() => screen.getByText('Uber Eats'));
+    expect(screen.queryByText(/Set one up under/)).toBeNull();
+  });
+})

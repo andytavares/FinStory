@@ -94,7 +94,12 @@ async function bootstrap(): Promise<void> {
     const threshold = Number((await readSetting('confidenceThreshold')) ?? 0.8);
     return new CategorizationPipeline(
       built.classifier ?? { classify: () => Promise.reject(new Error(built.reason)) },
-      { confidenceThreshold: threshold, localOnly: built.localOnly },
+      {
+        confidenceThreshold: threshold,
+        localOnly: built.localOnly,
+        // Read fresh each build: the user can delete categories at any time.
+        validCategoryIds: new Set(categories.filter((c) => c.mergedIntoId === null).map((c) => c.id)),
+      },
     );
   };
 

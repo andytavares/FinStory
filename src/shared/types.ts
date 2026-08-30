@@ -116,6 +116,37 @@ export interface AlertView {
   readonly dismissed: boolean;
 }
 
+/**
+ * Every decision the user has made that overrides what the app worked out.
+ *
+ * Collected in one place so a mistake is findable: a rename made months ago is
+ * otherwise invisible until it turns up in a report.
+ */
+export type OverrideKind =
+  | 'merchant_name'
+  | 'transaction_name'
+  | 'merchant_category'
+  | 'transaction_category'
+  | 'excluded'
+  | 'recurring'
+  | 'note';
+
+export interface OverrideRecord {
+  readonly id: string;
+  readonly kind: OverrideKind;
+  /** Merchant key or transaction id, depending on the kind. */
+  readonly target: string;
+  /** What the override applies to, in the user's own words where they set one. */
+  readonly label: string;
+  /** What the app would say without the override. Null when there is no prior. */
+  readonly original: string | null;
+  /** What the override says instead. */
+  readonly current: string;
+  /** How many transactions this override reaches. */
+  readonly affectedCount: number;
+  readonly occurredAt: string | null;
+}
+
 export interface HealthContents {
   readonly institutions: number;
   readonly accounts: number;

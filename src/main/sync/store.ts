@@ -120,16 +120,27 @@ export class DrizzleSyncStore implements SyncStore {
     // A user correction outranks anything the pipeline produces later.
     if (existing[0]?.isConfirmed) return;
 
+    // Last line of defence. The pipeline is told the live taxonomy, but a
+    // categorization referencing a category the user has deleted is a foreign
+    // key violation that aborts the entire sync — losing transactions over a
+    // labelling problem. Uncategorizable is always present and always honest.
+    const categoryId = (await this.categoryExists(result.categoryId))
+      ? result.categoryId
+      : 'uncategorizable';
+
     const id = `cat_${randomUUID().slice(0, 12)}`;
     await this.db.insert(t.categorizations).values({
       id,
       transactionId: result.transactionId,
-      categoryId: result.categoryId,
+      categoryId,
       confidence: result.confidence,
       source: result.source as 'local_history' | 'model' | 'user',
       isConfirmed: false,
-      needsReview: result.needsReview,
-      reasoning: result.reasoning,
+      needsReview: categoryId === result.categoryId ? result.needsReview : true,
+      reasoning:
+        categoryId === result.categoryId
+          ? result.reasoning
+          : `Suggested "${result.categoryId}", which is no longer one of your categories`,
       supersededBy: null,
       createdAt: this.clock.now().toISOString(),
     });
@@ -139,6 +150,11 @@ export class DrizzleSyncStore implements SyncStore {
         .set({ supersededBy: id })
         .where(eq(t.categorizations.id, existing[0].id));
     }
+  }
+
+  private async categoryExists(categoryId: string): Promise<boolean> {
+    const rows = await this.db.select().from(t.categories).where(eq(t.categories.id, categoryId));
+    return rows.length > 0;
   }
 
   async loadOwnAccountIds(): Promise<Set<string>> {

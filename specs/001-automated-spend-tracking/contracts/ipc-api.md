@@ -82,6 +82,9 @@ The renderer is untrusted UI. It has **no Node integration**, runs with `context
 | `data:export` / `data:import` | `{ destPath }` / `{ srcPath }` | `{ ok, path }` / `{ ok, restored }` | FR-060, SC-017 |
 | `data:deleteAll` | `{ confirmation }` | `{ ok }` | FR-048 |
 | `sync:now` | — | `{ added, updated, removed, skipped, failures, modelFailures, modelError, message, warning }` | Manual trigger; the only caller of `/transactions/refresh` (R2). Throws `SYNC_FAILED` when the run reached nothing, so a failed sync is never reported as a quiet success |
+| `overrides:list` | — | `OverrideRecord[]` | Every user decision that overrides the app: renames, categories, exclusions, recurring flags, notes |
+| `overrides:clear` | `{ kind, target }` | `{ ok }` | Undoes one override; the transaction history itself is untouched |
+| `model:status` | — | `{ provider, model, localOnly, reason }` | How categorization is configured; makes no network call |
 | `model:test` | — | `{ ok, provider, model, message }` | Calls the configured model for real and reports the raw failure, since categorization otherwise degrades silently |
 | `categorization:rerun` | — | `{ ok, examined, changed, message }` | Sends still-unresolved transactions to the model; user-set categories are never overwritten |
 

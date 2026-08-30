@@ -1193,4 +1193,134 @@ describe('Services with realistic data', () => {
     });
   });
 
+
+  describe('the overrides page lists and undoes every user decision', () => {
+    it('starts with nothing when the user has changed nothing', async () => {
+      const rows = (await services.listOverrides()) as unknown[];
+      expect(rows).toEqual([]);
+    });
+
+    it('lists a merchant rename and undoes it', async () => {
+      const first = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
+        rows: Array<{ merchantKey: string | null }>;
+      }).rows.find((r) => r.merchantKey !== null)!;
+      await services.renameMerchant({ merchantKey: first.merchantKey, displayName: 'Renamed' });
+
+      const rows = (await services.listOverrides()) as Array<{
+        kind: string;
+        target: string;
+        current: string;
+        affectedCount: number;
+      }>;
+      const rename = rows.find((r) => r.kind === 'merchant_name');
+      expect(rename?.current).toBe('Renamed');
+      expect(rename?.affectedCount).toBeGreaterThan(0);
+
+      await services.clearOverride({ kind: 'merchant_name', target: first.merchantKey! });
+      const after = (await services.listOverrides()) as Array<{ kind: string }>;
+      expect(after.some((r) => r.kind === 'merchant_name')).toBe(false);
+    });
+
+    it('lists a per-transaction rename with the imported name it replaced', async () => {
+      const target = ((await services.queryTransactions({ limit: 1, offset: 0 })) as {
+        rows: Array<{ id: string; description: string }>;
+      }).rows[0]!;
+      await services.updateTransaction({
+        transactionId: target.id,
+        userMerchantName: 'Just this one',
+        applyNameToMerchant: false,
+      });
+
+      const rows = (await services.listOverrides()) as Array<{
+        kind: string;
+        original: string | null;
+        current: string;
+      }>;
+      const record = rows.find((r) => r.kind === 'transaction_name');
+      expect(record?.current).toBe('Just this one');
+      expect(record?.original).toBeTruthy();
+
+      await services.clearOverride({ kind: 'transaction_name', target: target.id });
+      const after = (await services.listOverrides()) as Array<{ kind: string }>;
+      expect(after.some((r) => r.kind === 'transaction_name')).toBe(false);
+    });
+
+    it('lists an exclusion and a note, and undoes each independently', async () => {
+      const target = ((await services.queryTransactions({ limit: 1, offset: 0 })) as {
+        rows: Array<{ id: string }>;
+      }).rows[0]!;
+      await services.updateTransaction({
+        transactionId: target.id,
+        userExcluded: true,
+        userNote: 'Reimbursed by work',
+      });
+
+      let rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
+      expect(rows.find((r) => r.kind === 'excluded')?.current).toBe('Excluded from totals');
+      expect(rows.find((r) => r.kind === 'note')?.current).toBe('Reimbursed by work');
+
+      await services.clearOverride({ kind: 'excluded', target: target.id });
+      rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
+      expect(rows.some((r) => r.kind === 'excluded')).toBe(false);
+      expect(rows.some((r) => r.kind === 'note')).toBe(true);
+    });
+
+    it('lists a recurring override and undoes it', async () => {
+      const target = ((await services.queryTransactions({ limit: 1, offset: 0 })) as {
+        rows: Array<{ id: string }>;
+      }).rows[0]!;
+      await services.updateTransaction({
+        transactionId: target.id,
+        userRecurringOverride: 'not_recurring',
+      });
+      let rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
+      expect(rows.find((r) => r.kind === 'recurring')?.current).toBe('Not recurring');
+
+      await services.clearOverride({ kind: 'recurring', target: target.id });
+      rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
+      expect(rows.some((r) => r.kind === 'recurring')).toBe(false);
+    });
+
+    it('undoing a category correction restores what it replaced', async () => {
+      const target = ((await services.queryTransactions({ limit: 1, offset: 0 })) as {
+        rows: Array<{ id: string; categoryId: string }>;
+      }).rows[0]!;
+      const before = target.categoryId;
+
+      await services.recategorize({ transactionIds: [target.id], categoryId: 'groceries' });
+      const changed = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
+        rows: Array<{ id: string; categoryId: string }>;
+      }).rows.find((r) => r.id === target.id)!;
+      expect(changed.categoryId).toBe('groceries');
+
+      const rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
+      expect(rows.some((r) => r.kind === 'transaction_category')).toBe(true);
+
+      await services.clearOverride({ kind: 'transaction_category', target: target.id });
+      const restored = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
+        rows: Array<{ id: string; categoryId: string }>;
+      }).rows.find((r) => r.id === target.id)!;
+      expect(restored.categoryId).toBe(before);
+    });
+
+    it('lists a merchant-wide category confirmation and undoes it', async () => {
+      const target = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
+        rows: Array<{ id: string; merchantKey: string | null }>;
+      }).rows.find((r) => r.merchantKey !== null)!;
+      await services.updateTransaction({ transactionId: target.id, categoryId: 'groceries' });
+
+      let rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
+      expect(rows.find((r) => r.kind === 'merchant_category')?.current).toBe('Groceries');
+
+      await services.clearOverride({ kind: 'merchant_category', target: target.merchantKey! });
+      rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
+      expect(rows.some((r) => r.kind === 'merchant_category')).toBe(false);
+    });
+
+    it('never lists a transaction category the app assigned by itself', async () => {
+      const rows = (await services.listOverrides()) as Array<{ kind: string }>;
+      expect(rows.some((r) => r.kind === 'transaction_category')).toBe(false);
+    });
+  });
+
 });

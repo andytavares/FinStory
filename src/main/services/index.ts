@@ -33,6 +33,7 @@ import { fetchItemAccounts } from '@main/plaid/accounts';
 import { isEverydayAccount } from '@main/accounts/everyday';
 import { summarizeSync, type SyncOutcome } from '@main/sync/outcome';
 import { resolveMerchantName } from '@shared/merchant-name';
+import type { OverrideKind, OverrideRecord } from '@shared/types';
 
 export interface ModelDescription {
   readonly provider: string;
@@ -1480,6 +1481,11 @@ export class Services implements AppServices {
    * correct for ingestion but means a misconfigured key looks identical to a
    * working one. This is the button that tells the user which it is.
    */
+  /** How categorization is configured right now. Makes no network call. */
+  async modelStatus(): Promise<unknown> {
+    return this.deps.describeModel();
+  }
+
   async testModel(): Promise<unknown> {
     const description = await this.deps.describeModel();
     if (description.localOnly) {
@@ -1557,6 +1563,208 @@ export class Services implements AppServices {
       ? `Recategorized ${changed} of ${pending.length}. The model then failed: ${pipeline.lastModelError}`
       : `Recategorized ${changed} of ${pending.length} unresolved transactions.`;
     return { ok: pipeline.lastModelError === null, examined: pending.length, changed, message };
+  }
+
+
+  /**
+   * Every override the user has made, in one list.
+   *
+   * A rename or an exclusion set months ago is otherwise invisible until it
+   * turns up wrong in a report, with no way to find what caused it.
+   */
+  async listOverrides(): Promise<unknown> {
+    const [aliases, profiles, transactions, categorizations, categoryNames] = await Promise.all([
+      this.db.select().from(t.merchantAliases),
+      this.db.select().from(t.merchantProfiles),
+      this.db.select().from(t.transactions),
+      this.liveCategorizations(),
+      this.categoryNames(),
+    ]);
+
+    const byMerchant = new Map<string, TransactionRow[]>();
+    for (const row of transactions) {
+      if (!row.merchantKey) continue;
+      const list = byMerchant.get(row.merchantKey) ?? [];
+      list.push(row);
+      byMerchant.set(row.merchantKey, list);
+    }
+    const bankName = (merchantKey: string): string | null =>
+      byMerchant.get(merchantKey)?.[0]?.merchantName ?? null;
+
+    const out: OverrideRecord[] = [];
+
+    for (const alias of aliases) {
+      out.push({
+        id: `merchant_name:${alias.merchantKey}`,
+        kind: 'merchant_name',
+        target: alias.merchantKey,
+        label: alias.displayName,
+        original: bankName(alias.merchantKey),
+        current: alias.displayName,
+        affectedCount: byMerchant.get(alias.merchantKey)?.length ?? 0,
+        occurredAt: alias.createdAt,
+      });
+    }
+
+    for (const profile of profiles) {
+      if (!profile.userConfirmedCategoryId) continue;
+      out.push({
+        id: `merchant_category:${profile.merchantKey}`,
+        kind: 'merchant_category',
+        target: profile.merchantKey,
+        label:
+          aliases.find((a) => a.merchantKey === profile.merchantKey)?.displayName ??
+          bankName(profile.merchantKey) ??
+          profile.merchantKey,
+        original: null,
+        current:
+          categoryNames.get(profile.userConfirmedCategoryId) ?? profile.userConfirmedCategoryId,
+        affectedCount: byMerchant.get(profile.merchantKey)?.length ?? 0,
+        occurredAt: profile.lastUpdatedAt,
+      });
+    }
+
+    const aliasMap = new Map(aliases.map((a) => [a.merchantKey, a.displayName]));
+    for (const row of transactions) {
+      const name = resolveMerchantName(row, aliasMap);
+
+      if (row.userMerchantName) {
+        out.push({
+          id: `transaction_name:${row.id}`,
+          kind: 'transaction_name',
+          target: row.id,
+          label: name,
+          original: row.merchantName ?? row.description,
+          current: row.userMerchantName,
+          affectedCount: 1,
+          occurredAt: row.postedDate,
+        });
+      }
+      if (row.userExcluded) {
+        out.push({
+          id: `excluded:${row.id}`,
+          kind: 'excluded',
+          target: row.id,
+          label: name,
+          original: 'Counted',
+          current: 'Excluded from totals',
+          affectedCount: 1,
+          occurredAt: row.postedDate,
+        });
+      }
+      if (row.userRecurringOverride) {
+        out.push({
+          id: `recurring:${row.id}`,
+          kind: 'recurring',
+          target: row.id,
+          label: name,
+          original: 'Detected automatically',
+          current: row.userRecurringOverride === 'recurring' ? 'Recurring' : 'Not recurring',
+          affectedCount: 1,
+          occurredAt: row.postedDate,
+        });
+      }
+      if (row.userNote) {
+        out.push({
+          id: `note:${row.id}`,
+          kind: 'note',
+          target: row.id,
+          label: name,
+          original: null,
+          current: row.userNote,
+          affectedCount: 1,
+          occurredAt: row.postedDate,
+        });
+      }
+
+      const live = categorizations.get(row.id);
+      if (live?.source === 'user') {
+        out.push({
+          id: `transaction_category:${row.id}`,
+          kind: 'transaction_category',
+          target: row.id,
+          label: name,
+          original: null,
+          current: categoryNames.get(live.categoryId) ?? live.categoryId,
+          affectedCount: 1,
+          occurredAt: live.createdAt,
+        });
+      }
+    }
+
+    // Newest first: a mistake is usually a recent one.
+    out.sort((a, b) => (b.occurredAt ?? '').localeCompare(a.occurredAt ?? ''));
+    return out;
+  }
+
+  /** Undo one override, putting that decision back in the app's hands. */
+  async clearOverride(input: unknown): Promise<unknown> {
+    const p = input as { kind: OverrideKind; target: string };
+    switch (p.kind) {
+      case 'merchant_name':
+        await this.db
+          .delete(t.merchantAliases)
+          .where(eq(t.merchantAliases.merchantKey, p.target));
+        break;
+      case 'merchant_category':
+        await this.db
+          .update(t.merchantProfiles)
+          .set({ userConfirmedCategoryId: null })
+          .where(eq(t.merchantProfiles.merchantKey, p.target));
+        break;
+      case 'transaction_name':
+        await this.db
+          .update(t.transactions)
+          .set({ userMerchantName: null })
+          .where(eq(t.transactions.id, p.target));
+        break;
+      case 'excluded':
+        await this.db
+          .update(t.transactions)
+          .set({ userExcluded: false })
+          .where(eq(t.transactions.id, p.target));
+        break;
+      case 'recurring':
+        await this.db
+          .update(t.transactions)
+          .set({ userRecurringOverride: null })
+          .where(eq(t.transactions.id, p.target));
+        break;
+      case 'note':
+        await this.db
+          .update(t.transactions)
+          .set({ userNote: null })
+          .where(eq(t.transactions.id, p.target));
+        break;
+      case 'transaction_category':
+        await this.revertCategorization(p.target);
+        break;
+    }
+    return { ok: true };
+  }
+
+  /**
+   * Drop the user's categorization and restore what it replaced.
+   *
+   * The chain is an audit record, so the correction is removed and its
+   * predecessor becomes live again rather than a third row being appended.
+   */
+  private async revertCategorization(transactionId: string): Promise<void> {
+    const rows = await this.db
+      .select()
+      .from(t.categorizations)
+      .where(eq(t.categorizations.transactionId, transactionId));
+    const live = rows.find((r) => r.supersededBy === null);
+    if (!live || live.source !== 'user') return;
+
+    const previous = rows.find((r) => r.supersededBy === live.id);
+    if (previous) {
+      await this.db
+        .update(t.categorizations)
+        .set({ supersededBy: null })
+        .where(eq(t.categorizations.id, previous.id));
+    }
+    await this.db.delete(t.categorizations).where(eq(t.categorizations.id, live.id));
   }
 
   async syncNow(): Promise<unknown> {

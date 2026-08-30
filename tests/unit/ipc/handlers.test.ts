@@ -70,6 +70,9 @@ const CONTRACT_CHANNELS = [
   'data:deleteAll',
   'analysis:refresh',
   'sync:now',
+  'overrides:list',
+  'overrides:clear',
+  'model:status',
   'model:test',
   'categorization:rerun',
 ];
@@ -106,6 +109,7 @@ describe('IPC wiring matches the contract', () => {
       'income:confirm': { id: 'i' },
       'income:override': { id: 'i' },
       'income:clearOverride': { id: 'i' },
+      'overrides:clear': { kind: 'merchant_name', target: 'uber eats' },
       'review:queue': {},
       'review:recategorize': { transactionIds: ['t'], categoryId: 'c' },
       'review:applyRetroactive': { merchantKey: 'm', categoryId: 'c' },

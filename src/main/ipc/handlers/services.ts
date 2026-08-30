@@ -71,6 +71,9 @@ export interface AppServices {
   listOllamaModels(): Promise<unknown>;
   refreshAnalysis(): Promise<unknown>;
   syncNow(): Promise<unknown>;
+  listOverrides(): Promise<unknown>;
+  clearOverride(input: unknown): Promise<unknown>;
+  modelStatus(): Promise<unknown>;
   testModel(): Promise<unknown>;
   recategorizePending(): Promise<unknown>;
 }

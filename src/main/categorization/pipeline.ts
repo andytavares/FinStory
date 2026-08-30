@@ -49,6 +49,15 @@ export interface PipelineOptions {
   readonly confidenceThreshold: number;
   /** When true, the model stage is skipped entirely (FR-061, local_only mode). */
   readonly localOnly?: boolean;
+  /**
+   * The taxonomy as it exists right now.
+   *
+   * Heuristics name category ids literally and a model can return anything, but
+   * the user is free to delete categories. Without this the pipeline can return
+   * an id no longer in the database, and the categorization insert dies on a
+   * foreign key — taking the whole sync down with it.
+   */
+  readonly validCategoryIds?: ReadonlySet<string>;
 }
 
 const UNCATEGORIZABLE = 'uncategorizable';
@@ -100,13 +109,25 @@ export class CategorizationPipeline {
     } as MerchantProfile);
   }
 
+  /**
+   * Coerce an answer to something that exists.
+   *
+   * Uncategorizable is the honest answer for "the category this belongs to is
+   * gone", and it puts the transaction in the review queue where the user can
+   * assign a real one (Constitution IX).
+   */
+  #known(categoryId: string): boolean {
+    const valid = this.options.validCategoryIds;
+    return valid === undefined || valid.has(categoryId);
+  }
+
   async categorize(input: CategorizationInput): Promise<CategorizationResult> {
     const merchantKey = normalizeMerchantKey(input.descriptor);
     const profile = this.#profiles.get(merchantKey);
 
     // Stage one — free, instant, nothing leaves the machine.
     const local = classifyLocally(profile);
-    if (local) {
+    if (local && this.#known(local.categoryId)) {
       this.#record(merchantKey, local.categoryId);
       return {
         transactionId: input.transactionId,
@@ -146,6 +167,20 @@ export class CategorizationPipeline {
       return this.#withoutModel(input, merchantKey, profile);
     }
 
+    if (!this.#known(result.categoryId)) {
+      // The model answered outside the taxonomy. Flag it rather than writing a
+      // category that does not exist.
+      this.#record(merchantKey, UNCATEGORIZABLE);
+      return {
+        transactionId: input.transactionId,
+        categoryId: UNCATEGORIZABLE,
+        confidence: 0,
+        source: 'model',
+        needsReview: true,
+        reasoning: `The model suggested "${result.categoryId}", which is not one of your categories`,
+      };
+    }
+
     this.#record(merchantKey, result.categoryId);
     return {
       transactionId: input.transactionId,
@@ -167,7 +202,7 @@ export class CategorizationPipeline {
     profile: MerchantProfile | undefined,
   ): CategorizationResult {
     const fromHistory = profile ? dominantCategory(profile) : null;
-    if (fromHistory) {
+    if (fromHistory && this.#known(fromHistory)) {
       this.#record(merchantKey, fromHistory);
       return {
         transactionId: input.transactionId,
@@ -180,7 +215,7 @@ export class CategorizationPipeline {
     }
 
     const heuristic = classifyByHeuristic(input.descriptor);
-    if (heuristic) {
+    if (heuristic && this.#known(heuristic.categoryId)) {
       this.#record(merchantKey, heuristic.categoryId);
       return {
         transactionId: input.transactionId,
@@ -199,7 +234,9 @@ export class CategorizationPipeline {
       confidence: 0,
       source: 'local_history',
       needsReview: true,
-      reasoning: 'No model configured and no history for this merchant yet',
+      reasoning: this.options.localOnly
+        ? 'No model configured and no history for this merchant yet'
+        : 'No history for this merchant and the model could not resolve it',
     };
   }
 

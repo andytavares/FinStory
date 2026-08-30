@@ -32,6 +32,31 @@ interface RecategorizeResult {
  * FR-074: a retroactive pass states its blast radius and changes nothing until
  * confirmed.
  */
+interface ModelStatus {
+  readonly localOnly: boolean;
+  readonly reason: string;
+}
+
+/**
+ * Why everything is uncategorized.
+ *
+ * A queue full of "uncategorizable at 0%" with no explanation reads as the app
+ * being broken. It is usually a setting.
+ */
+function ModelNotice(): React.JSX.Element | null {
+  const { data } = useQuery<ModelStatus>('model:status');
+  if (!data?.localOnly) return null;
+  return (
+    <p
+      role="status"
+      className="border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[12px] text-[var(--color-ink-faint)]"
+    >
+      {data.reason} Transactions a model could name are landing here instead. Set one up under
+      Settings, then use Recategorize unresolved.
+    </p>
+  );
+}
+
 export function Review(): React.JSX.Element {
   const { data, loading, refetch } = useQuery<QueueResponse>('review:queue', { limit: 100, offset: 0 });
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
@@ -85,6 +110,8 @@ export function Review(): React.JSX.Element {
         <h1 className="text-[20px]">Review</h1>
         <p className="text-[12px] text-[var(--color-ink-faint)]">{data.totalCount} flagged</p>
       </div>
+
+      <ModelNotice />
 
       {pendingRetro && (
         <div className="border border-[var(--color-attention)] bg-[var(--color-surface)] p-4">

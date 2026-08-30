@@ -11,6 +11,7 @@ import {
   Tags,
   Bell,
   Landmark,
+  Undo2,
   ArrowLeft,
   ArrowRight,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ import { Reports } from './views/Reports';
 import { Health } from './views/Health';
 import { Settings } from './views/Settings';
 import { Categories } from './views/Categories';
+import { Overrides } from './views/Overrides';
 import { Alerts } from './views/Alerts';
 import { Setup } from './views/Setup';
 import { Accounts } from './views/Accounts';
@@ -39,6 +41,7 @@ type ViewId =
   | 'alerts'
   | 'reports'
   | 'health'
+  | 'overrides'
   | 'categories'
   | 'accounts'
   | 'settings';
@@ -52,6 +55,7 @@ const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboa
   { id: 'alerts', label: 'Alerts', Icon: Bell },
   { id: 'reports', label: 'Reports', Icon: FileText },
   { id: 'health', label: 'Health', Icon: Activity },
+  { id: 'overrides', label: 'Overrides', Icon: Undo2 },
   { id: 'categories', label: 'Categories', Icon: Tags },
   { id: 'accounts', label: 'Accounts', Icon: Landmark },
   { id: 'settings', label: 'Settings', Icon: SettingsIcon },
@@ -188,6 +192,7 @@ export function App(): React.JSX.Element {
             />
           )}
           {view === 'health' && <Health />}
+          {view === 'overrides' && <Overrides />}
           {view === 'categories' && <Categories />}
           {view === 'accounts' && <Accounts />}
           {view === 'settings' && <Settings />}

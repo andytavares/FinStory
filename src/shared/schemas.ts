@@ -147,6 +147,19 @@ export const merchantRenameSchema = z.object({
 export const pathSchema = z.object({ destPath: z.string().default('') });
 export const importSchema = z.object({ srcPath: z.string().default('') });
 export const deleteAllSchema = z.object({ confirmation: z.literal('DELETE ALL MY DATA') });
+export const clearOverrideSchema = z.object({
+  kind: z.enum([
+    'merchant_name',
+    'transaction_name',
+    'merchant_category',
+    'transaction_category',
+    'excluded',
+    'recurring',
+    'note',
+  ]),
+  target: z.string().min(1),
+});
+
 export const idSchema = z.object({ id: z.string().min(1) });
 export const alertIdSchema = z.object({ alertId: z.string().min(1) });
 export const transactionIdsSchema = z.object({

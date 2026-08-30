@@ -20,6 +20,7 @@ import {
   categoryDeleteSchema,
   settingsUpdateSchema,
   pathSchema,
+  clearOverrideSchema,
   importSchema,
   deleteAllSchema,
   idSchema,
@@ -154,6 +155,9 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('data:deleteAll', deleteAllSchema, () => services.deleteAllData());
 
   registry.handle('analysis:refresh', empty, () => services.refreshAnalysis());
+  registry.handle('overrides:list', empty, () => services.listOverrides());
+  registry.handle('overrides:clear', clearOverrideSchema, (p) => services.clearOverride(p));
+  registry.handle('model:status', empty, () => services.modelStatus());
   registry.handle('model:test', empty, () => services.testModel());
   registry.handle('categorization:rerun', empty, () => services.recategorizePending());
 
