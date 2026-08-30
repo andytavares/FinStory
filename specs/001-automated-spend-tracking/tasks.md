@@ -101,8 +101,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ### Tests for User Story 1 (MANDATORY — write first, must fail)
 
-- [ ] T043 [P] [US1] Write failing tests for Hosted Link token creation and `/link/token/get` polling in `tests/unit/plaid/link.test.ts`
-- [ ] T044 [P] [US1] Write failing tests for the `/transactions/sync` cursor loop — pagination, cursor persistence, and crash-mid-sync resumption — in `tests/unit/plaid/sync.test.ts`
+- [X] T043 [P] [US1] Write failing tests for Hosted Link token creation and `/link/token/get` polling in `tests/unit/plaid/link.test.ts`
+- [X] T044 [P] [US1] Write failing tests for the `/transactions/sync` cursor loop — pagination, cursor persistence, and crash-mid-sync resumption — in `tests/unit/plaid/sync.test.ts`
 - [X] T045 [P] [US1] Write failing tests for `added`/`modified`/`removed` application, asserting exactly-once ingestion and in-place update, in `tests/unit/ingestion/apply.test.ts` (quickstart V3)
 - [X] T046 [P] [US1] Write failing tests for internal-transfer and refund/reversal detection in `tests/unit/ingestion/exclusions.test.ts` (FR-007, FR-008)
 - [X] T047 [P] [US1] Write failing tests for foreign-currency handling asserting settled amount is authoritative and `original_amount` never enters a sum, in `tests/unit/ingestion/currency.test.ts` (quickstart V20)
@@ -110,27 +110,27 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T049 [P] [US1] Write failing tests for the model fallback, asserting structured output parsing and that **ingestion still succeeds when categorization fails**, in `tests/unit/categorization/model.test.ts`
 - [X] T050 [P] [US1] Write failing tests for the two-stage pipeline asserting confirmed merchants resolve locally **with no API call**, in `tests/unit/categorization/pipeline.test.ts` (quickstart V6)
 - [X] T051 [P] [US1] Write failing test asserting category totals reconcile exactly to transaction totals for any range, in `tests/unit/analysis/reconciliation.test.ts` (FR-018, SC-004, quickstart V4)
-- [ ] T052 [P] [US1] Write failing tests for the category taxonomy — one-level nesting enforcement, rename by stable id, merge, hide — in `tests/unit/categories/taxonomy.test.ts` (quickstart V19)
+- [X] T052 [P] [US1] Write failing tests for the category taxonomy — one-level nesting enforcement, rename by stable id, merge, hide — in `tests/unit/categories/taxonomy.test.ts` (quickstart V19)
 - [ ] T053 [P] [US1] Write failing integration test for the full Sandbox sync path in `tests/integration/plaid-sync.test.ts`
 - [X] T053a [P] [US1] Build a labeled transaction fixture corpus with known-correct categories in `tests/fixtures/categorization-corpus.ts`, spanning unambiguous merchants, mixed-use merchants, and generic descriptors
 - [X] T053b [P] [US1] Write failing test asserting hands-off categorization accuracy **meets 94%** against the labeled corpus, in `tests/unit/categorization/accuracy.test.ts` (SC-002) — this is the product's central quality bar and must be measurable, not assumed
-- [ ] T053c [P] [US1] Write failing test asserting the system keeps operating and reporting on best-guess categories when the review queue is never opened, in `tests/unit/categorization/unreviewed.test.ts` (FR-017)
+- [X] T053c [P] [US1] Write failing test asserting the system keeps operating and reporting on best-guess categories when the review queue is never opened, in `tests/unit/categorization/unreviewed.test.ts` (FR-017)
 
 ### Implementation for User Story 1
 
-- [ ] T054 [US1] Implement the Plaid client wrapper and credential loading in `src/main/plaid/client.ts`
-- [ ] T055 [US1] Implement Hosted Link flow — `/link/token/create` without `redirect_uri`, then `/link/token/get` polling — in `src/main/plaid/link.ts` (research.md R1)
-- [ ] T056 [US1] Implement `/item/public_token/exchange` and encrypted `access_token` persistence in `src/main/plaid/link.ts`
-- [ ] T057 [US1] Implement the `/transactions/sync` cursor loop in `src/main/plaid/sync.ts`, persisting the cursor **in the same database transaction as the data it describes**
+- [X] T054 [US1] Implement the Plaid client wrapper and credential loading in `src/main/plaid/client.ts`
+- [X] T055 [US1] Implement Hosted Link flow — `/link/token/create` without `redirect_uri`, then `/link/token/get` polling — in `src/main/plaid/link.ts` (research.md R1)
+- [X] T056 [US1] Implement `/item/public_token/exchange` and encrypted `access_token` persistence in `src/main/plaid/link.ts`
+- [X] T057 [US1] Implement the `/transactions/sync` cursor loop in `src/main/plaid/sync.ts`, persisting the cursor **in the same database transaction as the data it describes**
 - [X] T058 [US1] Implement `added`/`modified`/`removed` application in `src/main/ingestion/apply.ts` — insert keyed on `plaid_transaction_id`, update in place, mark removed without deleting
 - [X] T059 [US1] Implement internal-transfer detection in `src/main/ingestion/transfers.ts` (FR-007)
 - [X] T060 [US1] Implement refund and reversal linkage in `src/main/ingestion/reversals.ts` (FR-008)
 - [X] T061 [US1] Implement foreign-currency metadata capture in `src/main/ingestion/currency.ts` — settled amount authoritative, original display-only (FR-084–FR-086)
-- [ ] T062 [US1] Implement historical backfill on first connection in `src/main/plaid/backfill.ts` (FR-004)
-- [ ] T063 [US1] Seed the curated default category taxonomy in `src/main/db/seed-categories.ts` (FR-078)
-- [ ] T064 [US1] Implement category management — create with nesting check, rename, merge with restatement, hide — in `src/main/categories/manage.ts` (FR-079–FR-083)
+- [X] T062 [US1] Implement historical backfill on first connection in `src/main/plaid/backfill.ts` (FR-004)
+- [X] T063 [US1] Seed the curated default category taxonomy in `src/main/db/seed-categories.ts` (FR-078)
+- [X] T064 [US1] Implement category management — create with nesting check, rename, merge with restatement, hide — in `src/main/categories/manage.ts` (FR-079–FR-083)
 - [X] T065 [US1] Implement the merchant-profile store and local classifier in `src/main/categorization/local.ts` (data-model.md `merchant_profiles`)
-- [ ] T066 [US1] Implement the Claude fallback in `src/main/categorization/model.ts` using `output_config.format` structured outputs, adaptive thinking, and prompt caching on the taxonomy prefix. **Never send `budget_tokens`** (contracts/external-services.md)
+- [X] T066 [US1] Implement the Claude fallback in `src/main/categorization/model.ts` using `output_config.format` structured outputs, adaptive thinking, and prompt caching on the taxonomy prefix. **Never send `budget_tokens`** (contracts/external-services.md)
 - [X] T067 [US1] Implement the two-stage pipeline with confidence threshold and review flagging in `src/main/categorization/pipeline.ts` (FR-010–FR-013)
 - [X] T068 [US1] Implement `local_only` categorization mode as a settings-driven skip of the model stage in `src/main/categorization/pipeline.ts` (FR-061)
 - [X] T069 [US1] Implement the single canonical spending predicate (excludes removed, excludes transfers, nets reversals) in `src/main/analysis/spending.ts` — **this must live in exactly one place** (Constitution II)
@@ -266,11 +266,11 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ### Implementation for User Story 6
 
-- [ ] T120 [US6] Implement the review queue query in `src/main/categorization/review.ts`, returning guess, confidence, and reasoning (FR-013, US6 AS1)
+- [X] T120 [US6] Implement the review queue query in `src/main/categorization/review.ts`, returning guess, confidence, and reasoning (FR-013, US6 AS1)
 - [X] T121 [US6] Implement bulk recategorization in `src/main/categorization/corrections.ts` (FR-014, FR-067)
 - [X] T122 [US6] Implement retroactive-candidate counting and the separate confirmed apply path in `src/main/categorization/retroactive.ts` (FR-074–FR-076)
 - [ ] T123 [US6] Implement full restatement of derived data after any correction in `src/main/analysis/restate.ts` (FR-015, FR-077)
-- [ ] T124 [US6] Implement merchant-profile updating so corrections deterministically drive future categorization in `src/main/categorization/local.ts` (FR-016)
+- [X] T124 [US6] Implement merchant-profile updating so corrections deterministically drive future categorization in `src/main/categorization/local.ts` (FR-016)
 - [ ] T125 [US6] Implement IPC handlers for `review:*` in `src/main/ipc/handlers/review.ts`
 - [ ] T126 [US6] Build the review queue view with bulk selection and the retroactive confirmation prompt in `src/renderer/views/Review.tsx` (FR-067, FR-074)
 
@@ -312,7 +312,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T145 [P] Write E2E test for the review queue and retroactive correction flow in `tests/e2e/review.spec.ts`
 - [ ] T146 Write performance test asserting navigation and filtering across a 24-month, ~10k-transaction fixture stays responsive in `tests/integration/performance.test.ts` (SC-020)
 - [ ] T146a Write an egress audit asserting the **only** outbound payload fields are those disclosed under FR-061, and that no transaction data reaches any third-party server beyond that, in `tests/integration/egress-audit.test.ts` (SC-016, Constitution VII)
-- [ ] T146b Write a static assertion that no money-movement Plaid endpoint (transfer, payment_initiation, or any write operation) is referenced anywhere in `src/`, in `tests/unit/plaid/read-only.test.ts` (FR-049)
+- [X] T146b Write a static assertion that no money-movement Plaid endpoint (transfer, payment_initiation, or any write operation) is referenced anywhere in `src/`, in `tests/unit/plaid/read-only.test.ts` (FR-049)
 - [ ] T146c Write a test asserting recurring-charge detection meets 95% recall with under 10% false positives against a labeled fixture, in `tests/unit/analysis/recurring-rates.test.ts` (SC-005)
 - [ ] T147 Audit the renderer bundle for secrets and confirm zero hits in `tests/e2e/secret-audit.spec.ts` (FR-047, quickstart V15)
 - [ ] T148 Write an assertion sweep over `src/renderer/views/` confirming no manual-entry, reconciliation, or budget-allocation workflow exists, in `tests/e2e/zero-input-doctrine.spec.ts` (SC-021, Constitution VIII)
