@@ -1,0 +1,190 @@
+src/main/sync/store.ts
+  s_f1d20e583de5c0::t_fa7220fdfd3431 1-22,27-34,36-89,91-180,182-184
+  s_f1d20e583de5c0::t_184199b243a025 90
+  s_f1d20e583de5c0::t_b6b1a34fb00080 23-26,35
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 181
+src/main/db/migrations/0003_true_patriot.sql
+  s_f1d20e583de5c0::t_9a1098eb08b568 21
+  s_f1d20e583de5c0::t_184199b243a025 1-20,22-25
+src/main/db/migrations/meta/0002_snapshot.json
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 1-1320
+src/preload/index.ts
+  s_f1d20e583de5c0::t_56fba9bf9e894d 23
+  s_f1d20e583de5c0::t_df43ba280f4f44 54
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 46-47
+  s_f1d20e583de5c0::t_28414fc2ba1104 50
+tests/unit/notifications/queue.test.ts
+  s_f1d20e583de5c0::t_656b79ce5c5954 97-119
+src/renderer/styles.css
+  s_f1d20e583de5c0::t_5c15481400df78 56-69
+src/renderer/views/Accounts.tsx
+  s_f1d20e583de5c0::t_66a6d457009ee9 1-105,111-129
+  s_f1d20e583de5c0::t_577de4dc3cfb29 106-110
+src/renderer/components/Money.tsx
+  s_f1d20e583de5c0::t_5c15481400df78 3-9,13,18,21-33
+tests/unit/categorization/ollama.test.ts
+  s_f1d20e583de5c0::t_aeec6f8154758e 1-105
+src/main/analysis/spending.ts
+  s_f1d20e583de5c0::t_56fba9bf9e894d 20-21,34-35,44
+src/renderer/views/Settings.tsx
+  s_f1d20e583de5c0::t_e03cdcfb769cc5 1,5-10,12-124,138
+tests/unit/renderer/categories.test.tsx
+  s_f1d20e583de5c0::t_2f1d078e4971a5 1-66
+tests/unit/renderer/categories-view.test.tsx
+  s_f1d20e583de5c0::t_87a805ada240c6 1-147
+src/shared/schemas.ts
+  s_f1d20e583de5c0::t_56fba9bf9e894d 92,105-108,111-115
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 71-78,81-83,87-91
+  s_f1d20e583de5c0::t_e03cdcfb769cc5 95-96,98-101
+  s_f1d20e583de5c0::t_411f2fbd7ed5da 109-110
+  s_f1d20e583de5c0::t_130e558a6c0c19 93
+src/shared/types.ts
+  s_f1d20e583de5c0::t_56fba9bf9e894d 34-37
+  s_f1d20e583de5c0::t_e03cdcfb769cc5 120-121,126-129
+src/main/categorization/pipeline.ts
+  s_f1d20e583de5c0::t_2dd7e5ba664474 2,104-106,108,125,139-181
+  s_f1d20e583de5c0::t_fd48120a7f00ac 182-184
+src/main/db/migrations/meta/_journal.json
+  s_f1d20e583de5c0::t_69226c18ee2c46 11-17
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 18-24
+  s_f1d20e583de5c0::t_184199b243a025 25-31
+tests/unit/renderer/editor.test.tsx
+  s_f1d20e583de5c0::t_b06090911e760d 42,57,80,95,119,122,124-171
+  s_f1d20e583de5c0::t_34ab2ba0608296 174-223
+  s_f1d20e583de5c0::t_64abefbf1f3374 1-41,43-56,58-79,81-94,96-118,120-121,123,172-173
+src/main/index.ts
+  s_f1d20e583de5c0::t_fe22f21f9952de 14-15,17-18,20,37-38,71-128,132-140,150,153-154,268-279,291
+  s_f1d20e583de5c0::t_ba06b3911356f2 16,129-131
+  s_f1d20e583de5c0::t_5f1617bcb0e761 8,19,61-65
+  s_f1d20e583de5c0::t_9b87ffac64a7fc 66
+tests/integration/sync-store.test.ts
+  s_f1d20e583de5c0::t_546c282bad80f2 1-220
+tests/unit/categorization/factory.test.ts
+  s_f1d20e583de5c0::t_aeec6f8154758e 1-56
+tests/integration/services-with-data.test.ts
+  s_f1d20e583de5c0::t_f8703c72c85538 419-442,444-453,456-463,482-487,489-499,502-524,526-531,533-551,553-557
+  s_f1d20e583de5c0::t_ecbc188925572f 418,443,454-455,464,488,500-501,525,532,552,558
+  s_f1d20e583de5c0::t_3034860ca2ecc1 465-481
+src/main/ipc/handlers/index.ts
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 16,128-129
+  s_f1d20e583de5c0::t_56fba9bf9e894d 24,102-103
+  s_f1d20e583de5c0::t_df43ba280f4f44 147
+  s_f1d20e583de5c0::t_28414fc2ba1104 104,134-141
+src/main/db/seed-categories.ts
+  s_f1d20e583de5c0::t_5f1617bcb0e761 77-96
+src/main/services/index.ts
+  s_f1d20e583de5c0::t_df43ba280f4f44 27-28,1027-1032,1066-1074
+  s_f1d20e583de5c0::t_184199b243a025 771-773
+  s_f1d20e583de5c0::t_56fba9bf9e894d 376-379,548-559,561-565,570-571,594-602,604-605,632-635,637-644,650-651,1085-1090,1165
+  s_f1d20e583de5c0::t_3db0d1cbd01d48 29-32,61-62,113-225,228-230
+  s_f1d20e583de5c0::t_28414fc2ba1104 14-16,860-963,1075,1230
+  s_f1d20e583de5c0::t_d53ef60e46988b 603,606-631,645-649
+  s_f1d20e583de5c0::t_411f2fbd7ed5da 337,341,364-367,462,465,479-480,482-485,560,566-569,572-593,636,1226-1229
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 794-819,823,831
+  s_f1d20e583de5c0::t_62a768d8bb4f91 964,1076,1231
+src/main/ipc/handlers/services.ts
+  s_f1d20e583de5c0::t_28414fc2ba1104 58
+  s_f1d20e583de5c0::t_df43ba280f4f44 67
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 54-55
+  s_f1d20e583de5c0::t_56fba9bf9e894d 37
+tests/integration/egress-audit.test.ts
+  s_f1d20e583de5c0::t_91711cf0853748 78-82,107-132
+  s_f1d20e583de5c0::t_0b7ac0be582931 133
+tests/unit/categorization/heuristics.test.ts
+  s_f1d20e583de5c0::t_5422fbabf86afc 1-135
+tests/integration/migration-upgrade.test.ts
+  s_f1d20e583de5c0::t_5d496af50c365f 1-113
+tests/integration/services.test.ts
+  s_f1d20e583de5c0::t_2b6af32c77ff84 260-349
+tests/unit/categorization/pipeline.test.ts
+  s_f1d20e583de5c0::t_30359fc8c7e442 64-65,68-73
+src/main/db/migrations/0001_friendly_nextwave.sql
+  s_f1d20e583de5c0::t_69226c18ee2c46 1-4
+src/renderer/App.tsx
+  s_f1d20e583de5c0::t_df43ba280f4f44 13,26,40,53,66-74,114
+tests/e2e/editing.spec.ts
+  s_f1d20e583de5c0::t_5b232b1791070c 20-23,26-28,33,37
+  s_f1d20e583de5c0::t_8c323f9d739665 1-19,24-25,29-32,34-36,38-51
+src/main/categorization/heuristics.ts
+  s_f1d20e583de5c0::t_2dd7e5ba664474 1-101
+src/main/plaid/accounts.ts
+  s_f1d20e583de5c0::t_4d8ed9f0394bd9 1,35
+  s_f1d20e583de5c0::t_87f7de820bac7d 2-34,36-54
+src/renderer/components/TransactionEditor.tsx
+  s_f1d20e583de5c0::t_d53ef60e46988b 186-188,206-209,219-227,358-396
+  s_f1d20e583de5c0::t_e8ad6aafb44429 1-12,20-22,33-35,168-171,173-176,178-185,189-205,210-218,228-244,255-357,397-400
+  s_f1d20e583de5c0::t_2f1d078e4971a5 13-19,23-32
+  s_f1d20e583de5c0::t_e302a4d88414fa 36-167,172,177,245-254
+src/main/settings/index.ts
+  s_f1d20e583de5c0::t_e03cdcfb769cc5 18-24,42-45
+src/main/db/migrations/meta/0001_snapshot.json
+  s_f1d20e583de5c0::t_69226c18ee2c46 1-1313
+src/main/db/migrations/0002_rainy_catseye.sql
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 1-3
+src/main/db/migrations/meta/0003_snapshot.json
+  s_f1d20e583de5c0::t_184199b243a025 1-1359
+src/main/categorization/factory.ts
+  s_f1d20e583de5c0::t_9922743b99b771 1-94
+src/renderer/views/Register.tsx
+  s_f1d20e583de5c0::t_1eab02ad036fc7 2,15-22,36-37,104-117,119-125
+  s_f1d20e583de5c0::t_e8ad6aafb44429 6,118
+  s_f1d20e583de5c0::t_5c15481400df78 23-28,38,85,89,129-139,141-145,151-155
+  s_f1d20e583de5c0::t_e302a4d88414fa 146-150
+src/main/db/schema.ts
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 182-183,186-188,192
+  s_f1d20e583de5c0::t_69226c18ee2c46 70-79
+  s_f1d20e583de5c0::t_184199b243a025 199-203,266-277
+  s_f1d20e583de5c0::t_f96780d3e792bd 278
+tests/e2e/connect-and-models.spec.ts
+  s_f1d20e583de5c0::t_40a2dcb4d7db6d 27,37,44
+  s_f1d20e583de5c0::t_6d44912d222b19 1-26,32,34-36,38-43,46-51
+  s_f1d20e583de5c0::t_9eb176b584d838 28-31,33,45
+tests/unit/plaid/accounts.test.ts
+  s_f1d20e583de5c0::t_546c282bad80f2 1-85
+tests/unit/renderer/views.test.tsx
+  s_f1d20e583de5c0::t_9331cdb5d759ad 17,470-512
+  s_f1d20e583de5c0::t_938348e31bbb0c 93,108-111,118-123,128-130,406,410,416-421,459
+  s_f1d20e583de5c0::t_a4ed1d0a938e47 513-588
+  s_f1d20e583de5c0::t_d24415273ccf5c 312-313,317-318,320-345
+src/renderer/views/Categories.tsx
+  s_f1d20e583de5c0::t_cb74974b17dc9a 11,16-18,24-31,41-45,51,61-62,65-66,69,73,76,82-170,175-223,226-231
+src/renderer/views/Reports.tsx
+  s_f1d20e583de5c0::t_28414fc2ba1104 1-2,19-54,59-69,75-79
+tests/unit/ipc/handlers.test.ts
+  s_f1d20e583de5c0::t_28414fc2ba1104 58,116
+  s_f1d20e583de5c0::t_df43ba280f4f44 62
+  s_f1d20e583de5c0::t_56fba9bf9e894d 32,97
+  s_f1d20e583de5c0::t_e0746cc9ee98fe 54-55,113-114
+src/renderer/views/Alerts.tsx
+  s_f1d20e583de5c0::t_2af410cd9cd0f0 146
+  s_f1d20e583de5c0::t_6bd3f292c61c7a 1,9,13-145,147-154,178,181
+src/renderer/views/Review.tsx
+  s_f1d20e583de5c0::t_e302a4d88414fa 209
+  s_f1d20e583de5c0::t_fd4bc330ffd5e0 5,39,131,163-167,187-194,196-208,210-218
+  s_f1d20e583de5c0::t_90d2f97a0cfb97 14-21,35-36,38,54,68,123-130,132-137,140-145,147,186,195
+  s_f1d20e583de5c0::t_a10cf552ce3d6f 152
+src/main/categorization/ollama.ts
+  s_f1d20e583de5c0::t_9922743b99b771 1-91
+src/renderer/lib/ipc.ts
+  s_f1d20e583de5c0::t_eb8ca6573c5881 12-13,16,18-23,34-35,40,42
+src/renderer/views/Income.tsx
+  s_f1d20e583de5c0::t_325f0f304c583f 8,37-39,47-49
+src/renderer/views/Recurring.tsx
+  s_f1d20e583de5c0::t_4caffeae969485 9,61-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "67a1dd966927c78af1deb6c0865f53adae45266b",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
