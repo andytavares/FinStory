@@ -1,0 +1,59 @@
+tests/unit/renderer/views.test.tsx
+  s_f1d20e583de5c0::t_2936de83b49ef4 159,170,189,491-570,580-601,613
+src/renderer/views/Register.tsx
+  s_f1d20e583de5c0::t_755b7c79ce3dd2 40-45,123-155,198-204,206-214
+src/renderer/views/Accounts.tsx
+  s_f1d20e583de5c0::t_c75f1523a59637 5,88-105,108-113,115,117-164,170-174
+  s_f1d20e583de5c0::t_603071ee468bdf 175
+src/main/db/schema.ts
+  s_f1d20e583de5c0::t_3bd497c1fbb7be 39-47
+tests/integration/sync-store.test.ts
+  s_f1d20e583de5c0::t_41c3def80e8f7c 87
+src/shared/schemas.ts
+  s_f1d20e583de5c0::t_27d7ae91e91674 25-29
+src/preload/index.ts
+  s_f1d20e583de5c0::t_27d7ae91e91674 19
+src/main/services/index.ts
+  s_f1d20e583de5c0::t_97611b20895ecb 171-173,1646-1659
+  s_f1d20e583de5c0::t_27d7ae91e91674 247-258,262-269
+  s_f1d20e583de5c0::t_4bf4c54cb944f4 270,340-343,467-470,474,851,854,859-860,1434,1466-1467,1475,1478,1480,1505-1524,1575-1595
+  s_f1d20e583de5c0::t_093a04a991dd2c 271,1596,1660-1661
+tests/integration/services-with-data.test.ts
+  s_f1d20e583de5c0::t_f4cced0b537990 218-285
+  s_f1d20e583de5c0::t_41c3def80e8f7c 77
+tests/unit/ipc/handlers.test.ts
+  s_f1d20e583de5c0::t_27d7ae91e91674 28,96
+src/renderer/views/Income.tsx
+  s_f1d20e583de5c0::t_27d7ae91e91674 46
+src/main/ipc/handlers/index.ts
+  s_f1d20e583de5c0::t_27d7ae91e91674 8,60-61
+  s_f1d20e583de5c0::t_7f096cca2f4345 62
+tests/unit/renderer/register.test.tsx
+  s_f1d20e583de5c0::t_f85cfb7f52949b 105-172
+src/shared/types.ts
+  s_f1d20e583de5c0::t_27d7ae91e91674 3-14,21,88,100
+src/main/ipc/handlers/services.ts
+  s_f1d20e583de5c0::t_27d7ae91e91674 20
+src/renderer/views/Recurring.tsx
+  s_f1d20e583de5c0::t_27d7ae91e91674 63
+src/main/db/migrations/meta/_journal.json
+  s_f1d20e583de5c0::t_3d736ac7e9162d 39-45
+src/main/db/migrations/0005_everyday_accounts.sql
+  s_f1d20e583de5c0::t_3d736ac7e9162d 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "fe6af94a1d99b820889eb96e0e7157b2a00020dc",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
