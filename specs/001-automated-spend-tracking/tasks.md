@@ -109,7 +109,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T048 [P] [US1] Write failing tests for the local merchant-history classifier in `tests/unit/categorization/local.test.ts`
 - [ ] T049 [P] [US1] Write failing tests for the model fallback, asserting structured output parsing and that **ingestion still succeeds when categorization fails**, in `tests/unit/categorization/model.test.ts`
 - [ ] T050 [P] [US1] Write failing tests for the two-stage pipeline asserting confirmed merchants resolve locally **with no API call**, in `tests/unit/categorization/pipeline.test.ts` (quickstart V6)
-- [ ] T051 [P] [US1] Write failing test asserting category totals reconcile exactly to transaction totals for any range, in `tests/unit/analysis/reconciliation.test.ts` (FR-018, SC-004, quickstart V4)
+- [X] T051 [P] [US1] Write failing test asserting category totals reconcile exactly to transaction totals for any range, in `tests/unit/analysis/reconciliation.test.ts` (FR-018, SC-004, quickstart V4)
 - [ ] T052 [P] [US1] Write failing tests for the category taxonomy — one-level nesting enforcement, rename by stable id, merge, hide — in `tests/unit/categories/taxonomy.test.ts` (quickstart V19)
 - [ ] T053 [P] [US1] Write failing integration test for the full Sandbox sync path in `tests/integration/plaid-sync.test.ts`
 - [ ] T053a [P] [US1] Build a labeled transaction fixture corpus with known-correct categories in `tests/fixtures/categorization-corpus.ts`, spanning unambiguous merchants, mixed-use merchants, and generic descriptors
@@ -133,8 +133,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T066 [US1] Implement the Claude fallback in `src/main/categorization/model.ts` using `output_config.format` structured outputs, adaptive thinking, and prompt caching on the taxonomy prefix. **Never send `budget_tokens`** (contracts/external-services.md)
 - [ ] T067 [US1] Implement the two-stage pipeline with confidence threshold and review flagging in `src/main/categorization/pipeline.ts` (FR-010–FR-013)
 - [ ] T068 [US1] Implement `local_only` categorization mode as a settings-driven skip of the model stage in `src/main/categorization/pipeline.ts` (FR-061)
-- [ ] T069 [US1] Implement the single canonical spending predicate (excludes removed, excludes transfers, nets reversals) in `src/main/analysis/spending.ts` — **this must live in exactly one place** (Constitution II)
-- [ ] T070 [US1] Implement category and merchant breakdown queries in `src/main/analysis/breakdown.ts` (FR-043)
+- [X] T069 [US1] Implement the single canonical spending predicate (excludes removed, excludes transfers, nets reversals) in `src/main/analysis/spending.ts` — **this must live in exactly one place** (Constitution II)
+- [X] T070 [US1] Implement category and merchant breakdown queries in `src/main/analysis/breakdown.ts` (FR-043)
 - [ ] T071 [US1] Implement IPC handlers for `setup:*`, `link:*`, `institutions:*`, `dashboard:get`, `breakdown:*`, `transactions:query`, `categories:*`, `sync:now` in `src/main/ipc/handlers/`
 - [ ] T072 [P] [US1] Build the first-run setup view in `src/renderer/views/Setup.tsx` — credentials, environment, Hosted Link launch
 - [ ] T073 [P] [US1] Build the dashboard view in `src/renderer/views/Dashboard.tsx` — balances, cash flow, category breakdown, what changed (FR-062, SC-019)
@@ -154,13 +154,13 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ### Tests for User Story 2 (MANDATORY — write first, must fail)
 
-- [ ] T077 [P] [US2] Write failing tests for the shared cadence detector across monthly, quarterly, annual, and weekly patterns in `tests/unit/analysis/cadence.test.ts`
-- [ ] T078 [P] [US2] Write failing tests asserting irregular repeat purchases are **not** classified as recurring in `tests/unit/analysis/recurring-negative.test.ts` (FR-025)
-- [ ] T079 [P] [US2] Write failing tests for amount-change detection and inactive marking in `tests/unit/analysis/recurring-lifecycle.test.ts` (FR-023, FR-024)
+- [X] T077 [P] [US2] Write failing tests for the shared cadence detector across monthly, quarterly, annual, and weekly patterns in `tests/unit/analysis/cadence.test.ts`
+- [X] T078 [P] [US2] Write failing tests asserting irregular repeat purchases are **not** classified as recurring in `tests/unit/analysis/recurring-negative.test.ts` (FR-025)
+- [X] T079 [P] [US2] Write failing tests for amount-change detection and inactive marking in `tests/unit/analysis/recurring-lifecycle.test.ts` (FR-023, FR-024)
 
 ### Implementation for User Story 2
 
-- [ ] T080 [US2] Implement the shared cadence detector in `src/main/analysis/cadence.ts` as a **pure function over passed-in transactions** (Constitution XIII)
+- [X] T080 [US2] Implement the shared cadence detector in `src/main/analysis/cadence.ts` as a **pure function over passed-in transactions** (Constitution XIII)
 - [ ] T081 [US2] Implement recurring-charge detection and ledger construction in `src/main/analysis/recurring.ts` (FR-019–FR-021)
 - [ ] T082 [US2] Implement amount-change tracking and inactive marking in `src/main/analysis/recurring.ts` (FR-023, FR-024)
 - [ ] T082a [US2] Write failing test asserting a newly detected recurring charge notifies the user exactly once and respects `user_acknowledged`, in `tests/unit/analysis/recurring-notify.test.ts` (FR-022)
@@ -182,8 +182,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 - [ ] T085 [P] [US3] Write failing tests for income detection against credit-direction transactions, including decoy irregular credits, in `tests/unit/analysis/income.test.ts`
 - [ ] T086 [P] [US3] Write failing test asserting the balance projection is **withheld** when no income is detected or confidence is low, in `tests/unit/analysis/projection.test.ts` (FR-073)
-- [ ] T087 [P] [US3] Write failing tests for each alert rule with near-miss boundary cases in `tests/unit/analysis/alerts.test.ts`
-- [ ] T088 [P] [US3] Write failing test asserting `dedupe_key` prevents duplicate alerts on re-ingestion and when one event satisfies multiple triggers, in `tests/unit/analysis/alert-dedupe.test.ts` (FR-031)
+- [X] T087 [P] [US3] Write failing tests for each alert rule with near-miss boundary cases in `tests/unit/analysis/alerts.test.ts`
+- [X] T088 [P] [US3] Write failing test asserting `dedupe_key` prevents duplicate alerts on re-ingestion and when one event satisfies multiple triggers, in `tests/unit/analysis/alert-dedupe.test.ts` (FR-031)
 - [ ] T089 [P] [US3] Write failing tests for downtime catch-up — backlog alerts carry true event time and collapse above threshold — in `tests/unit/scheduler/catchup.test.ts` (quickstart V9)
 
 ### Implementation for User Story 3
@@ -191,9 +191,9 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T090 [US3] Implement income detection reusing `src/main/analysis/cadence.ts` against credit-direction transactions in `src/main/analysis/income.ts` (FR-069, FR-070)
 - [ ] T091 [US3] Implement income confirmation and override with re-derivation suppression in `src/main/analysis/income.ts` (FR-071, FR-072)
 - [ ] T092 [US3] Implement balance-forward projection with confidence-gated withholding in `src/main/analysis/projection.ts` (FR-029, FR-073)
-- [ ] T093 [US3] Implement alert rule evaluation for all five types in `src/main/analysis/alerts.ts` as pure functions (FR-026–FR-029)
-- [ ] T094 [US3] Implement the `dedupe_key` unique-index enforcement in `src/main/analysis/alerts.ts` — **suppression is a database constraint, not application logic a catch-up path can bypass** (FR-031)
-- [ ] T095 [US3] Implement false-positive dismissal that does not disable the rule in `src/main/analysis/alerts.ts` (FR-032)
+- [X] T093 [US3] Implement alert rule evaluation for all five types in `src/main/analysis/alerts.ts` as pure functions (FR-026–FR-029)
+- [X] T094 [US3] Implement the `dedupe_key` unique-index enforcement in `src/main/analysis/alerts.ts` — **suppression is a database constraint, not application logic a catch-up path can bypass** (FR-031)
+- [X] T095 [US3] Implement false-positive dismissal that does not disable the rule in `src/main/analysis/alerts.ts` (FR-032)
 - [ ] T096 [US3] Implement native notification delivery with a retained-undelivered queue in `src/main/notifications/deliver.ts` (FR-030, FR-034)
 - [ ] T097 [US3] Implement the scheduler with cron cadence plus **on-launch catch-up reconciliation** in `src/main/scheduler/index.ts` (FR-056, FR-058, research.md R6)
 - [ ] T098 [US3] Implement backlog-burst collapse into a single "while you were away" summary in `src/main/scheduler/catchup.ts` (FR-031, FR-057)
@@ -213,13 +213,13 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ### Tests for User Story 4 (MANDATORY — write first, must fail)
 
-- [ ] T102 [P] [US4] Write failing tests for baseline computation and the `is_sufficient` gate in `tests/unit/analysis/baselines.test.ts`
-- [ ] T103 [P] [US4] Write failing test asserting **no deviation claim is made** when history is insufficient, in `tests/unit/analysis/baselines-insufficient.test.ts` (FR-040, Constitution IX)
+- [X] T102 [P] [US4] Write failing tests for baseline computation and the `is_sufficient` gate in `tests/unit/analysis/baselines.test.ts`
+- [X] T103 [P] [US4] Write failing test asserting **no deviation claim is made** when history is insufficient, in `tests/unit/analysis/baselines-insufficient.test.ts` (FR-040, Constitution IX)
 - [ ] T104 [P] [US4] Write failing tests for digest generation including the empty-week case in `tests/unit/analysis/digest.test.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T105 [US4] Implement personal baseline computation with the sufficiency gate in `src/main/analysis/baselines.ts` (FR-036, FR-039, FR-040)
+- [X] T105 [US4] Implement personal baseline computation with the sufficiency gate in `src/main/analysis/baselines.ts` (FR-036, FR-039, FR-040)
 - [ ] T106 [US4] Implement weekly digest generation in `src/main/analysis/digest.ts`, stating each projection's assumption (FR-035–FR-037, FR-041)
 - [ ] T107 [US4] Wire digest generation into the scheduler with missed-run generation on launch in `src/main/scheduler/index.ts` (FR-058)
 - [ ] T108 [US4] Implement `data_complete` qualification on digests when any institution was stale during the period in `src/main/analysis/digest.ts` (FR-009, SC-014)
