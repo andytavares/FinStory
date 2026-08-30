@@ -168,7 +168,9 @@ export class Services implements AppServices {
         subtype: a.subtype,
         currentBalanceMinor: a.currentBalanceMinor,
         balanceAsOf: this.deps.clock.now().toISOString(),
-        isMonitored: a.type === 'depository',
+        // Savings and investments are not day-to-day money; the user can
+        // change this per account.
+        isEveryday: a.type === 'depository' && !isSavingsLike(a.subtype),
       });
     }
 
@@ -242,7 +244,29 @@ export class Services implements AppServices {
       status: r.status,
       lastSyncedAt: r.lastSyncedAt,
       accountCount: accounts.filter((a) => a.institutionId === r.id).length,
+      accounts: accounts
+        .filter((a) => a.institutionId === r.id)
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          mask: a.mask,
+          type: a.type,
+          subtype: a.subtype,
+          currentBalanceMinor: a.currentBalanceMinor,
+          balanceAsOf: a.balanceAsOf,
+          isEveryday: a.isEveryday,
+        })),
     }));
+  }
+
+  /** Include or exclude an account from day-to-day money. */
+  async setAccountEveryday(input: unknown): Promise<unknown> {
+    const p = input as { accountId: string; isEveryday: boolean };
+    await this.db
+      .update(t.accounts)
+      .set({ isEveryday: p.isEveryday })
+      .where(eq(t.accounts.id, p.accountId));
+    return { ok: true };
   }
 
   async disconnectInstitution(id: string): Promise<unknown> {
@@ -313,7 +337,10 @@ export class Services implements AppServices {
 
   async breakdownByMerchant(range: unknown): Promise<unknown> {
     const { periodStart, periodEnd } = range as { periodStart: string; periodEnd: string };
-    const rows = await this.transactionsIn(periodStart, periodEnd);
+    const rows = this.everyday(
+      await this.transactionsIn(periodStart, periodEnd),
+      await this.everydayAccountIds(),
+    );
     const totals = new Map<string, { totalMinor: number; count: number }>();
     for (const r of rows) {
       if (!this.countsAsSpending(r)) continue;
@@ -437,10 +464,14 @@ export class Services implements AppServices {
   // ---- Income --------------------------------------------------------------
 
   async listIncome(): Promise<unknown> {
-    const rows = await this.db.select().from(t.incomeSources);
+    const [rows, names] = await Promise.all([
+      this.db.select().from(t.incomeSources),
+      this.merchantDisplayNames(),
+    ]);
     return rows.map((r) => ({
       id: r.id,
       merchantKey: r.merchantKey,
+      merchantName: names.get(r.merchantKey) ?? r.merchantKey,
       expectedAmountMinor: r.expectedAmountMinor,
       cadence: r.cadence,
       nextExpectedDate: r.nextExpectedDate,
@@ -817,13 +848,16 @@ export class Services implements AppServices {
   // ---- Recurring -----------------------------------------------------------
 
   async listRecurring(): Promise<unknown> {
-    const [rows, changes] = await Promise.all([
+    const [rows, changes, names] = await Promise.all([
       this.db.select().from(t.recurringCharges),
       this.db.select().from(t.recurringChargeAmountChanges),
+      this.merchantDisplayNames(),
     ]);
     return rows.map((r) => ({
       id: r.id,
       merchantKey: r.merchantKey,
+      // The name the user sees everywhere else, not the normalized key.
+      merchantName: names.get(r.merchantKey) ?? r.merchantKey,
       currentAmountMinor: r.currentAmountMinor,
       cadence: r.cadence,
       firstSeenDate: r.firstSeenDate,
@@ -1397,7 +1431,7 @@ export class Services implements AppServices {
       this.db.select().from(t.accounts),
     ]);
     const currentBalanceMinor = accounts
-      .filter((a) => a.isMonitored)
+      .filter((a) => a.isEveryday)
       .reduce((a, x) => a + (x.currentBalanceMinor ?? 0), 0);
 
     const projection = projectBalance({
@@ -1429,7 +1463,8 @@ export class Services implements AppServices {
   }
 
   private async dailyBurn(): Promise<number> {
-    const rows = await this.db.select().from(t.transactions);
+    const everydayIds = await this.everydayAccountIds();
+    const rows = this.everyday(await this.db.select().from(t.transactions), everydayIds);
     const cutoff = new Date(this.deps.clock.now().getTime() - BURN_WINDOW_DAYS * 86_400_000);
     const recent = rows.filter((r) => new Date(r.postedDate) >= cutoff && this.countsAsSpending(r));
     if (recent.length === 0) return 0;
@@ -1437,10 +1472,12 @@ export class Services implements AppServices {
   }
 
   private async spendingIn(start: string, end: string): Promise<SpendingTransaction[]> {
-    const [rows, live] = await Promise.all([
+    const [allRows, live, everydayIds] = await Promise.all([
       this.transactionsIn(start, end),
       this.liveCategorizations(),
+      this.everydayAccountIds(),
     ]);
+    const rows = this.everyday(allRows, everydayIds);
     return rows.map((r) => ({
       id: r.id,
       amountMinor: r.amountMinor,
@@ -1463,6 +1500,26 @@ export class Services implements AppServices {
           lte(t.transactions.postedDate, end.slice(0, 10)),
         ),
       );
+  }
+
+  /** Accounts that count as day-to-day money. Savings is deliberately excluded. */
+  private async everydayAccountIds(): Promise<Set<string>> {
+    const rows = await this.db.select().from(t.accounts);
+    return new Set(rows.filter((a) => a.isEveryday).map((a) => a.id));
+  }
+
+  /**
+   * Restrict to everyday accounts.
+   *
+   * Money sitting in savings is not spending money: including it would inflate
+   * every category total and make the runway claim a balance the user is not
+   * actually spending from.
+   */
+  private everyday<T extends { accountId: string }>(
+    rows: readonly T[],
+    everydayIds: ReadonlySet<string>,
+  ): T[] {
+    return rows.filter((r) => everydayIds.has(r.accountId));
   }
 
   private async liveCategorizations(): Promise<Map<string, CategorizationRecord & { reasoning: string | null }>> {
@@ -1515,6 +1572,28 @@ export class Services implements AppServices {
     return new Map(rows.map((r) => [r.merchantKey, r.displayName]));
   }
 
+  /**
+   * Best display name per merchant key.
+   *
+   * Precedence matches the register: a user alias, then a per-transaction
+   * rename, then whatever the bank sent. A normalized key like "uber eats" is
+   * an internal identifier and should never be what the user reads.
+   */
+  private async merchantDisplayNames(): Promise<Map<string, string>> {
+    const [aliases, transactions] = await Promise.all([
+      this.merchantAliases(),
+      this.db.select().from(t.transactions),
+    ]);
+    const names = new Map<string, string>();
+    for (const tx of transactions) {
+      if (!tx.merchantKey) continue;
+      const preferred = tx.userMerchantName ?? tx.merchantName;
+      if (preferred && !names.has(tx.merchantKey)) names.set(tx.merchantKey, preferred);
+    }
+    for (const [key, alias] of aliases) names.set(key, alias);
+    return names;
+  }
+
   private async categoryNames(): Promise<Map<string, string>> {
     const rows = await this.db.select().from(t.categories);
     return new Map(rows.map((r) => [r.id, r.name]));
@@ -1562,6 +1641,22 @@ export class Services implements AppServices {
     });
     return result.canceled ? null : (result.filePaths[0] ?? null);
   }
+}
+
+const SAVINGS_SUBTYPES = new Set([
+  'savings',
+  'cd',
+  'money market',
+  'hsa',
+  'ira',
+  '401k',
+  'brokerage',
+  'roth',
+  '529',
+]);
+
+function isSavingsLike(subtype: string | null): boolean {
+  return subtype !== null && SAVINGS_SUBTYPES.has(subtype.toLowerCase());
 }
 
 /** Opens the Hosted Link URL in the system browser (research.md R1). */

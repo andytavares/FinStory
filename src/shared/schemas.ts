@@ -22,6 +22,11 @@ export const saveCredentialsSchema = z.object({
   anthropicApiKey: z.string().min(1).optional(),
 });
 
+export const accountEverydaySchema = z.object({
+  accountId: z.string().min(1),
+  isEveryday: z.boolean(),
+});
+
 export const linkCompleteSchema = z.object({ linkToken: z.string().min(1) });
 export const institutionIdSchema = z.object({ institutionId: z.string().min(1) });
 

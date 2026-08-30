@@ -60,7 +60,7 @@ export function Recurring(): React.JSX.Element {
             }`}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate">{c.merchantKey}</p>
+              <p className="truncate">{c.merchantName}</p>
               <p className="text-[12px] text-[var(--color-ink-faint)]">
                 {c.cadence} · since {shortDate(c.firstSeenDate)}
                 {c.status === 'inactive' && ' · stopped'}

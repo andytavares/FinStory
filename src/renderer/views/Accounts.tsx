@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { EmptyState } from '../components/EmptyState';
 import { relativeAge } from '../lib/format';
+import { Money } from '../components/Money';
 import type { InstitutionSummary } from '@shared/types';
 
 type LinkState = 'idle' | 'opening' | 'waiting' | 'importing' | 'done';
@@ -84,38 +85,93 @@ export function Accounts(): React.JSX.Element {
       {institutions.data && institutions.data.length > 0 && (
         <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
           {institutions.data.map((i) => (
-            <li key={i.id} className="flex items-center gap-4 bg-[var(--color-surface)] px-4 py-3">
-              <div className="flex-1">
-                <p className="text-[13px]">{i.institutionName}</p>
-                <p className="text-[12px] text-[var(--color-ink-faint)]">
-                  {i.accountCount} account{i.accountCount === 1 ? '' : 's'} · synced{' '}
-                  {relativeAge(i.lastSyncedAt)}
-                </p>
-              </div>
-              {i.status !== 'healthy' && (
+            <li key={i.id}>
+              <div className="flex items-center gap-4 bg-[var(--color-surface)] px-4 py-3">
+                <div className="flex-1">
+                  <p className="text-[13px]">{i.institutionName}</p>
+                  <p className="text-[12px] text-[var(--color-ink-faint)]">
+                    {i.accountCount} account{i.accountCount === 1 ? '' : 's'} · synced{' '}
+                    {relativeAge(i.lastSyncedAt)}
+                  </p>
+                </div>
+                {i.status !== 'healthy' && (
+                  <button
+                    type="button"
+                    onClick={() => void call('institutions:reauth', { institutionId: i.id })}
+                    className="text-[12px] text-[var(--color-attention)]"
+                  >
+                    Reconnect
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => void call('institutions:reauth', { institutionId: i.id })}
-                  className="text-[12px] text-[var(--color-attention)]"
+                  onClick={() => {
+                    void call('institutions:disconnect', { institutionId: i.id }).then(
+                      institutions.refetch,
+                    );
+                  }}
+                  className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
                 >
-                  Reconnect
+                  Disconnect
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  void call('institutions:disconnect', { institutionId: i.id }).then(
-                    institutions.refetch,
-                  );
-                }}
-                className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-              >
-                Disconnect
-              </button>
+              </div>
+
+              {/* Each account individually, with its own balance and whether it
+                  counts as day-to-day money. */}
+              {i.accounts.map((a) => (
+                <div
+                  key={a.id}
+                  className={`flex items-center gap-4 border-t border-[var(--color-line)] bg-[var(--color-ground)] px-4 py-2 pl-8 text-[13px] ${
+                    a.isEveryday ? '' : 'opacity-60'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate">
+                      {a.name}
+                      {a.mask && (
+                        <span className="numeric ml-2 text-[12px] text-[var(--color-ink-faint)]">
+                          ••{a.mask}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[12px] text-[var(--color-ink-faint)]">
+                      {a.subtype ?? a.type}
+                      {a.balanceAsOf ? ` · as of ${relativeAge(a.balanceAsOf)}` : ''}
+                    </p>
+                  </div>
+                  {a.currentBalanceMinor === null ? (
+                    <span className="text-[12px] text-[var(--color-ink-faint)]">
+                      balance unknown
+                    </span>
+                  ) : (
+                    <Money minor={a.currentBalanceMinor} />
+                  )}
+                  <label className="flex items-center gap-2 text-[12px] text-[var(--color-ink-faint)]">
+                    <input
+                      type="checkbox"
+                      checked={a.isEveryday}
+                      onChange={(e) => {
+                        void call('accounts:setEveryday', {
+                          accountId: a.id,
+                          isEveryday: e.target.checked,
+                        }).then(institutions.refetch);
+                      }}
+                      aria-label={`Include ${a.name} in day-to-day spending`}
+                    />
+                    Day-to-day
+                  </label>
+                </div>
+              ))}
             </li>
           ))}
         </ul>
       )}
+
+      <p className="text-[12px] text-[var(--color-ink-faint)]">
+        Accounts marked day-to-day count toward spending totals and the runway. Turn it off for
+        savings and investments — money you are not spending from should not make those numbers
+        look bigger than they are.
+      </p>
 
       <button
         type="button"

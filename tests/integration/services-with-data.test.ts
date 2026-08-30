@@ -74,7 +74,7 @@ describe('Services with realistic data', () => {
       subtype: 'checking',
       currentBalanceMinor: 84_700,
       balanceAsOf: '2026-08-29T11:00:00Z',
-      isMonitored: true,
+      isEveryday: true,
     });
 
     const txs = [
@@ -213,6 +213,74 @@ describe('Services with realistic data', () => {
   afterEach(() => {
     handle.close();
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('lists each account individually under its institution', async () => {
+    const rows = (await services.listInstitutions()) as Array<{
+      accounts: Array<{ id: string; name: string; isEveryday: boolean }>;
+    }>;
+    expect(rows[0]?.accounts).toHaveLength(1);
+    expect(rows[0]?.accounts[0]?.name).toBe('Everyday Checking');
+  });
+
+  it('excludes a non-everyday account from spending totals', async () => {
+    const before = (await services.dashboard(RANGE)) as {
+      cashFlowMinor: { spendingMinor: number };
+    };
+    expect(before.cashFlowMinor.spendingMinor).toBeLessThan(0);
+
+    await services.setAccountEveryday({ accountId: 'acct_1', isEveryday: false });
+
+    const after = (await services.dashboard(RANGE)) as {
+      cashFlowMinor: { spendingMinor: number; incomeMinor: number };
+      categoryBreakdown: { totalMinor: number };
+    };
+    // Every transaction lives on that account, so day-to-day goes to zero.
+    expect(after.cashFlowMinor.spendingMinor).toBe(0);
+    expect(after.cashFlowMinor.incomeMinor).toBe(0);
+    expect(after.categoryBreakdown.totalMinor).toBe(0);
+  });
+
+  it('excludes a non-everyday balance from the runway', async () => {
+    await services.setAccountEveryday({ accountId: 'acct_1', isEveryday: false });
+    const d = (await services.dashboard(RANGE)) as {
+      runway: { currentBalanceMinor: number };
+    };
+    expect(d.runway.currentBalanceMinor).toBe(0);
+  });
+
+  it('the transaction register still shows excluded accounts', async () => {
+    await services.setAccountEveryday({ accountId: 'acct_1', isEveryday: false });
+    const q = (await services.queryTransactions({ limit: 50, offset: 0 })) as {
+      totalCount: number;
+    };
+    // Excluded from totals, not hidden from the log.
+    expect(q.totalCount).toBeGreaterThan(0);
+  });
+
+  it('names recurring charges by their display name, not the merchant key', async () => {
+    await services.updateTransaction({
+      transactionId: 'txn_5',
+      userMerchantName: 'Netflix Family',
+    });
+    await services.refreshAnalysis();
+    const rows = (await services.listRecurring()) as Array<{
+      merchantKey: string;
+      merchantName: string;
+    }>;
+    const netflix = rows.find((r) => r.merchantKey === 'netflix');
+    expect(netflix?.merchantName).toBe('Netflix Family');
+  });
+
+  it('falls back to the bank name when there is no override', async () => {
+    await services.refreshAnalysis();
+    const income = (await services.listIncome()) as Array<{
+      merchantKey: string;
+      merchantName: string;
+    }>;
+    const acme = income.find((i) => i.merchantKey === 'acme-payroll');
+    // The bank descriptor, never the normalized key.
+    expect(acme?.merchantName).toBe('ACME PAYROLL');
   });
 
   it('reports data as complete when the feed is fresh', async () => {

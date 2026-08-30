@@ -84,7 +84,7 @@ describe('DrizzleSyncStore against a real database', () => {
       subtype: 'checking',
       currentBalanceMinor: 1000,
       balanceAsOf: NOW.toISOString(),
-      isMonitored: true,
+      isEveryday: true,
     });
     store = new DrizzleSyncStore(handle, new TestClock(NOW));
   });

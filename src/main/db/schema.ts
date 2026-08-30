@@ -36,7 +36,15 @@ export const accounts = sqliteTable('accounts', {
   currentBalanceMinor: integer('current_balance_minor'),
   // A balance is never rendered without its age.
   balanceAsOf: text('balance_as_of'),
-  isMonitored: integer('is_monitored', { mode: 'boolean' }).notNull().default(true),
+  /**
+   * Whether this account is part of day-to-day money.
+   *
+   * Governs both directions at once: its transactions count toward spending
+   * totals, and its balance counts toward the runway. Savings and investment
+   * accounts are excluded by default — money sitting in savings is not
+   * spending money, and counting it would make the runway lie.
+   */
+  isEveryday: integer('is_everyday', { mode: 'boolean' }).notNull().default(true),
 });
 
 export const transactions = sqliteTable(

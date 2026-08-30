@@ -102,3 +102,71 @@ describe('Register', () => {
     await waitFor(() => expect(screen.getByText(/lower bounds/)).toBeDefined());
   });
 });
+
+describe('past overrides are offered wherever a transaction is edited', () => {
+  it('offers the retroactive fix from the inline category dropdown', async () => {
+    installMoneyBridge({
+      'transactions:query': {
+        rows: [tx()],
+        totalCount: 1,
+        dataComplete: true,
+        staleInstitutions: [],
+      },
+      'categories:list': CATS,
+      'transactions:update': {
+        ok: true,
+        merchantKey: 'uber eats',
+        retroactiveCandidateCount: 9,
+      },
+    });
+    render(<Register initialCategoryId={null} />);
+    await waitFor(() => screen.getByLabelText(/Category for Uber Eats/));
+    fireEvent.change(screen.getByLabelText(/Category for Uber Eats/), {
+      target: { value: 'food' },
+    });
+    await waitFor(() =>
+      expect(screen.getByText(/Apply it to 9 past transactions too\?/)).toBeDefined(),
+    );
+    expect(screen.getByText(/already corrected by hand is left alone/)).toBeDefined();
+  });
+
+  it('does not prompt when there is nothing in the past to fix', async () => {
+    installMoneyBridge({
+      'transactions:query': {
+        rows: [tx()],
+        totalCount: 1,
+        dataComplete: true,
+        staleInstitutions: [],
+      },
+      'categories:list': CATS,
+      'transactions:update': { ok: true, merchantKey: 'uber eats', retroactiveCandidateCount: 0 },
+    });
+    render(<Register initialCategoryId={null} />);
+    await waitFor(() => screen.getByLabelText(/Category for Uber Eats/));
+    fireEvent.change(screen.getByLabelText(/Category for Uber Eats/), {
+      target: { value: 'food' },
+    });
+    await waitFor(() => expect(screen.queryByText(/past transaction/)).toBeNull());
+  });
+
+  it('lets the user keep the change forward-only', async () => {
+    installMoneyBridge({
+      'transactions:query': {
+        rows: [tx()],
+        totalCount: 1,
+        dataComplete: true,
+        staleInstitutions: [],
+      },
+      'categories:list': CATS,
+      'transactions:update': { ok: true, merchantKey: 'uber eats', retroactiveCandidateCount: 4 },
+    });
+    render(<Register initialCategoryId={null} />);
+    await waitFor(() => screen.getByLabelText(/Category for Uber Eats/));
+    fireEvent.change(screen.getByLabelText(/Category for Uber Eats/), {
+      target: { value: 'food' },
+    });
+    await waitFor(() => screen.getByRole('button', { name: 'Going forward only' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Going forward only' }));
+    await waitFor(() => expect(screen.queryByText(/past transactions too/)).toBeNull());
+  });
+});

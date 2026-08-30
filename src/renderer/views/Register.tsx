@@ -37,6 +37,12 @@ export function Register({
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
   const [changed, setChanged] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<string | null>(null);
+  const [pendingRetro, setPendingRetro] = useState<{
+    merchantKey: string;
+    categoryId: string;
+    count: number;
+    label: string;
+  } | null>(null);
 
   const { data, loading } = useQuery<RegisterResponse>('transactions:query', {
     ...(categoryId ? { categoryIds: [categoryId] } : {}),
@@ -114,6 +120,39 @@ export function Register({
 
       {data && <Qualification dataComplete={data.dataComplete} staleInstitutions={data.staleInstitutions} />}
 
+      {pendingRetro && (
+        <div className="border border-[var(--color-attention)] bg-[var(--color-surface)] p-4">
+          <p className="text-[13px]">
+            {pendingRetro.label} will use that category from now on. Apply it to{' '}
+            {pendingRetro.count} past transaction{pendingRetro.count === 1 ? '' : 's'} too?
+            <span className="mt-1 block text-[12px] text-[var(--color-ink-faint)]">
+              Anything you already corrected by hand is left alone.
+            </span>
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void call('review:applyRetroactive', {
+                  merchantKey: pendingRetro.merchantKey,
+                  categoryId: pendingRetro.categoryId,
+                }).then(() => setPendingRetro(null));
+              }}
+              className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+            >
+              Apply to past too
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingRetro(null)}
+              className="px-3 py-1 text-[12px] text-[var(--color-ink-faint)]"
+            >
+              Going forward only
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading && <p className="text-[var(--color-ink-faint)]">Loading…</p>}
 
       {data && data.rows.length === 0 && (
@@ -156,9 +195,23 @@ export function Register({
                     onChange={(e) => {
                       const next = e.target.value;
                       setChanged((prev) => ({ ...prev, [t.id]: next }));
-                      void call('review:recategorize', {
-                        transactionIds: [t.id],
+                      // Goes through the same path as the editor, so a quick
+                      // inline change still offers to fix the past.
+                      void call<{
+                        merchantKey: string | null;
+                        retroactiveCandidateCount: number;
+                      }>('transactions:update', {
+                        transactionId: t.id,
                         categoryId: next,
+                      }).then((result) => {
+                        if (result.retroactiveCandidateCount > 0 && result.merchantKey) {
+                          setPendingRetro({
+                            merchantKey: result.merchantKey,
+                            categoryId: next,
+                            count: result.retroactiveCandidateCount,
+                            label: t.merchantName ?? t.description,
+                          });
+                        }
                       });
                     }}
                     aria-label={`Category for ${t.merchantName ?? t.description}`}

@@ -43,7 +43,7 @@ export function Income(): React.JSX.Element {
         {data.map((s) => (
           <li key={s.id} className="flex items-center gap-4 bg-[var(--color-surface)] px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate">{s.merchantKey}</p>
+              <p className="truncate">{s.merchantName}</p>
               <p className="text-[12px] text-[var(--color-ink-faint)]">
                 {s.cadence} · next {new Date(s.nextExpectedDate).toLocaleDateString()}
                 {!s.isUserConfirmed && ` · ${Math.round(s.detectionConfidence * 100)}% confidence`}

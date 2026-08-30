@@ -156,6 +156,7 @@ describe('Recurring', () => {
         {
           id: 'r1',
           merchantKey: 'netflix',
+          merchantName: 'Netflix',
           currentAmountMinor: -1899,
           cadence: 'monthly',
           firstSeenDate: '2026-01-15',
@@ -166,7 +167,7 @@ describe('Recurring', () => {
       ],
     });
     render(<Recurring />);
-    await waitFor(() => expect(screen.getByText('netflix')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Netflix')).toBeDefined());
     expect(screen.getByText(/price changed/)).toBeDefined();
     expect(screen.getByText(/monthly/)).toBeDefined();
   });
@@ -185,6 +186,7 @@ describe('Income', () => {
         {
           id: 'i1',
           merchantKey: 'acme-payroll',
+          merchantName: 'ACME PAYROLL',
           expectedAmountMinor: 260000,
           cadence: 'biweekly',
           nextExpectedDate: '2026-09-04T00:00:00Z',
@@ -486,6 +488,86 @@ describe('Accounts', () => {
     expect(screen.getByRole('button', { name: 'Connect an account' })).toBeDefined();
   });
 
+  it('lists each account individually with its balance', async () => {
+    installMoneyBridge({
+      'institutions:list': [
+        {
+          id: 'i1',
+          institutionName: 'Chase',
+          status: 'healthy',
+          lastSyncedAt: new Date().toISOString(),
+          accountCount: 2,
+          accounts: [
+            { id: 'a1', name: 'Everyday Checking', mask: '4321', type: 'depository', subtype: 'checking', currentBalanceMinor: 84_700, balanceAsOf: new Date().toISOString(), isEveryday: true },
+            { id: 'a2', name: 'Rainy Day Savings', mask: '9911', type: 'depository', subtype: 'savings', currentBalanceMinor: 1_200_000, balanceAsOf: new Date().toISOString(), isEveryday: false },
+          ],
+        },
+      ],
+    });
+    render(<Accounts />);
+    await waitFor(() => expect(screen.getByText('Everyday Checking')).toBeDefined());
+    expect(screen.getByText('Rainy Day Savings')).toBeDefined();
+    expect(screen.getByText('$847.00')).toBeDefined();
+    expect(screen.getByText('$12,000.00')).toBeDefined();
+  });
+
+  it('offers a day-to-day toggle per account, off for savings', async () => {
+    installMoneyBridge({
+      'institutions:list': [
+        {
+          id: 'i1',
+          institutionName: 'Chase',
+          status: 'healthy',
+          lastSyncedAt: new Date().toISOString(),
+          accountCount: 2,
+          accounts: [
+            { id: 'a1', name: 'Everyday Checking', mask: null, type: 'depository', subtype: 'checking', currentBalanceMinor: 1, balanceAsOf: null, isEveryday: true },
+            { id: 'a2', name: 'Rainy Day Savings', mask: null, type: 'depository', subtype: 'savings', currentBalanceMinor: 1, balanceAsOf: null, isEveryday: false },
+          ],
+        },
+      ],
+    });
+    render(<Accounts />);
+    await waitFor(() =>
+      expect(screen.getByLabelText('Include Everyday Checking in day-to-day spending')).toBeDefined(),
+    );
+    const savings = screen.getByLabelText(
+      'Include Rainy Day Savings in day-to-day spending',
+    ) as HTMLInputElement;
+    expect(savings.checked).toBe(false);
+    expect(
+      (screen.getByLabelText('Include Everyday Checking in day-to-day spending') as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+  });
+
+  it('explains why savings should be excluded', async () => {
+    installMoneyBridge({ 'institutions:list': [] });
+    render(<Accounts />);
+    await waitFor(() =>
+      expect(screen.getByText(/should not make those numbers look bigger/)).toBeDefined(),
+    );
+  });
+
+  it('shows an unknown balance honestly rather than as zero', async () => {
+    installMoneyBridge({
+      'institutions:list': [
+        {
+          id: 'i1',
+          institutionName: 'Chase',
+          status: 'healthy',
+          lastSyncedAt: null,
+          accountCount: 1,
+          accounts: [
+            { id: 'a1', name: 'Card', mask: null, type: 'credit', subtype: null, currentBalanceMinor: null, balanceAsOf: null, isEveryday: true },
+          ],
+        },
+      ],
+    });
+    render(<Accounts />);
+    await waitFor(() => expect(screen.getByText('balance unknown')).toBeDefined());
+  });
+
   it('lists connected institutions with their sync age', async () => {
     installMoneyBridge({
       'institutions:list': [
@@ -495,6 +577,28 @@ describe('Accounts', () => {
           status: 'healthy',
           lastSyncedAt: new Date().toISOString(),
           accountCount: 2,
+          accounts: [
+            {
+              id: 'a1',
+              name: 'Everyday Checking',
+              mask: '4321',
+              type: 'depository',
+              subtype: 'checking',
+              currentBalanceMinor: 84_700,
+              balanceAsOf: new Date().toISOString(),
+              isEveryday: true,
+            },
+            {
+              id: 'a2',
+              name: 'Rainy Day Savings',
+              mask: '9911',
+              type: 'depository',
+              subtype: 'savings',
+              currentBalanceMinor: 1_200_000,
+              balanceAsOf: new Date().toISOString(),
+              isEveryday: false,
+            },
+          ],
         },
       ],
     });
@@ -506,7 +610,7 @@ describe('Accounts', () => {
   it('offers reconnect only for an unhealthy institution', async () => {
     installMoneyBridge({
       'institutions:list': [
-        { id: 'i1', institutionName: 'Chase', status: 'reauth_required', lastSyncedAt: null, accountCount: 1 },
+        { id: 'i1', institutionName: 'Chase', status: 'reauth_required', lastSyncedAt: null, accountCount: 1, accounts: [] },
       ],
     });
     render(<Accounts />);

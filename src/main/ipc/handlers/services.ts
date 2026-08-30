@@ -17,6 +17,7 @@ export interface AppServices {
   completeLink(linkToken: string): Promise<unknown>;
   listInstitutions(): Promise<unknown>;
   disconnectInstitution(id: string): Promise<unknown>;
+  setAccountEveryday(input: unknown): Promise<unknown>;
   reauthInstitution(id: string): Promise<unknown>;
 
   dashboard(range: unknown): Promise<unknown>;

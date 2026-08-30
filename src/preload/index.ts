@@ -16,6 +16,7 @@ const INVOKE_CHANNELS = [
   'institutions:list',
   'institutions:disconnect',
   'institutions:reauth',
+  'accounts:setEveryday',
   'dashboard:get',
   'breakdown:byCategory',
   'breakdown:byMerchant',

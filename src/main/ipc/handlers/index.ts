@@ -5,6 +5,7 @@ import {
   saveCredentialsSchema,
   linkCompleteSchema,
   institutionIdSchema,
+  accountEverydaySchema,
   transactionQuerySchema,
   recategorizeSchema,
   applyRetroactiveSchema,
@@ -55,6 +56,9 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   );
   registry.handle('institutions:reauth', institutionIdSchema, (p) =>
     services.reauthInstitution(p.institutionId),
+  );
+  registry.handle('accounts:setEveryday', accountEverydaySchema, (p) =>
+    services.setAccountEveryday(p),
   );
 
   // Reading money — all offline-safe.

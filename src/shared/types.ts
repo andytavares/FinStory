@@ -1,11 +1,24 @@
 /** Types crossing the renderer↔main boundary. All amounts are integer minor units. */
 
+export interface AccountRow {
+  readonly id: string;
+  readonly name: string;
+  readonly mask: string | null;
+  readonly type: string;
+  readonly subtype: string | null;
+  readonly currentBalanceMinor: number | null;
+  readonly balanceAsOf: string | null;
+  /** Counts toward day-to-day spending and the runway. */
+  readonly isEveryday: boolean;
+}
+
 export interface InstitutionSummary {
   readonly id: string;
   readonly institutionName: string;
   readonly status: 'healthy' | 'reauth_required' | 'error';
   readonly lastSyncedAt: string | null;
   readonly accountCount: number;
+  readonly accounts: AccountRow[];
 }
 
 export interface AccountSummary {
@@ -72,6 +85,7 @@ export interface ReviewItem {
 export interface RecurringChargeView {
   readonly id: string;
   readonly merchantKey: string;
+  readonly merchantName: string;
   readonly currentAmountMinor: number;
   readonly cadence: string;
   readonly firstSeenDate: string;
@@ -83,6 +97,7 @@ export interface RecurringChargeView {
 export interface IncomeSourceView {
   readonly id: string;
   readonly merchantKey: string;
+  readonly merchantName: string;
   readonly expectedAmountMinor: number;
   readonly cadence: string;
   readonly nextExpectedDate: string;
