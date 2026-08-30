@@ -17,6 +17,8 @@ export interface SpendingTransaction {
   readonly settlementState: 'pending' | 'posted' | 'removed';
   readonly isInternalTransfer: boolean;
   readonly reversesTransactionId: string | null;
+  /** User chose to exclude this from spending (e.g. a reimbursed expense). */
+  readonly userExcluded?: boolean;
 }
 
 /**
@@ -29,6 +31,8 @@ export interface SpendingTransaction {
 export function isSpending(t: SpendingTransaction): boolean {
   if (t.settlementState === 'removed') return false;
   if (t.isInternalTransfer) return false;
+  // An explicit user exclusion outranks everything the importer inferred.
+  if (t.userExcluded === true) return false;
   return t.amountMinor < 0;
 }
 
@@ -37,6 +41,7 @@ function isRefund(t: SpendingTransaction): boolean {
   return (
     t.settlementState !== 'removed' &&
     !t.isInternalTransfer &&
+    t.userExcluded !== true &&
     t.amountMinor > 0 &&
     t.reversesTransactionId !== null
   );

@@ -5,13 +5,19 @@ import { ElectronSecretBackend } from './secrets/electron-backend';
 import { Keyring } from './secrets/keyring';
 import { openDatabase, type DatabaseHandle } from './db/client';
 import { runMigrations } from './db/migrate';
-import { defaultCategories } from './db/seed-categories';
+import { defaultCategories, defaultAlertRules } from './db/seed-categories';
 import { categories as categoriesTable } from './db/schema';
 import { IpcRegistry } from './ipc/registry';
 import { registerHandlers } from './ipc/handlers/index';
 import { Services } from './services/index';
 import { CategorizationPipeline } from './categorization/pipeline';
-import type { ModelClassifier } from './categorization/pipeline';
+import { buildClassifier, DEFAULT_ANTHROPIC_MODEL, type ModelProvider } from './categorization/factory';
+import { taxonomyPromptList } from './db/seed-categories';
+import { SyncEngine, type SyncPage } from './sync/engine';
+import { DrizzleSyncStore } from './sync/store';
+import { createPlaidClient } from './plaid/client';
+import { settings as settingsTable, institutions as institutionsTable, alertRules as alertRulesTable } from './db/schema';
+import { eq } from 'drizzle-orm';
 import { DiagnosticLogger } from './diagnostics/logger';
 import { MemorySink } from './diagnostics/sink';
 import { SystemClock } from '@shared/clock';
@@ -28,6 +34,8 @@ import { SystemClock } from '@shared/clock';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let databaseHandle: DatabaseHandle | null = null;
+let syncNow: (() => Promise<void>) | null = null;
+let syncTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Assemble the application.
@@ -50,19 +58,87 @@ async function bootstrap(): Promise<void> {
   if (existing.length === 0) {
     await handle.db.insert(categoriesTable).values(defaultCategories());
   }
+  // Alert rules must exist before any account is connected, or the Alerts
+  // screen is empty and there is nothing to configure.
+  const existingRules = await handle.db.select().from(alertRulesTable);
+  if (existingRules.length === 0) {
+    await handle.db.insert(alertRulesTable).values(defaultAlertRules());
+  }
 
   const clock = new SystemClock();
   const logger = new DiagnosticLogger(new MemorySink(), clock);
 
-  // Until Plaid credentials are configured, categorization has no model stage.
-  // Local-only is the correct behaviour then, not an error (FR-061).
-  const unavailableModel: ModelClassifier = {
-    classify: () => Promise.reject(new Error('Categorization is not configured')),
+  const readSetting = async (key: string): Promise<string | null> => {
+    const rows = await handle.db.select().from(settingsTable).where(eq(settingsTable.key, key));
+    return rows[0]?.value ?? null;
   };
-  const pipeline = new CategorizationPipeline(unavailableModel, {
-    confidenceThreshold: 0.8,
-    localOnly: true,
-  });
+  const readSecret = async (key: string): Promise<string | null> => {
+    const value = await readSetting(key);
+    if (!value) return null;
+    return (await keyring.open(Buffer.from(value, 'base64'))).value;
+  };
+
+  // The categorizer is rebuilt from settings each time it is needed, so
+  // switching provider or model in the UI takes effect without a restart.
+  const buildPipeline = async (): Promise<CategorizationPipeline> => {
+    const categories = await handle.db.select().from(categoriesTable);
+    const built = buildClassifier({
+      provider: ((await readSetting('modelProvider')) ?? 'anthropic') as ModelProvider,
+      taxonomy: taxonomyPromptList(categories),
+      anthropicApiKey: (await readSecret('anthropicApiKey')) ?? undefined,
+      anthropicModel: (await readSetting('anthropicModel')) ?? DEFAULT_ANTHROPIC_MODEL,
+      ollamaModel: (await readSetting('ollamaModel')) ?? undefined,
+      ollamaBaseUrl: (await readSetting('ollamaBaseUrl')) ?? undefined,
+    });
+    const threshold = Number((await readSetting('confidenceThreshold')) ?? 0.8);
+    return new CategorizationPipeline(
+      built.classifier ?? { classify: () => Promise.reject(new Error(built.reason)) },
+      { confidenceThreshold: threshold, localOnly: built.localOnly },
+    );
+  };
+
+  const pipeline = await buildPipeline();
+
+  /** Sync every connected institution. Called on launch, on a timer, and after linking. */
+  const runSync = async (): Promise<void> => {
+    const rows = await handle.db.select().from(institutionsTable);
+    if (rows.length === 0) return;
+
+    const clientId = await readSecret('plaidClientId');
+    const secret = await readSecret('plaidSecret');
+    if (!clientId || !secret) return;
+    const client = createPlaidClient({
+      clientId,
+      secret,
+      environment: (await readSetting('plaidEnv')) === 'production' ? 'production' : 'sandbox',
+    });
+
+    const store = new DrizzleSyncStore(handle, clock);
+    const engine = new SyncEngine({ store, clock, pipeline: await buildPipeline() });
+
+    const sources = await Promise.all(
+      rows.map(async (inst) => ({
+        institutionId: inst.id,
+        cursor: inst.syncCursor,
+        fetch: async (cursor: string | null) => {
+          const accessToken = (await keyring.open(Buffer.from(inst.accessTokenEncrypted, 'base64'))).value;
+          const response = await client.transactionsSync({
+            access_token: accessToken,
+            ...(cursor ? { cursor } : {}),
+          });
+          // Plaid's Transaction type carries more fields than ingestion reads;
+          // the shape is structurally compatible with PlaidTransactionLike.
+          return response.data as unknown as SyncPage;
+        },
+      })),
+    );
+
+    const result = await engine.run(sources);
+    for (const failure of result.failures) {
+      await store.markAttempted(failure.institutionId, clock.now().toISOString(), true);
+    }
+    mainWindow?.webContents.send('sync:complete', { added: result.added, failures: result.failures.length });
+  };
 
   const services = new Services({
     handle,
@@ -71,10 +147,10 @@ async function bootstrap(): Promise<void> {
     logger,
     keyring,
     pipeline,
-    sync: async () => {
-      // Wired once Plaid credentials exist; see docs/plaid-setup.md.
-    },
+    sync: runSync,
   });
+
+  syncNow = runSync;
 
   const registry = new IpcRegistry();
   registerHandlers(registry, services);
@@ -189,6 +265,18 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow = createWindow();
     tray = createTray();
 
+    // Catch up on launch, then poll. A gap of minutes and a gap of weeks are
+    // the same call (research.md R2, R6).
+    void syncNow?.().catch(() => {
+      /* surfaced in the health view rather than blocking startup */
+    });
+    syncTimer = setInterval(
+      () => {
+        void syncNow?.().catch(() => {});
+      },
+      60 * 60 * 1000,
+    );
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
       else mainWindow?.show();
@@ -200,6 +288,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', () => {
     isQuitting = true;
     tray?.destroy();
+    if (syncTimer) clearInterval(syncTimer);
     databaseHandle?.close();
   });
 

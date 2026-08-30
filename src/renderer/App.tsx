@@ -10,6 +10,7 @@ import {
   Settings as SettingsIcon,
   Tags,
   Bell,
+  Landmark,
 } from 'lucide-react';
 import { Dashboard } from './views/Dashboard';
 import { Register } from './views/Register';
@@ -22,6 +23,7 @@ import { Settings } from './views/Settings';
 import { Categories } from './views/Categories';
 import { Alerts } from './views/Alerts';
 import { Setup } from './views/Setup';
+import { Accounts } from './views/Accounts';
 import { useQuery } from './lib/ipc';
 import type { SetupStatus } from '@shared/types';
 
@@ -35,6 +37,7 @@ type ViewId =
   | 'reports'
   | 'health'
   | 'categories'
+  | 'accounts'
   | 'settings';
 
 const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboard }> = [
@@ -47,6 +50,7 @@ const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboa
   { id: 'reports', label: 'Reports', Icon: FileText },
   { id: 'health', label: 'Health', Icon: Activity },
   { id: 'categories', label: 'Categories', Icon: Tags },
+  { id: 'accounts', label: 'Accounts', Icon: Landmark },
   { id: 'settings', label: 'Settings', Icon: SettingsIcon },
 ];
 
@@ -59,7 +63,15 @@ export function App(): React.JSX.Element {
   // First run: there is nothing to show until an account is connected, so the
   // setup screen is the app rather than a banner on an empty dashboard.
   if (status.data && !status.data.plaidConfigured && !setupDismissed) {
-    return <Setup status={status.data} onComplete={() => setSetupDismissed(true)} />;
+    return (
+      <Setup
+        status={status.data}
+        onComplete={() => {
+          setSetupDismissed(true);
+          setView('accounts');
+        }}
+      />
+    );
   }
 
   const drill = (categoryId: string): void => {
@@ -99,6 +111,7 @@ export function App(): React.JSX.Element {
           {view === 'reports' && <Reports />}
           {view === 'health' && <Health />}
           {view === 'categories' && <Categories />}
+          {view === 'accounts' && <Accounts />}
           {view === 'settings' && <Settings />}
         </div>
       </main>

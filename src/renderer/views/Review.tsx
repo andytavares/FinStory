@@ -2,12 +2,21 @@ import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { Money } from '../components/Money';
 import { EmptyState } from '../components/EmptyState';
+import { TransactionEditor, assignableCategories } from '../components/TransactionEditor';
 import { shortDate } from '../lib/format';
 import type { ReviewItem } from '@shared/types';
 
 interface QueueResponse {
   readonly rows: ReviewItem[];
   readonly totalCount: number;
+}
+
+interface CategoryOption {
+  readonly id: string;
+  readonly name: string;
+  readonly parentId: string | null;
+  readonly isHidden: boolean;
+  readonly mergedIntoId: string | null;
 }
 
 interface RecategorizeResult {
@@ -23,8 +32,11 @@ interface RecategorizeResult {
  * confirmed.
  */
 export function Review(): React.JSX.Element {
-  const { data, loading } = useQuery<QueueResponse>('review:queue', { limit: 100, offset: 0 });
+  const { data, loading, refetch } = useQuery<QueueResponse>('review:queue', { limit: 100, offset: 0 });
+  const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [chosenCategory, setChosenCategory] = useState('');
+  const [editing, setEditing] = useState<string | null>(null);
   const [pendingRetro, setPendingRetro] = useState<{
     merchantKey: string;
     categoryId: string;
@@ -39,6 +51,7 @@ export function Review(): React.JSX.Element {
   };
 
   const recategorize = async (categoryId: string): Promise<void> => {
+    if (!categoryId) return;
     const result = await call<RecategorizeResult>('review:recategorize', {
       transactionIds: [...selected],
       categoryId,
@@ -52,6 +65,7 @@ export function Review(): React.JSX.Element {
       });
     }
     setSelected(new Set());
+    refetch();
   };
 
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
@@ -106,17 +120,36 @@ export function Review(): React.JSX.Element {
       {selected.size > 0 && (
         <div className="flex items-center gap-3 border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-2">
           <span className="text-[13px]">{selected.size} selected</span>
+          <label className="flex items-center gap-2 text-[12px]">
+            <span className="text-[var(--color-ink-faint)]">Change to</span>
+            <select
+              value={chosenCategory}
+              onChange={(e) => setChosenCategory(e.target.value)}
+              className="border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[12px]"
+            >
+              <option value="">Choose a category</option>
+              {assignableCategories(categories.data ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
-            onClick={() => void recategorize('groceries')}
-            className="border border-[var(--color-line)] px-3 py-1 text-[12px]"
+            disabled={!chosenCategory}
+            onClick={() => {
+              void recategorize(chosenCategory);
+              setChosenCategory('');
+            }}
+            className="border border-[var(--color-line)] px-3 py-1 text-[12px] disabled:opacity-40"
           >
-            Recategorize
+            Apply
           </button>
           <button
             type="button"
             onClick={() => {
-              void call('review:dismissFlag', { transactionIds: [...selected] });
+              void call('review:dismissFlag', { transactionIds: [...selected] }).then(refetch);
               setSelected(new Set());
             }}
             className="text-[12px] text-[var(--color-ink-faint)]"
@@ -127,8 +160,11 @@ export function Review(): React.JSX.Element {
       )}
 
       <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
-        {data.rows.map((item) => (
-          <li key={item.transaction.id} className="flex items-start gap-3 bg-[var(--color-surface)] px-4 py-3">
+        {data.rows.flatMap((item) => [
+          <li
+            key={item.transaction.id}
+            className="flex items-start gap-3 bg-[var(--color-surface)] px-4 py-3"
+          >
             <input
               type="checkbox"
               checked={selected.has(item.transaction.id)}
@@ -147,9 +183,39 @@ export function Review(): React.JSX.Element {
                 <p className="mt-1 text-[12px] text-[var(--color-ink-muted)]">{item.reasoning}</p>
               )}
             </div>
-            <Money minor={item.transaction.amountMinor} magnitude />
-          </li>
-        ))}
+            <div className="flex flex-col items-end gap-1">
+              <Money minor={item.transaction.amountMinor} direction />
+              <button
+                type="button"
+                onClick={() =>
+                  setEditing(editing === item.transaction.id ? null : item.transaction.id)
+                }
+                aria-label={`Edit ${item.transaction.description}`}
+                className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+              >
+                {editing === item.transaction.id ? 'Close' : 'Edit'}
+              </button>
+            </div>
+          </li>,
+          ...(editing === item.transaction.id
+            ? [
+                <li
+                  key={`${item.transaction.id}-edit`}
+                  className="bg-[var(--color-surface-raised)] px-4 py-3"
+                >
+                  <TransactionEditor
+                    transaction={item.transaction}
+                    categories={categories.data ?? []}
+                    onCategoriesChanged={categories.refetch}
+                    onSaved={() => {
+                      setEditing(null);
+                      refetch();
+                    }}
+                  />
+                </li>,
+              ]
+            : []),
+        ])}
       </ul>
     </div>
   );

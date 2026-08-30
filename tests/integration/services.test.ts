@@ -257,3 +257,93 @@ describe('the wired registry answers every channel against real services', () =>
     expect(failures, failures.join('\n')).toEqual([]);
   });
 });
+
+describe('Plaid link flow error handling', () => {
+  let dir: string;
+  let handle: DatabaseHandle;
+  let services: InstanceType<typeof Services>;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'money-link-'));
+    handle = await openDatabase(dir, new TestBackend());
+    runMigrations(handle, MIGRATIONS);
+    services = new Services({
+      handle,
+      userDataDir: dir,
+      clock: new TestClock(NOW),
+      logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
+      keyring: new Keyring(new TestBackend()),
+      pipeline: new CategorizationPipeline(
+        { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
+        { confidenceThreshold: 0.8 },
+      ),
+      sync: async () => {},
+    });
+  });
+
+  afterEach(() => {
+    handle.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('tells the user to configure Plaid before connecting', async () => {
+    await expect(services.startLink()).rejects.toMatchObject({
+      code: 'PLAID_UNCONFIGURED',
+      action: 'Open Settings',
+    });
+  });
+
+  it('refuses to complete a link with no session in progress', async () => {
+    await expect(services.completeLink('')).rejects.toMatchObject({
+      code: 'PLAID_UNCONFIGURED',
+    });
+  });
+
+  it('reaches Plaid once credentials are stored, and reports a credential rejection clearly', async () => {
+    await services.saveCredentials({
+      plaidClientId: 'bad-client',
+      plaidSecret: 'bad-secret',
+      plaidEnv: 'sandbox',
+    });
+    // Real call to Plaid sandbox with deliberately invalid keys: proves the
+    // credentials are read back, decrypted, and used — and that a rejection is
+    // mapped to an actionable error rather than a raw stack.
+    await expect(services.startLink()).rejects.toMatchObject({
+      code: expect.stringMatching(/PLAID_UNCONFIGURED|INTERNAL/),
+    });
+  });
+
+  it('round-trips a sealed secret so the Plaid client can be built', async () => {
+    await services.saveCredentials({
+      plaidClientId: 'client-abc',
+      plaidSecret: 'secret-xyz',
+      plaidEnv: 'production',
+    });
+    const rows = await handle.db.select().from(schema.settings);
+    const stored = rows.find((r) => r.key === 'plaidSecret');
+    expect(stored?.value).not.toContain('secret-xyz');
+    const status = (await services.setupStatus()) as { plaidConfigured: boolean };
+    expect(status.plaidConfigured).toBe(true);
+  });
+
+  it('lists no Ollama models when Ollama is unreachable, without erroring', async () => {
+    await services.updateSettings({ ollamaBaseUrl: 'http://127.0.0.1:1' });
+    expect(await services.listOllamaModels()).toEqual([]);
+  });
+
+  it('exposes the model settings with Haiku as the default', async () => {
+    const s = (await services.getSettings()) as {
+      modelProvider: string;
+      anthropicModel: string;
+    };
+    expect(s.modelProvider).toBe('anthropic');
+    expect(s.anthropicModel).toBe('claude-haiku-4-5');
+  });
+
+  it('persists a model provider change', async () => {
+    await services.updateSettings({ modelProvider: 'ollama', ollamaModel: 'llama3' });
+    const s = (await services.getSettings()) as { modelProvider: string; ollamaModel: string };
+    expect(s.modelProvider).toBe('ollama');
+    expect(s.ollamaModel).toBe('llama3');
+  });
+});

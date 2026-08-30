@@ -74,3 +74,23 @@ export function taxonomyPromptList(categories: readonly Category[]): string {
     .map((c) => `${c.id}: ${c.name}${c.parentId ? ` (under ${c.parentId})` : ''}`)
     .join('\n');
 }
+
+
+/** Default alert rules. Seeded at first launch so Alerts is usable immediately. */
+export function defaultAlertRules(): Array<{
+  id: string;
+  type: 'large_purchase' | 'daily_total' | 'duplicate_charge' | 'new_recurring' | 'balance_floor';
+  label: null;
+  thresholdMinor: number | null;
+  windowMinutes: number | null;
+  enabled: boolean;
+  isSystem: boolean;
+}> {
+  return [
+    { id: 'rule_large', type: 'large_purchase', label: null, thresholdMinor: 20_000, windowMinutes: null, enabled: true, isSystem: true },
+    { id: 'rule_daily', type: 'daily_total', label: null, thresholdMinor: 15_000, windowMinutes: null, enabled: true, isSystem: true },
+    { id: 'rule_dupe', type: 'duplicate_charge', label: null, thresholdMinor: null, windowMinutes: 1440, enabled: true, isSystem: true },
+    { id: 'rule_new_recurring', type: 'new_recurring', label: null, thresholdMinor: null, windowMinutes: null, enabled: true, isSystem: true },
+    { id: 'rule_floor', type: 'balance_floor', label: null, thresholdMinor: 100_000, windowMinutes: null, enabled: true, isSystem: true },
+  ];
+}

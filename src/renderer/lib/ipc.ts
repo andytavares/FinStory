@@ -9,11 +9,18 @@ export interface Query<T> {
   readonly data: T | null;
   readonly error: string | null;
   readonly loading: boolean;
+  /** Re-run the query — call after a mutation so the view reflects the change. */
+  readonly refetch: () => void;
 }
 
-/** Load once on mount. Reads are offline-safe by contract, so this rarely errors. */
+/** Load on mount, and again whenever `refetch` is called. */
 export function useQuery<T>(channel: string, payload?: unknown): Query<T> {
-  const [state, setState] = useState<Query<T>>({ data: null, error: null, loading: true });
+  const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean }>({
+    data: null,
+    error: null,
+    loading: true,
+  });
+  const [nonce, setNonce] = useState(0);
   const key = JSON.stringify(payload ?? {});
 
   useEffect(() => {
@@ -24,12 +31,13 @@ export function useQuery<T>(channel: string, payload?: unknown): Query<T> {
         if (!cancelled) setState({ data, error: null, loading: false });
       })
       .catch((e: { message?: string }) => {
-        if (!cancelled) setState({ data: null, error: e.message ?? 'Something went wrong', loading: false });
+        if (!cancelled)
+          setState({ data: null, error: e.message ?? 'Something went wrong', loading: false });
       });
     return () => {
       cancelled = true;
     };
-  }, [channel, key]);
+  }, [channel, key, nonce]);
 
-  return state;
+  return { ...state, refetch: () => setNonce((n) => n + 1) };
 }

@@ -5,7 +5,7 @@ import type { IncomeSourceView } from '@shared/types';
 
 /** FR-071: confirm or override a detected pattern. Detection is the default. */
 export function Income(): React.JSX.Element {
-  const { data, loading } = useQuery<IncomeSourceView[]>('income:list');
+  const { data, loading, refetch } = useQuery<IncomeSourceView[]>('income:list');
 
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
   if (!data || data.length === 0) {
@@ -34,7 +34,9 @@ export function Income(): React.JSX.Element {
             {s.isUserConfirmed ? (
               <button
                 type="button"
-                onClick={() => void call('income:clearOverride', { id: s.id })}
+                onClick={() => {
+                  void call('income:clearOverride', { id: s.id }).then(refetch);
+                }}
                 className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
               >
                 Unpin
@@ -42,7 +44,9 @@ export function Income(): React.JSX.Element {
             ) : (
               <button
                 type="button"
-                onClick={() => void call('income:confirm', { id: s.id })}
+                onClick={() => {
+                  void call('income:confirm', { id: s.id }).then(refetch);
+                }}
                 className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
               >
                 Confirm

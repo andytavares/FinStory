@@ -31,6 +31,10 @@ export interface TransactionView {
   /** Display-only; never summed or compared by the renderer (FR-085). */
   readonly originalCurrency: string | null;
   readonly originalAmountMinor: number | null;
+  readonly userMerchantName: string | null;
+  readonly userNote: string | null;
+  readonly userExcluded: boolean;
+  readonly userRecurringOverride: 'recurring' | 'not_recurring' | null;
 }
 
 /** Every total-bearing response carries its own completeness. */
@@ -113,10 +117,16 @@ export interface SetupStatus {
   readonly encryptionAvailable: boolean;
 }
 
+export type ModelProvider = 'anthropic' | 'ollama' | 'local_only';
+
 export interface AppSettings {
   readonly confidenceThreshold: number;
   readonly pollIntervalMinutes: number;
   readonly categorizationMode: 'hybrid' | 'local_only';
+  readonly modelProvider: ModelProvider;
+  readonly anthropicModel: string;
+  readonly ollamaModel: string;
+  readonly ollamaBaseUrl: string;
   readonly timeZone: string;
 }
 

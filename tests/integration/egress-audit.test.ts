@@ -75,7 +75,11 @@ describe('outbound payload is limited to the FR-061 disclosure', () => {
 describe('no unexpected outbound network surface', () => {
   const files = sourceFiles(join(process.cwd(), 'src'));
 
-  const ALLOWED_NETWORK_MODULES = ['plaid', 'categorization/model'];
+  // Three modules may talk to the network, each for a stated reason:
+  //  - plaid:                    aggregation, unavoidable
+  //  - categorization/model:     hosted classification, disclosed under FR-061
+  //  - categorization/ollama:    LOCAL classification; localhost only, asserted below
+  const ALLOWED_NETWORK_MODULES = ['plaid', 'categorization/model', 'categorization/ollama'];
 
   it('only Plaid and the categorizer perform network I/O', () => {
     const offenders: string[] = [];
@@ -98,6 +102,33 @@ describe('no unexpected outbound network surface', () => {
       }
     }
     expect(offenders, `unexpected network I/O in:\n${offenders.join('\n')}`).toEqual([]);
+  });
+
+  it('the Ollama classifier defaults to localhost and never a remote host', () => {
+    const source = readFileSync(join(process.cwd(), 'src/main/categorization/ollama.ts'), 'utf8');
+    expect(source).toContain("DEFAULT_OLLAMA_URL = 'http://localhost:11434'");
+    // Every URL it builds is derived from the configured base; no hardcoded host.
+    const literalUrls = source.match(/https?:\/\/[^'"`\s]+/g) ?? [];
+    expect(literalUrls.every((u) => u.startsWith('http://localhost'))).toBe(true);
+  });
+
+  it('choosing Ollama means nothing reaches a hosted model', async () => {
+    const { buildClassifier } = await import('@main/categorization/factory');
+    const built = buildClassifier({
+      provider: 'ollama',
+      taxonomy: 'dining: Dining',
+      anthropicApiKey: 'sk-ant-should-be-ignored',
+      ollamaModel: 'llama3',
+    });
+    expect(built.classifier?.constructor.name).toBe('OllamaClassifier');
+    expect(built.reason).toMatch(/nothing leaves this machine/i);
+  });
+
+  it('local_only means no classifier at all', async () => {
+    const { buildClassifier } = await import('@main/categorization/factory');
+    const built = buildClassifier({ provider: 'local_only', taxonomy: '' });
+    expect(built.classifier).toBeNull();
+    expect(built.localOnly).toBe(true);
   });
 
   it('no module writes user data to a remote destination', () => {

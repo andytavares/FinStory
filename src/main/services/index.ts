@@ -11,6 +11,9 @@ import { assessCompleteness, type Completeness, type InstitutionState } from '@m
 import { breakdownByCategory, spendingTotalMinor } from '@main/analysis/spending';
 import type { SpendingTransaction } from '@main/analysis/spending';
 import { projectBalance } from '@main/analysis/income';
+import { buildMonthlyReport, buildWeeklyDigest } from '@main/analysis/reports';
+import { monthBoundaries, weekBoundaries } from '@shared/periods';
+import { computeBaseline } from '@main/analysis/baselines';
 import type { CategorizationPipeline } from '@main/categorization/pipeline';
 import { createCategory, mergeCategories, type Category } from '@main/categories/manage';
 import { liveCategorization, planRetroactive } from '@main/categorization/corrections';
@@ -21,6 +24,12 @@ import { DEFAULT_SETTINGS, mergeSettings } from '@main/settings/index';
 import { deleteAllData, exportBackup, restoreBackup } from '@main/data/backup';
 import type { Keyring } from '@main/secrets/keyring';
 import type { Clock } from '@shared/clock';
+import type { AppSettings } from '@shared/types';
+import { listOllamaModels } from '@main/categorization/ollama';
+import { createPlaidClient, type PlaidEnvironment } from '@main/plaid/client';
+import { exchangePublicToken, pollForPublicToken, startHostedLink } from '@main/plaid/link';
+import { fetchItemAccounts } from '@main/plaid/accounts';
+import { randomUUID as uuid } from 'node:crypto';
 
 /**
  * The composition root.
@@ -49,6 +58,8 @@ export interface ServiceDeps {
 type TransactionRow = typeof t.transactions.$inferSelect;
 
 export class Services implements AppServices {
+  private pendingLinkToken: string | null = null;
+
   constructor(private readonly deps: ServiceDeps) {}
 
   private get db(): DatabaseHandle['db'] {
@@ -99,16 +110,124 @@ export class Services implements AppServices {
   }
 
   async startLink(): Promise<unknown> {
-    throw new IpcFailure(
-      'PLAID_UNCONFIGURED',
-      'Add your Plaid credentials in Settings before connecting an account',
-      true,
-      'Open Settings',
-    );
+    const client = await this.plaidClient();
+    try {
+      const session = await startHostedLink(client, 'local-user');
+      this.pendingLinkToken = session.linkToken;
+      return session;
+    } catch (error) {
+      throw this.plaidFailure(error);
+    }
   }
 
-  async completeLink(): Promise<unknown> {
-    throw new IpcFailure('PLAID_UNCONFIGURED', 'No Plaid session is in progress', true);
+  /**
+   * Poll for the completed Hosted Link session, then persist the Item, its
+   * accounts, and trigger the initial backfill (research.md R1, FR-004).
+   */
+  async completeLink(linkToken: string): Promise<unknown> {
+    const token = linkToken || this.pendingLinkToken;
+    if (!token) {
+      throw new IpcFailure('PLAID_UNCONFIGURED', 'No Plaid session is in progress', true);
+    }
+    const client = await this.plaidClient();
+
+    let publicToken: string | null;
+    try {
+      publicToken = await pollForPublicToken(client, token);
+    } catch (error) {
+      throw this.plaidFailure(error);
+    }
+    // Not an error: the user is still in the flow. The renderer keeps polling.
+    if (!publicToken) return { pending: true };
+
+    const { accessToken, itemId } = await exchangePublicToken(client, publicToken);
+    const fetched = await fetchItemAccounts(client, accessToken);
+
+    const institutionId = `inst_${uuid().slice(0, 8)}`;
+    const sealed = (await this.deps.keyring.seal(accessToken)).toString('base64');
+    await this.db.insert(t.institutions).values({
+      id: institutionId,
+      plaidItemId: itemId,
+      accessTokenEncrypted: sealed,
+      institutionName: fetched.institutionName,
+      syncCursor: null,
+      status: 'healthy',
+      lastSyncedAt: null,
+      lastAttemptedSyncAt: null,
+      createdAt: this.deps.clock.now().toISOString(),
+    });
+    for (const a of fetched.accounts) {
+      await this.db.insert(t.accounts).values({
+        id: `acct_${uuid().slice(0, 8)}`,
+        institutionId,
+        plaidAccountId: a.plaidAccountId,
+        name: a.name,
+        mask: a.mask,
+        type: a.type,
+        subtype: a.subtype,
+        currentBalanceMinor: a.currentBalanceMinor,
+        balanceAsOf: this.deps.clock.now().toISOString(),
+        isMonitored: a.type === 'depository',
+      });
+    }
+
+    this.pendingLinkToken = null;
+    // Null cursor means a full historical backfill on this first sync (FR-004).
+    await this.deps.sync();
+    return { institutionId, accountsAdded: fetched.accounts.length };
+  }
+
+  /** Build a Plaid client from the stored, sealed credentials. */
+  private async plaidClient(): Promise<ReturnType<typeof createPlaidClient>> {
+    const [clientId, secret, env] = await Promise.all([
+      this.readSecret('plaidClientId'),
+      this.readSecret('plaidSecret'),
+      this.readPlainSetting('plaidEnv'),
+    ]);
+    if (!clientId || !secret) {
+      throw new IpcFailure(
+        'PLAID_UNCONFIGURED',
+        'Add your Plaid credentials in Settings before connecting an account',
+        true,
+        'Open Settings',
+      );
+    }
+    return createPlaidClient({
+      clientId,
+      secret,
+      environment: (env === 'production' ? 'production' : 'sandbox') as PlaidEnvironment,
+    });
+  }
+
+  private plaidFailure(error: unknown): IpcFailure {
+    const message = error instanceof Error ? error.message : 'Plaid request failed';
+    if (/ITEM_LOGIN_REQUIRED|PENDING_EXPIRATION/i.test(message)) {
+      return new IpcFailure('PLAID_REAUTH_REQUIRED', 'Reconnect this account', true, 'Reconnect');
+    }
+    if (/RATE_LIMIT/i.test(message)) {
+      return new IpcFailure('PLAID_RATE_LIMITED', 'Plaid is rate limiting; try again shortly', true);
+    }
+    if (/INVALID_API_KEYS|INVALID_CREDENTIALS|401|403/i.test(message)) {
+      return new IpcFailure(
+        'PLAID_UNCONFIGURED',
+        'Plaid rejected those credentials. Check the client ID, secret, and environment.',
+        true,
+        'Open Settings',
+      );
+    }
+    return new IpcFailure('INTERNAL', message, true);
+  }
+
+  private async readSecret(key: string): Promise<string | null> {
+    const rows = await this.db.select().from(t.settings).where(eq(t.settings.key, key));
+    const value = rows[0]?.value;
+    if (!value) return null;
+    return (await this.deps.keyring.open(Buffer.from(value, 'base64'))).value;
+  }
+
+  private async readPlainSetting(key: string): Promise<string | null> {
+    const rows = await this.db.select().from(t.settings).where(eq(t.settings.key, key));
+    return rows[0]?.value ?? null;
   }
 
   async listInstitutions(): Promise<unknown> {
@@ -215,10 +334,11 @@ export class Services implements AppServices {
       limit: number;
       offset: number;
     };
-    const [rows, live, completeness] = await Promise.all([
+    const [rows, live, completeness, aliases] = await Promise.all([
       this.transactionsIn(q.periodStart, q.periodEnd),
       this.liveCategorizations(),
       this.completeness(),
+      this.merchantAliases(),
     ]);
 
     let filtered = rows;
@@ -241,7 +361,10 @@ export class Services implements AppServices {
         return {
           id: r.id,
           amountMinor: r.amountMinor,
-          merchantName: r.merchantName,
+          // Precedence: this transaction's own override, then the merchant-wide
+          // alias, then what the bank sent.
+          merchantName:
+            r.userMerchantName ?? aliases.get(r.merchantKey ?? '') ?? r.merchantName,
           description: r.description,
           postedDate: r.postedDate,
           categoryId: c?.categoryId ?? 'uncategorizable',
@@ -250,6 +373,10 @@ export class Services implements AppServices {
           isInternalTransfer: r.isInternalTransfer,
           originalCurrency: r.originalCurrency,
           originalAmountMinor: r.originalAmountMinor,
+          userMerchantName: r.userMerchantName,
+          userNote: r.userNote,
+          userExcluded: r.userExcluded,
+          userRecurringOverride: r.userRecurringOverride,
         };
       }),
       totalCount: filtered.length,
@@ -332,9 +459,10 @@ export class Services implements AppServices {
 
   async reviewQueue(page: unknown): Promise<unknown> {
     const { limit, offset } = page as { limit: number; offset: number };
-    const [live, txs] = await Promise.all([
+    const [live, txs, aliases] = await Promise.all([
       this.liveCategorizations(),
       this.db.select().from(t.transactions),
+      this.merchantAliases(),
     ]);
     const byId = new Map(txs.map((x) => [x.id, x]));
     const flagged = [...live.values()].filter((c) => c.needsReview && !c.isConfirmed);
@@ -348,8 +476,13 @@ export class Services implements AppServices {
             transaction: {
               id: tx.id,
               amountMinor: tx.amountMinor,
-              merchantName: tx.merchantName,
+              merchantName:
+                tx.userMerchantName ?? aliases.get(tx.merchantKey ?? '') ?? tx.merchantName,
               description: tx.description,
+              userMerchantName: tx.userMerchantName,
+              userNote: tx.userNote,
+              userExcluded: tx.userExcluded,
+              userRecurringOverride: tx.userRecurringOverride,
               postedDate: tx.postedDate,
               categoryId: c.categoryId,
               confidence: c.confidence,
@@ -409,6 +542,110 @@ export class Services implements AppServices {
       updated: plan.affectedCount,
       skippedUserConfirmed: plan.protectedCount,
       restatedPeriods: [],
+    };
+  }
+
+  /**
+   * Edit anything the user controls on a transaction.
+   *
+   * Overrides are stored in their own columns; the imported values are never
+   * mutated, so a re-sync cannot clobber an edit and the original stays
+   * auditable.
+   */
+  async updateTransaction(input: unknown): Promise<unknown> {
+    const p = input as {
+      transactionId: string;
+      categoryId?: string;
+      userMerchantName?: string | null;
+      applyNameToMerchant?: boolean;
+      userNote?: string | null;
+      userExcluded?: boolean;
+      userRecurringOverride?: 'recurring' | 'not_recurring' | null;
+    };
+
+    const target = (
+      await this.db.select().from(t.transactions).where(eq(t.transactions.id, p.transactionId))
+    )[0];
+
+    const patch: Record<string, unknown> = {};
+    if (p.userMerchantName !== undefined) patch['userMerchantName'] = p.userMerchantName;
+
+    // A rename applies to the whole merchant by default. Renaming row by row is
+    // the manual bookkeeping this product exists to avoid.
+    if (p.userMerchantName !== undefined && p.applyNameToMerchant !== false && target?.merchantKey) {
+      if (p.userMerchantName === null) {
+        await this.db
+          .delete(t.merchantAliases)
+          .where(eq(t.merchantAliases.merchantKey, target.merchantKey));
+      } else {
+        await this.db
+          .insert(t.merchantAliases)
+          .values({
+            merchantKey: target.merchantKey,
+            displayName: p.userMerchantName,
+            createdAt: this.deps.clock.now().toISOString(),
+          })
+          .onConflictDoUpdate({
+            target: t.merchantAliases.merchantKey,
+            set: { displayName: p.userMerchantName },
+          });
+      }
+    }
+    if (p.userNote !== undefined) patch['userNote'] = p.userNote;
+    if (p.userExcluded !== undefined) patch['userExcluded'] = p.userExcluded;
+    if (p.userRecurringOverride !== undefined) {
+      patch['userRecurringOverride'] = p.userRecurringOverride;
+    }
+    if (Object.keys(patch).length > 0) {
+      await this.db.update(t.transactions).set(patch).where(eq(t.transactions.id, p.transactionId));
+    }
+
+    let retroactiveCandidateCount = 0;
+    if (p.categoryId) {
+      await this.supersede(p.transactionId, p.categoryId, this.deps.clock.now().toISOString());
+
+      // A confirmed category becomes the default for this merchant going
+      // forward, so the same correction is never needed twice (FR-016).
+      if (target?.merchantKey) {
+        this.deps.pipeline.confirmCategory(target.merchantKey, p.categoryId);
+        await this.db
+          .insert(t.merchantProfiles)
+          .values({
+            merchantKey: target.merchantKey,
+            categoryDistribution: '{}',
+            userConfirmedCategoryId: p.categoryId,
+            transactionCount: 0,
+            lastUpdatedAt: this.deps.clock.now().toISOString(),
+          })
+          .onConflictDoUpdate({
+            target: t.merchantProfiles.merchantKey,
+            set: { userConfirmedCategoryId: p.categoryId },
+          });
+
+        // Report what a retroactive pass WOULD change; do not apply it (FR-074).
+        retroactiveCandidateCount = planRetroactive(
+          await this.categorizationRecords(),
+          await this.transactionIdsForMerchant(target.merchantKey),
+          p.categoryId,
+        ).affectedCount;
+      }
+    }
+
+    // A user marking something recurring is authoritative over detection.
+    if (p.userRecurringOverride === 'not_recurring') {
+      const key = target?.merchantKey;
+      if (key) {
+        await this.db
+          .update(t.recurringCharges)
+          .set({ status: 'inactive' })
+          .where(eq(t.recurringCharges.merchantKey, key));
+      }
+    }
+
+    return {
+      ok: true,
+      merchantKey: target?.merchantKey ?? null,
+      retroactiveCandidateCount,
     };
   }
 
@@ -531,7 +768,9 @@ export class Services implements AppServices {
     const byRule = new Map(rules.map((r) => [r.id, r.type]));
     return rows.map((a) => ({
       id: a.id,
-      type: byRule.get(a.ruleId) ?? 'unknown',
+      // Falls back to the type captured at fire time, so an alert from a since
+      // deleted rule still describes itself.
+      type: (a.ruleId ? byRule.get(a.ruleId) : null) ?? a.ruleType,
       // Both surfaced, so a replayed alert is never mistaken for live (FR-057).
       eventOccurredAt: a.eventOccurredAt,
       detectedAt: a.detectedAt,
@@ -552,9 +791,36 @@ export class Services implements AppServices {
     return this.db.select().from(t.alertRules);
   }
 
+  async createAlertRule(input: unknown): Promise<unknown> {
+    const p = input as {
+      type: string;
+      label?: string;
+      thresholdMinor?: number | null;
+      windowMinutes?: number | null;
+    };
+    const id = `rule_${uuid().slice(0, 8)}`;
+    await this.db.insert(t.alertRules).values({
+      id,
+      type: p.type as 'large_purchase',
+      label: p.label ?? null,
+      thresholdMinor: p.thresholdMinor ?? null,
+      windowMinutes: p.windowMinutes ?? null,
+      enabled: true,
+      isSystem: false,
+    });
+    return { id };
+  }
+
+  async deleteAlertRule(id: string): Promise<unknown> {
+    // Alerts already raised are kept; only the rule stops firing.
+    await this.db.delete(t.alertRules).where(eq(t.alertRules.id, id));
+    return { ok: true };
+  }
+
   async updateAlertRule(input: unknown): Promise<unknown> {
     const p = input as {
       id: string;
+      label?: string | null;
       thresholdMinor?: number | null;
       windowMinutes?: number | null;
       enabled?: boolean;
@@ -562,6 +828,7 @@ export class Services implements AppServices {
     await this.db
       .update(t.alertRules)
       .set({
+        ...(p.label !== undefined ? { label: p.label } : {}),
         ...(p.thresholdMinor !== undefined ? { thresholdMinor: p.thresholdMinor } : {}),
         ...(p.windowMinutes !== undefined ? { windowMinutes: p.windowMinutes } : {}),
         ...(p.enabled !== undefined ? { enabled: p.enabled } : {}),
@@ -588,6 +855,111 @@ export class Services implements AppServices {
         savingsRate: content.savingsRate ?? 0,
       };
     });
+  }
+
+  /**
+   * Generate a report on demand.
+   *
+   * The scheduled path and this one call exactly the same builders, so a report
+   * you force is identical to the one that would have arrived on its own.
+   */
+  async generateReport(input: unknown): Promise<unknown> {
+    const p = input as { type: 'weekly_digest' | 'monthly_report'; asOf?: string };
+    const settings = (await this.getSettings()) as { timeZone: string };
+    const asOf = p.asOf ? new Date(p.asOf) : this.deps.clock.now();
+    const range =
+      p.type === 'monthly_report'
+        ? monthBoundaries(asOf, settings.timeZone)
+        : weekBoundaries(asOf, settings.timeZone);
+
+    const [transactions, completeness, recurring] = await Promise.all([
+      this.spendingIn(range.start.toISOString(), range.end.toISOString()),
+      this.completeness(),
+      this.db.select().from(t.recurringCharges),
+    ]);
+
+    const priorRange =
+      p.type === 'monthly_report'
+        ? monthBoundaries(new Date(range.start.getTime() - 1), settings.timeZone)
+        : weekBoundaries(new Date(range.start.getTime() - 1), settings.timeZone);
+    const priorBreakdown = breakdownByCategory(
+      await this.spendingIn(priorRange.start.toISOString(), priorRange.end.toISOString()),
+    );
+    const priorPeriodTotals: Record<string, number> = {};
+    for (const row of priorBreakdown.rows) priorPeriodTotals[row.categoryId] = row.totalMinor;
+
+    const reportInput = {
+      periodStart: range.start,
+      periodEnd: range.end,
+      transactions,
+      priorPeriodTotals,
+      baselinesByCategory: await this.baselines(settings.timeZone, p.type),
+      recurringCharges: recurring.map((r) => ({
+        merchantKey: r.merchantKey,
+        currentAmountMinor: r.currentAmountMinor,
+        cadence: r.cadence,
+        cumulativePaidMinor: r.cumulativePaidMinor,
+      })),
+      dataComplete: completeness.dataComplete,
+      staleInstitutions: completeness.staleInstitutions,
+    };
+
+    const content =
+      p.type === 'monthly_report'
+        ? buildMonthlyReport(reportInput)
+        : buildWeeklyDigest(reportInput);
+
+    const id = `rep_${uuid().slice(0, 8)}`;
+    await this.db
+      .insert(t.periodReports)
+      .values({
+        id,
+        type: p.type,
+        periodStart: range.start.toISOString(),
+        periodEnd: range.end.toISOString(),
+        content: JSON.stringify(content),
+        generatedAt: this.deps.clock.now().toISOString(),
+        deliveredAt: null,
+        // Generated on request rather than on schedule, so not "late".
+        wasLate: false,
+        dataComplete: completeness.dataComplete,
+      })
+      .onConflictDoNothing();
+
+    return { id, type: p.type, content };
+  }
+
+  /** Per-category baselines from the user's own prior periods (FR-039). */
+  private async baselines(
+    timeZone: string,
+    type: 'weekly_digest' | 'monthly_report',
+  ): Promise<Record<string, ReturnType<typeof computeBaseline>>> {
+    const periods = type === 'monthly_report' ? 6 : 8;
+    const totalsByCategory = new Map<string, number[]>();
+    let cursor = this.deps.clock.now();
+
+    for (let i = 0; i < periods; i += 1) {
+      const range =
+        type === 'monthly_report'
+          ? monthBoundaries(cursor, timeZone)
+          : weekBoundaries(cursor, timeZone);
+      const breakdown = breakdownByCategory(
+        await this.spendingIn(range.start.toISOString(), range.end.toISOString()),
+      );
+      for (const row of breakdown.rows) {
+        totalsByCategory.set(row.categoryId, [
+          ...(totalsByCategory.get(row.categoryId) ?? []),
+          row.totalMinor,
+        ]);
+      }
+      cursor = new Date(range.start.getTime() - 1);
+    }
+
+    const out: Record<string, ReturnType<typeof computeBaseline>> = {};
+    for (const [categoryId, totals] of totalsByCategory) {
+      out[categoryId] = computeBaseline(totals);
+    }
+    return out;
   }
 
   async getReport(id: string): Promise<unknown> {
@@ -652,6 +1024,12 @@ export class Services implements AppServices {
       ...(map.has('categorizationMode')
         ? { categorizationMode: map.get('categorizationMode') as 'hybrid' | 'local_only' }
         : {}),
+      ...(map.has('modelProvider')
+        ? { modelProvider: map.get('modelProvider') as AppSettings['modelProvider'] }
+        : {}),
+      ...(map.has('anthropicModel') ? { anthropicModel: map.get('anthropicModel') as string } : {}),
+      ...(map.has('ollamaModel') ? { ollamaModel: map.get('ollamaModel') as string } : {}),
+      ...(map.has('ollamaBaseUrl') ? { ollamaBaseUrl: map.get('ollamaBaseUrl') as string } : {}),
       ...(map.has('timeZone') ? { timeZone: map.get('timeZone') as string } : {}),
     });
   }
@@ -685,6 +1063,17 @@ export class Services implements AppServices {
     return { ok: true, requiresRestart: true };
   }
 
+  /** Installed Ollama models, for the settings picker. Empty when Ollama is off. */
+  async listOllamaModels(): Promise<unknown> {
+    const baseUrl = (await this.readPlainSetting('ollamaBaseUrl')) ?? undefined;
+    try {
+      return await listOllamaModels(baseUrl);
+    } catch {
+      // Ollama not running is a normal state, not an error to surface.
+      return [];
+    }
+  }
+
   async syncNow(): Promise<unknown> {
     await this.deps.sync();
     return { started: true };
@@ -693,7 +1082,12 @@ export class Services implements AppServices {
   // ---- Internals -----------------------------------------------------------
 
   private countsAsSpending(r: TransactionRow): boolean {
-    return !r.isInternalTransfer && r.settlementState !== 'removed' && r.amountMinor < 0;
+    return (
+      !r.isInternalTransfer &&
+      !r.userExcluded &&
+      r.settlementState !== 'removed' &&
+      r.amountMinor < 0
+    );
   }
 
   private namedRows(
@@ -768,6 +1162,7 @@ export class Services implements AppServices {
       settlementState: r.settlementState,
       isInternalTransfer: r.isInternalTransfer,
       reversesTransactionId: r.reversesTransactionId,
+      userExcluded: r.userExcluded,
     }));
   }
 
@@ -826,6 +1221,12 @@ export class Services implements AppServices {
         .set({ supersededBy: id })
         .where(eq(t.categorizations.id, current.id));
     }
+  }
+
+  /** merchantKey -> user display name (FR-016-style merchant-wide override). */
+  private async merchantAliases(): Promise<Map<string, string>> {
+    const rows = await this.db.select().from(t.merchantAliases);
+    return new Map(rows.map((r) => [r.merchantKey, r.displayName]));
   }
 
   private async categoryNames(): Promise<Map<string, string>> {

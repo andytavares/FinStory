@@ -415,4 +415,145 @@ describe('Services with realistic data', () => {
     await services.disconnectInstitution('inst_1');
     expect((await services.listInstitutions()) as unknown[]).toHaveLength(0);
   });
+
+  describe('user overrides on a transaction', () => {
+    it('saves a rename, note, exclusion, and recurring override together', async () => {
+      await services.updateTransaction({
+        transactionId: 'txn_1',
+        userMerchantName: 'Dinner with Sam',
+        userNote: 'split with Sam, reimbursed',
+        userExcluded: true,
+        userRecurringOverride: 'not_recurring',
+      });
+      const q = (await services.queryTransactions({ limit: 50, offset: 0 })) as {
+        rows: Array<{
+          id: string;
+          userMerchantName: string | null;
+          userNote: string | null;
+          userExcluded: boolean;
+          userRecurringOverride: string | null;
+        }>;
+      };
+      const row = q.rows.find((r) => r.id === 'txn_1');
+      expect(row?.userMerchantName).toBe('Dinner with Sam');
+      expect(row?.userNote).toBe('split with Sam, reimbursed');
+      expect(row?.userExcluded).toBe(true);
+      expect(row?.userRecurringOverride).toBe('not_recurring');
+    });
+
+    it('an excluded transaction drops out of spending totals', async () => {
+      const before = (await services.dashboard(RANGE)) as {
+        cashFlowMinor: { spendingMinor: number };
+      };
+      await services.updateTransaction({ transactionId: 'txn_1', userExcluded: true });
+      const after = (await services.dashboard(RANGE)) as {
+        cashFlowMinor: { spendingMinor: number };
+      };
+      // txn_1 was -6,400; excluding it makes spending less negative by exactly that.
+      expect(after.cashFlowMinor.spendingMinor - before.cashFlowMinor.spendingMinor).toBe(6_400);
+    });
+
+    it('marking not-recurring deactivates the merchant recurring charge', async () => {
+      await services.updateTransaction({
+        transactionId: 'txn_5',
+        userRecurringOverride: 'not_recurring',
+      });
+      const rows = (await services.listRecurring()) as Array<{ status: string }>;
+      expect(rows[0]?.status).toBe('inactive');
+    });
+
+    it('remembers the category for the merchant and reports the retroactive count', async () => {
+    const r = (await services.updateTransaction({
+      transactionId: 'txn_1',
+      categoryId: 'groceries',
+    })) as { merchantKey: string | null; retroactiveCandidateCount: number };
+    expect(r.merchantKey).toBe('uber eats');
+    // Only txn_1 exists for this merchant and it is now already correct.
+    expect(r.retroactiveCandidateCount).toBe(0);
+
+    // The confirmation is persisted, so future imports default to it (FR-016).
+    const profiles = await handle.db.select().from(schema.merchantProfiles);
+    expect(profiles.find((x) => x.merchantKey === 'uber eats')?.userConfirmedCategoryId).toBe(
+      'groceries',
+    );
+  });
+
+  it('changes the category through the same call', async () => {
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries' });
+      const q = (await services.queryTransactions({ limit: 50, offset: 0 })) as {
+        rows: Array<{ id: string; categoryId: string }>;
+      };
+      expect(q.rows.find((r) => r.id === 'txn_1')?.categoryId).toBe('groceries');
+    });
+
+    it('clearing an override restores the imported value', async () => {
+      await services.updateTransaction({ transactionId: 'txn_1', userMerchantName: 'Renamed' });
+      await services.updateTransaction({ transactionId: 'txn_1', userMerchantName: null });
+      const q = (await services.queryTransactions({ limit: 50, offset: 0 })) as {
+        rows: Array<{ id: string; userMerchantName: string | null; description: string }>;
+      };
+      const row = q.rows.find((r) => r.id === 'txn_1');
+      expect(row?.userMerchantName).toBeNull();
+      // The imported descriptor was never mutated.
+      expect(row?.description).toBe('UBER EATS');
+    });
+  });
+
+  describe('alert rule management', () => {
+    it('creates a second rule of a kind that already exists', async () => {
+      const created = (await services.createAlertRule({
+        type: 'large_purchase',
+        thresholdMinor: 100_000,
+        label: 'Very large',
+      })) as { id: string };
+      const rules = (await services.listAlertRules()) as Array<{ id: string; type: string }>;
+      expect(rules.filter((r) => r.type === 'large_purchase')).toHaveLength(2);
+      expect(rules.some((r) => r.id === created.id)).toBe(true);
+    });
+
+    it('edits a threshold and a label', async () => {
+      await services.updateAlertRule({ id: 'rule_1', thresholdMinor: 55_000, label: 'Big spend' });
+      const rules = (await services.listAlertRules()) as Array<{
+        id: string;
+        thresholdMinor: number;
+        label: string | null;
+      }>;
+      const rule = rules.find((r) => r.id === 'rule_1');
+      expect(rule?.thresholdMinor).toBe(55_000);
+      expect(rule?.label).toBe('Big spend');
+    });
+
+    it('deletes a rule without deleting alerts it already raised', async () => {
+      await services.deleteAlertRule('rule_1');
+      expect(((await services.listAlertRules()) as unknown[]).length).toBe(0);
+      // The alert history survives; only the rule stops firing.
+      expect(((await services.listAlerts()) as unknown[]).length).toBe(1);
+    });
+  });
+
+  describe('on-demand report generation', () => {
+    it('generates a monthly report from real data', async () => {
+      const r = (await services.generateReport({ type: 'monthly_report' })) as {
+        id: string;
+        content: { totalIncomeMinor: number; totalSpendingMinor: number };
+      };
+      expect(r.id).toBeDefined();
+      expect(r.content.totalIncomeMinor).toBe(520_000);
+      expect(r.content.totalSpendingMinor).toBeLessThan(0);
+    });
+
+    it('generates a weekly digest', async () => {
+      const r = (await services.generateReport({
+        type: 'weekly_digest',
+        asOf: '2026-08-05T12:00:00Z',
+      })) as { content: { hadActivity: boolean } };
+      expect(r.content.hadActivity).toBeDefined();
+    });
+
+    it('the generated report then appears in the list', async () => {
+      await services.generateReport({ type: 'monthly_report' });
+      const list = (await services.listReports()) as Array<{ type: string }>;
+      expect(list.some((x) => x.type === 'monthly_report')).toBe(true);
+    });
+  });
 });

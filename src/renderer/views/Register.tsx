@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useQuery } from '../lib/ipc';
+import { useQuery, call } from '../lib/ipc';
 import { Money } from '../components/Money';
 import { Qualification } from '../components/Qualification';
 import { EmptyState } from '../components/EmptyState';
+import { TransactionEditor, assignableCategories } from '../components/TransactionEditor';
 import { shortDate } from '../lib/format';
 import type { TransactionView, Qualified } from '@shared/types';
 
@@ -11,7 +12,20 @@ interface RegisterResponse extends Qualified {
   readonly totalCount: number;
 }
 
-/** FR-064: searchable, filterable register across all connected accounts. */
+interface CategoryOption {
+  readonly id: string;
+  readonly name: string;
+  readonly parentId: string | null;
+  readonly isHidden: boolean;
+  readonly mergedIntoId: string | null;
+}
+
+/**
+ * Everything the user controls on a transaction.
+ *
+ * Overrides are stored separately from the imported values, so a re-sync cannot
+ * clobber an edit and the original stays visible underneath.
+ */
 export function Register({
   initialCategoryId,
 }: {
@@ -19,6 +33,9 @@ export function Register({
 }): React.JSX.Element {
   const [search, setSearch] = useState('');
   const [categoryId] = useState(initialCategoryId);
+  const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
+  const [changed, setChanged] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<string | null>(null);
 
   const { data, loading } = useQuery<RegisterResponse>('transactions:query', {
     ...(categoryId ? { categoryIds: [categoryId] } : {}),
@@ -65,10 +82,11 @@ export function Register({
               <th className="px-3 py-2 font-normal text-[var(--color-ink-faint)]">Merchant</th>
               <th className="px-3 py-2 font-normal text-[var(--color-ink-faint)]">Category</th>
               <th className="px-3 py-2 text-right font-normal text-[var(--color-ink-faint)]">Amount</th>
+              <th className="px-2 py-2 font-normal" />
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((t) => (
+            {data.rows.flatMap((t) => [
               <tr key={t.id} className="border-b border-[var(--color-line)] last:border-0">
                 <td className="numeric px-3 py-2 text-[var(--color-ink-muted)]">
                   {shortDate(t.postedDate)}
@@ -83,16 +101,58 @@ export function Register({
                   )}
                 </td>
                 <td className="px-3 py-2 text-[var(--color-ink-muted)]">
-                  {t.categoryId}
-                  {t.needsReview && (
-                    <span className="ml-2 text-[11px] text-[var(--color-ink-faint)]">unconfirmed</span>
+                  {/* Any transaction is recategorizable here, not only flagged ones. */}
+                  <select
+                    value={changed[t.id] ?? t.categoryId}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setChanged((prev) => ({ ...prev, [t.id]: next }));
+                      void call('review:recategorize', {
+                        transactionIds: [t.id],
+                        categoryId: next,
+                      });
+                    }}
+                    aria-label={`Category for ${t.merchantName ?? t.description}`}
+                    className="border border-transparent bg-transparent px-1 py-0.5 text-[13px] text-[var(--color-ink-muted)] hover:border-[var(--color-line)]"
+                  >
+                    {assignableCategories(categories.data ?? []).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  {t.needsReview && !changed[t.id] && (
+                    <span className="ml-1 text-[11px] text-[var(--color-ink-faint)]">unconfirmed</span>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right">
-                  <Money minor={t.amountMinor} />
+                  <Money minor={t.amountMinor} direction />
                 </td>
-              </tr>
-            ))}
+                <td className="px-2 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(editing === t.id ? null : t.id)}
+                    aria-label={`Edit ${t.merchantName ?? t.description}`}
+                    className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+                  >
+                    {editing === t.id ? 'Close' : 'Edit'}
+                  </button>
+                </td>
+              </tr>,
+              ...(editing === t.id
+                ? [
+                    <tr key={`${t.id}-edit`} className="border-b border-[var(--color-line)]">
+                      <td colSpan={5} className="bg-[var(--color-surface)] px-3 py-3">
+                        <TransactionEditor
+                          transaction={t}
+                          categories={categories.data ?? []}
+                          onCategoriesChanged={categories.refetch}
+                        />
+                      </td>
+                    </tr>,
+                  ]
+                : []),
+            ])}
           </tbody>
         </table>
       )}

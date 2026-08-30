@@ -34,6 +34,7 @@ export interface AppServices {
   reviewQueue(page: unknown): Promise<unknown>;
   recategorize(input: unknown): Promise<unknown>;
   applyRetroactive(input: unknown): Promise<unknown>;
+  updateTransaction(input: unknown): Promise<unknown>;
   dismissFlags(ids: string[]): Promise<unknown>;
 
   listCategories(): Promise<unknown>;
@@ -50,8 +51,11 @@ export interface AppServices {
   dismissAlert(id: string): Promise<unknown>;
   listAlertRules(): Promise<unknown>;
   updateAlertRule(input: unknown): Promise<unknown>;
+  createAlertRule(input: unknown): Promise<unknown>;
+  deleteAlertRule(id: string): Promise<unknown>;
   listReports(): Promise<unknown>;
   getReport(id: string): Promise<unknown>;
+  generateReport(input: unknown): Promise<unknown>;
 
   health(): Promise<unknown>;
   exportDiagnostics(destPath: string): Promise<unknown>;
@@ -60,5 +64,6 @@ export interface AppServices {
   exportData(destPath: string): Promise<unknown>;
   importData(srcPath: string): Promise<unknown>;
   deleteAllData(): Promise<unknown>;
+  listOllamaModels(): Promise<unknown>;
   syncNow(): Promise<unknown>;
 }

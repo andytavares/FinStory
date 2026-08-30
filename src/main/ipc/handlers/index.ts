@@ -13,6 +13,7 @@ import {
   setHiddenSchema,
   incomeOverrideSchema,
   alertRuleUpdateSchema,
+  alertRuleCreateSchema,
   settingsUpdateSchema,
   pathSchema,
   importSchema,
@@ -20,6 +21,7 @@ import {
   idSchema,
   alertIdSchema,
   transactionIdsSchema,
+  transactionUpdateSchema,
 } from '@shared/schemas';
 import type { AppServices } from './services';
 
@@ -97,6 +99,9 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('review:applyRetroactive', applyRetroactiveSchema, (p) =>
     services.applyRetroactive(p),
   );
+  registry.handle('transactions:update', transactionUpdateSchema, (p) =>
+    services.updateTransaction(p),
+  );
   registry.handle('review:dismissFlag', transactionIdsSchema, (p) =>
     services.dismissFlags(p.transactionIds),
   );
@@ -120,15 +125,26 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('alerts:dismiss', alertIdSchema, (p) => services.dismissAlert(p.alertId));
   registry.handle('alertRules:list', empty, () => services.listAlertRules());
   registry.handle('alertRules:update', alertRuleUpdateSchema, (p) => services.updateAlertRule(p));
+  registry.handle('alertRules:create', alertRuleCreateSchema, (p) => services.createAlertRule(p));
+  registry.handle('alertRules:delete', idSchema, (p) => services.deleteAlertRule(p.id));
   registry.handle('reports:list', empty, () => services.listReports());
   registry.handle('reports:get', z.object({ reportId: z.string() }), (p) =>
     services.getReport(p.reportId),
+  );
+  registry.handle(
+    'reports:generate',
+    z.object({
+      type: z.enum(['weekly_digest', 'monthly_report']),
+      asOf: z.string().optional(),
+    }),
+    (p) => services.generateReport(p),
   );
 
   // Diagnostics, settings, data
   registry.handle('health:get', empty, () => services.health());
   registry.handle('diagnostics:export', pathSchema, (p) => services.exportDiagnostics(p.destPath));
   registry.handle('settings:get', empty, () => services.getSettings());
+  registry.handle('models:listOllama', empty, () => services.listOllamaModels());
   registry.handle('settings:update', settingsUpdateSchema, (p) => services.updateSettings(p));
   registry.handle('data:export', pathSchema, (p) => services.exportData(p.destPath));
   registry.handle('data:import', importSchema, (p) => services.importData(p.srcPath));

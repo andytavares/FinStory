@@ -68,18 +68,49 @@ export const incomeOverrideSchema = z.object({
   accountId: z.string().optional(),
 });
 
+const alertRuleType = z.enum([
+  'large_purchase',
+  'daily_total',
+  'duplicate_charge',
+  'new_recurring',
+  'balance_floor',
+]);
+
 export const alertRuleUpdateSchema = z.object({
   id: z.string().min(1),
-  thresholdMinor: minorUnits.nullable().optional(),
-  windowMinutes: z.number().int().positive().nullable().optional(),
+  label: z.string().max(80).nullable().optional(),
+  thresholdMinor: z.coerce.number().int().nullable().optional(),
+  windowMinutes: z.coerce.number().int().positive().nullable().optional(),
   enabled: z.boolean().optional(),
 });
 
+export const alertRuleCreateSchema = z.object({
+  type: alertRuleType,
+  label: z.string().max(80).optional(),
+  thresholdMinor: z.coerce.number().int().nullable().optional(),
+  windowMinutes: z.coerce.number().int().positive().nullable().optional(),
+});
+
 export const settingsUpdateSchema = z.object({
-  confidenceThreshold: z.number().min(0).max(1).optional(),
-  pollIntervalMinutes: z.number().int().min(15).max(1440).optional(),
+  confidenceThreshold: z.coerce.number().min(0).max(1).optional(),
+  pollIntervalMinutes: z.coerce.number().int().min(15).max(1440).optional(),
   categorizationMode: z.enum(['hybrid', 'local_only']).optional(),
+  modelProvider: z.enum(['anthropic', 'ollama', 'local_only']).optional(),
+  anthropicModel: z.string().min(1).optional(),
+  ollamaModel: z.string().optional(),
+  ollamaBaseUrl: z.string().optional(),
   timeZone: z.string().optional(),
+});
+
+export const transactionUpdateSchema = z.object({
+  transactionId: z.string().min(1),
+  categoryId: z.string().min(1).optional(),
+  userMerchantName: z.string().max(120).nullable().optional(),
+  /** Apply the rename to every transaction from this merchant. Default true. */
+  applyNameToMerchant: z.boolean().default(true),
+  userNote: z.string().max(2000).nullable().optional(),
+  userExcluded: z.boolean().optional(),
+  userRecurringOverride: z.enum(['recurring', 'not_recurring']).nullable().optional(),
 });
 
 export const pathSchema = z.object({ destPath: z.string().min(1) });

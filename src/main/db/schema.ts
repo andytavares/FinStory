@@ -67,6 +67,16 @@ export const transactions = sqliteTable(
     // Display-only. MUST NOT enter any calculation (FR-085, FR-086).
     originalCurrency: text('original_currency'),
     originalAmountMinor: integer('original_amount_minor'),
+    // User overrides. The imported values above are never mutated, so a
+    // re-sync cannot clobber the user's edits and the original stays auditable.
+    userMerchantName: text('user_merchant_name'),
+    userNote: text('user_note'),
+    /** Excludes the transaction from spending totals (e.g. a reimbursed expense). */
+    userExcluded: integer('user_excluded', { mode: 'boolean' }).notNull().default(false),
+    /** Overrides recurring detection either way; null means "let detection decide". */
+    userRecurringOverride: text('user_recurring_override', {
+      enum: ['recurring', 'not_recurring'],
+    }),
     firstSeenAt: text('first_seen_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -169,23 +179,28 @@ export const incomeSources = sqliteTable('income_sources', {
 
 export const alertRules = sqliteTable('alert_rules', {
   id: text('id').primaryKey(),
+  // Deliberately NOT unique: a user may want several rules of the same kind at
+  // different thresholds (e.g. notify at $200 and again at $1,000).
   type: text('type', {
     enum: ['large_purchase', 'daily_total', 'duplicate_charge', 'new_recurring', 'balance_floor'],
-  })
-    .notNull()
-    .unique(),
+  }).notNull(),
+  /** User-supplied name; falls back to a description of the type. */
+  label: text('label'),
   thresholdMinor: integer('threshold_minor'),
   windowMinutes: integer('window_minutes'),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  isSystem: integer('is_system', { mode: 'boolean' }).notNull().default(false),
 });
 
 export const alerts = sqliteTable(
   'alerts',
   {
     id: text('id').primaryKey(),
-    ruleId: text('rule_id')
-      .notNull()
-      .references(() => alertRules.id, { onDelete: 'cascade' }),
+    // Nullable and set-null on delete: removing a rule stops it firing, but the
+    // alerts it already raised are history and must survive.
+    ruleId: text('rule_id').references(() => alertRules.id, { onDelete: 'set null' }),
+    /** Retained so a deleted rule's alerts still say what they were. */
+    ruleType: text('rule_type').notNull().default('unknown'),
     triggeredByTransactionId: text('triggered_by_transaction_id'),
     // True event time, not detection time (FR-057).
     eventOccurredAt: text('event_occurred_at').notNull(),
@@ -247,4 +262,17 @@ export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
   isSecret: integer('is_secret', { mode: 'boolean' }).notNull().default(false),
+});
+
+/**
+ * Merchant-level display names.
+ *
+ * Renaming a merchant applies to every transaction from it, past and future —
+ * renaming one row at a time would be exactly the manual bookkeeping this
+ * product exists to avoid.
+ */
+export const merchantAliases = sqliteTable('merchant_aliases', {
+  merchantKey: text('merchant_key').primaryKey(),
+  displayName: text('display_name').notNull(),
+  createdAt: text('created_at').notNull(),
 });

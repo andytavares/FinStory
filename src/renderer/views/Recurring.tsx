@@ -6,7 +6,7 @@ import type { RecurringChargeView } from '@shared/types';
 
 /** FR-021: the ledger. Cumulative total is the column that changes behaviour. */
 export function Recurring(): React.JSX.Element {
-  const { data, loading } = useQuery<RecurringChargeView[]>('recurring:list', {
+  const { data, loading, refetch } = useQuery<RecurringChargeView[]>('recurring:list', {
     includeInactive: true,
   });
 
@@ -58,7 +58,9 @@ export function Recurring(): React.JSX.Element {
             </div>
             <button
               type="button"
-              onClick={() => void call('recurring:markNotRecurring', { id: c.id })}
+              onClick={() => {
+                void call('recurring:markNotRecurring', { id: c.id }).then(refetch);
+              }}
               className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
             >
               Not recurring

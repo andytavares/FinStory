@@ -1,4 +1,5 @@
 import { classifyLocally, normalizeMerchantKey, updateProfile } from './local';
+import { classifyByHeuristic } from './heuristics';
 import type { MerchantProfile } from './local';
 
 /**
@@ -100,20 +101,11 @@ export class CategorizationPipeline {
       };
     }
 
-    // local_only mode: the local stage is the whole system. Lower accuracy and
-    // a larger review queue are the accepted trade (FR-061).
+    // local_only mode: no model stage. Fall back to merchant heuristics, which
+    // is what makes a fresh import usable — with no history and no model, every
+    // transaction would otherwise be Uncategorizable (FR-061).
     if (this.options.localOnly) {
-      const guess = profile ? dominantCategory(profile) : null;
-      const categoryId = guess ?? UNCATEGORIZABLE;
-      this.#record(merchantKey, categoryId);
-      return {
-        transactionId: input.transactionId,
-        categoryId,
-        confidence: 0.3,
-        source: 'local_history',
-        needsReview: true,
-        reasoning: 'Offline categorization mode; flagged for your review',
-      };
+      return this.#withoutModel(input, merchantKey, profile);
     }
 
     // Stage two — the model. Only novel or ambiguous merchants get here.
@@ -130,17 +122,7 @@ export class CategorizationPipeline {
       // Categorization failure must never block ingestion: a missing
       // transaction is a correctness bug, a poorly categorized one is a
       // review-queue item (contracts/external-services.md).
-      const fallback = profile ? dominantCategory(profile) : null;
-      const categoryId = fallback ?? UNCATEGORIZABLE;
-      this.#record(merchantKey, categoryId);
-      return {
-        transactionId: input.transactionId,
-        categoryId,
-        confidence: 0,
-        source: 'local_history',
-        needsReview: true,
-        reasoning: 'Categorization unavailable; flagged for your review',
-      };
+      return this.#withoutModel(input, merchantKey, profile);
     }
 
     this.#record(merchantKey, result.categoryId);
@@ -151,6 +133,52 @@ export class CategorizationPipeline {
       source: 'model',
       needsReview: result.confidence < this.options.confidenceThreshold,
       reasoning: result.reasoning,
+    };
+  }
+
+  /**
+   * Best answer available with no model: prior history, then merchant
+   * heuristics, then honestly Uncategorizable.
+   */
+  #withoutModel(
+    input: CategorizationInput,
+    merchantKey: string,
+    profile: MerchantProfile | undefined,
+  ): CategorizationResult {
+    const fromHistory = profile ? dominantCategory(profile) : null;
+    if (fromHistory) {
+      this.#record(merchantKey, fromHistory);
+      return {
+        transactionId: input.transactionId,
+        categoryId: fromHistory,
+        confidence: 0.5,
+        source: 'local_history',
+        needsReview: true,
+        reasoning: 'Based on how you have categorized this merchant before',
+      };
+    }
+
+    const heuristic = classifyByHeuristic(input.descriptor);
+    if (heuristic) {
+      this.#record(merchantKey, heuristic.categoryId);
+      return {
+        transactionId: input.transactionId,
+        categoryId: heuristic.categoryId,
+        confidence: heuristic.confidence,
+        source: 'local_history',
+        needsReview: heuristic.confidence < this.options.confidenceThreshold,
+        reasoning: heuristic.reasoning,
+      };
+    }
+
+    this.#record(merchantKey, UNCATEGORIZABLE);
+    return {
+      transactionId: input.transactionId,
+      categoryId: UNCATEGORIZABLE,
+      confidence: 0,
+      source: 'local_history',
+      needsReview: true,
+      reasoning: 'No model configured and no history for this merchant yet',
     };
   }
 

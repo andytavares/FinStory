@@ -15,6 +15,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // refreshes upstream gains nothing (research.md R2).
   pollIntervalMinutes: 60,
   categorizationMode: 'hybrid',
+  // Haiku by default at the user's explicit instruction. Cost across tiers is
+  // under $2/month at this volume (research.md R4), so this is preference, not
+  // economics — and it is changeable in Settings.
+  modelProvider: 'anthropic',
+  anthropicModel: 'claude-haiku-4-5',
+  ollamaModel: '',
+  ollamaBaseUrl: 'http://localhost:11434',
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 };
 
@@ -32,6 +39,10 @@ export function mergeSettings(
     confidenceThreshold: clamp(update.confidenceThreshold ?? current.confidenceThreshold, 0, 1),
     pollIntervalMinutes: clamp(update.pollIntervalMinutes ?? current.pollIntervalMinutes, 15, 1440),
     categorizationMode: update.categorizationMode ?? current.categorizationMode,
+    modelProvider: update.modelProvider ?? current.modelProvider,
+    anthropicModel: update.anthropicModel ?? current.anthropicModel,
+    ollamaModel: update.ollamaModel ?? current.ollamaModel,
+    ollamaBaseUrl: update.ollamaBaseUrl ?? current.ollamaBaseUrl,
     timeZone: update.timeZone ?? current.timeZone,
   };
 }

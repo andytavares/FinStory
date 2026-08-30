@@ -61,8 +61,16 @@ describe('pipeline routing', () => {
 describe('pipeline never blocks ingestion', () => {
   it('degrades to review-queue when the model fails', async () => {
     const p = new CategorizationPipeline(failing, { confidenceThreshold: 0.8 });
+    // UBER EATS matches a merchant heuristic, so the fallback is a usable guess
+    // flagged for review — not a dump into Uncategorizable.
     const r = await p.categorize(input);
     expect(r.needsReview).toBe(true);
+    expect(r.categoryId).toBe('dining');
+  });
+
+  it('falls through to uncategorizable only for a genuinely unknown merchant', async () => {
+    const p = new CategorizationPipeline(failing, { confidenceThreshold: 0.8 });
+    const r = await p.categorize({ ...input, descriptor: 'ZZQQ MERCHANT 8817' });
     expect(r.categoryId).toBe('uncategorizable');
     expect(r.confidence).toBe(0);
   });

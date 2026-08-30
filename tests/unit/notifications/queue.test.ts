@@ -94,3 +94,26 @@ describe('queue deduplication after delivery', () => {
     expect(q.pending()).toHaveLength(1);
   });
 });
+
+describe('queue behaviour under mixed outcomes', () => {
+  it('delivers what it can and retains the rest in order', async () => {
+    const sent: string[] = [];
+    let blockAfter = 2;
+    const q = new NotificationQueue({
+      deliver: async (n) => {
+        if (sent.length >= blockAfter) throw new Error('channel down');
+        sent.push(n.id);
+      },
+    });
+    for (const id of ['n1', 'n2', 'n3', 'n4']) {
+      await q.push({ id, title: 't', body: 'b', occurredAt: '2026-08-29T12:00:00Z' });
+    }
+    expect(sent).toEqual(['n1', 'n2']);
+    expect(q.pending().map((n) => n.id)).toEqual(['n3', 'n4']);
+
+    blockAfter = 99;
+    await q.flush();
+    expect(sent).toEqual(['n1', 'n2', 'n3', 'n4']);
+    expect(q.pending()).toHaveLength(0);
+  });
+});

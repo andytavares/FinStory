@@ -14,6 +14,7 @@ import { Categories } from '@renderer/views/Categories';
 import { App } from '@renderer/App';
 import { Setup } from '@renderer/views/Setup';
 import { Alerts } from '@renderer/views/Alerts';
+import { Accounts } from '@renderer/views/Accounts';
 
 afterEach(cleanup);
 
@@ -89,7 +90,7 @@ describe('Dashboard', () => {
 
 describe('Register', () => {
   it('lists transactions and shows foreign currency as display-only metadata', async () => {
-    installMoneyBridge({
+    const bridge = {
       'transactions:query': {
         rows: [
           {
@@ -104,17 +105,29 @@ describe('Register', () => {
             isInternalTransfer: false,
             originalCurrency: 'EUR',
             originalAmountMinor: 4000,
+            userMerchantName: null,
+            userNote: null,
+            userExcluded: false,
+            userRecurringOverride: null,
           },
         ],
         totalCount: 1,
         dataComplete: true,
         staleInstitutions: [],
       },
+    };
+    installMoneyBridge({
+      ...bridge,
+      'categories:list': [
+        { id: 'dining', name: 'Dining', parentId: null, isHidden: false, mergedIntoId: null },
+      ],
     });
     render(<Register initialCategoryId={null} />);
     await waitFor(() => expect(screen.getByText('Cafe Paris')).toBeDefined());
     expect(screen.getByText(/EUR 40\.00/)).toBeDefined();
-    expect(screen.getByText('-$43.12')).toBeDefined();
+    // Outflow now renders with an explicit minus sign alongside its colour.
+    expect(screen.getByText('$43.12')).toBeDefined();
+    expect(screen.getByText('−')).toBeDefined();
   });
 
   it('shows an empty state when nothing matches', async () => {
@@ -296,13 +309,40 @@ describe('Reports, Health, Settings, Categories', () => {
   it('explains that hiding a category preserves history', async () => {
     installMoneyBridge({
       'categories:list': [
-        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false },
-        { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false },
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
+        { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null },
       ],
     });
     render(<Categories />);
-    await waitFor(() => expect(screen.getByText('Food')).toBeDefined());
+    // Names are editable inputs now, so assert on value rather than text.
+    await waitFor(() => expect(screen.getByLabelText('Name for Food')).toBeDefined());
     expect(screen.getByText(/historical totals still add up/)).toBeDefined();
+    // Subcategories can be added inline from this screen.
+    expect(screen.getAllByText('+ Add subcategory').length).toBeGreaterThan(0);
+  });
+
+  it('adds a subcategory under a parent', async () => {
+    installMoneyBridge({
+      'categories:list': [
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
+      ],
+      'categories:create': { id: 'new' },
+    });
+    render(<Categories />);
+    await waitFor(() => screen.getByText('+ Add subcategory'));
+    fireEvent.click(screen.getByText('+ Add subcategory'));
+    expect(screen.getByLabelText('New subcategory under Food')).toBeDefined();
+  });
+
+  it('offers hide and merge on every category', async () => {
+    installMoneyBridge({
+      'categories:list': [
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
+      ],
+    });
+    render(<Categories />);
+    await waitFor(() => expect(screen.getByText('Hide')).toBeDefined());
+    expect(screen.getByText('Merge')).toBeDefined();
   });
 });
 
@@ -363,16 +403,22 @@ describe('Alerts', () => {
   const rule = {
     id: 'r1',
     type: 'large_purchase',
+    label: null,
     thresholdMinor: 20000,
     windowMinutes: null,
     enabled: true,
+    isSystem: true,
   };
 
   it('lets the user configure each rule (FR-033)', async () => {
     installMoneyBridge({ 'alerts:list': [], 'alertRules:list': [rule] });
     render(<Alerts />);
-    await waitFor(() => expect(screen.getByText(/Any single purchase over/)).toBeDefined());
-    expect(screen.getByRole('checkbox')).toBeDefined();
+    await waitFor(() =>
+      expect(screen.getByText(/A single purchase over an amount/)).toBeDefined(),
+    );
+    // Threshold is editable, not just on/off.
+    expect(screen.getByLabelText(/Threshold for/)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Add alert' })).toBeDefined();
   });
 
   it('shows when an alert was detected late, while the app was closed (FR-057)', async () => {
@@ -410,7 +456,7 @@ describe('Alerts', () => {
     render(<Alerts />);
     await waitFor(() => expect(screen.getByText('Not a problem')).toBeDefined());
     // The rule toggle is still present and on.
-    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(true);
   });
 
   it('says nothing has needed attention rather than showing a blank list', async () => {
@@ -419,5 +465,124 @@ describe('Alerts', () => {
     await waitFor(() =>
       expect(screen.getByText(/Nothing has needed your attention/)).toBeDefined(),
     );
+  });
+});
+
+describe('Accounts', () => {
+  it('invites connecting when nothing is linked', async () => {
+    installMoneyBridge({ 'institutions:list': [] });
+    render(<Accounts />);
+    await waitFor(() => expect(screen.getByText(/No accounts connected yet/)).toBeDefined());
+    expect(screen.getByRole('button', { name: 'Connect an account' })).toBeDefined();
+  });
+
+  it('lists connected institutions with their sync age', async () => {
+    installMoneyBridge({
+      'institutions:list': [
+        {
+          id: 'i1',
+          institutionName: 'Chase',
+          status: 'healthy',
+          lastSyncedAt: new Date().toISOString(),
+          accountCount: 2,
+        },
+      ],
+    });
+    render(<Accounts />);
+    await waitFor(() => expect(screen.getByText('Chase')).toBeDefined());
+    expect(screen.getByText(/2 accounts/)).toBeDefined();
+  });
+
+  it('offers reconnect only for an unhealthy institution', async () => {
+    installMoneyBridge({
+      'institutions:list': [
+        { id: 'i1', institutionName: 'Chase', status: 'reauth_required', lastSyncedAt: null, accountCount: 1 },
+      ],
+    });
+    render(<Accounts />);
+    await waitFor(() => expect(screen.getByText('Reconnect')).toBeDefined());
+  });
+
+  it('surfaces a failure to start the connection', async () => {
+    installMoneyBridge({ 'institutions:list': [] });
+    render(<Accounts />);
+    await waitFor(() => screen.getByRole('button', { name: 'Connect an account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect an account' }));
+    // link:start has no stub, so the bridge rejects — the UI must say so.
+    await waitFor(() => expect(screen.getByText(/No stub for link:start/)).toBeDefined());
+  });
+});
+
+describe('App shell navigation covers every area', () => {
+  it('routes to each view without error', async () => {
+    installMoneyBridge({
+      'setup:status': {
+        plaidConfigured: true,
+        categorizationConfigured: true,
+        accountCount: 1,
+        encryptionAvailable: true,
+      },
+      'dashboard:get': DASHBOARD,
+      'recurring:list': [],
+      'income:list': [],
+      'review:queue': { rows: [], totalCount: 0 },
+      'reports:list': [],
+      'alerts:list': [],
+      'alertRules:list': [],
+      'categories:list': [],
+      'institutions:list': [],
+      'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
+      'health:get': {
+        perAccount: [],
+        metrics: {
+          syncDurationMsP50: null,
+          transactionsProcessed: 0,
+          localResolutionRate: null,
+          droppedDiagnosticEvents: 0,
+        },
+      },
+      'settings:get': {
+        confidenceThreshold: 0.8,
+        pollIntervalMinutes: 60,
+        categorizationMode: 'hybrid',
+        modelProvider: 'anthropic',
+        anthropicModel: 'claude-haiku-4-5',
+        ollamaModel: '',
+        ollamaBaseUrl: 'http://localhost:11434',
+        timeZone: 'America/New_York',
+      },
+      'models:listOllama': [],
+    });
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Dashboard')).toBeDefined());
+
+    for (const label of [
+      'Transactions',
+      'Recurring',
+      'Income',
+      'Review',
+      'Alerts',
+      'Reports',
+      'Health',
+      'Categories',
+      'Accounts',
+      'Settings',
+    ]) {
+      fireEvent.click(screen.getByRole('button', { name: label }));
+      await waitFor(() => expect(screen.getByRole('button', { name: label })).toBeDefined());
+    }
+  });
+
+  it('shows setup first when Plaid is not configured', async () => {
+    installMoneyBridge({
+      'setup:status': {
+        plaidConfigured: false,
+        categorizationConfigured: false,
+        accountCount: 0,
+        encryptionAvailable: true,
+      },
+    });
+    render(<App />);
+    await waitFor(() => expect(screen.getByText(/Connect your accounts/)).toBeDefined());
   });
 });

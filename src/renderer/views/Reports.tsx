@@ -1,4 +1,5 @@
-import { useQuery } from '../lib/ipc';
+import { useState } from 'react';
+import { useQuery, call } from '../lib/ipc';
 import { Money } from '../components/Money';
 import { EmptyState } from '../components/EmptyState';
 
@@ -15,21 +16,67 @@ interface ReportSummary {
 
 /** FR-038: the monthly read. Ten minutes, once a month, is the whole budget. */
 export function Reports(): React.JSX.Element {
-  const { data, loading } = useQuery<ReportSummary[]>('reports:list', { type: 'all', limit: 24 });
+  const { data, loading, refetch } = useQuery<ReportSummary[]>('reports:list', { type: 'all', limit: 24 });
+  const [generating, setGenerating] = useState<string | null>(null);
+  const [generated, setGenerated] = useState<string | null>(null);
+
+  const generate = async (type: 'weekly_digest' | 'monthly_report'): Promise<void> => {
+    setGenerating(type);
+    setGenerated(null);
+    try {
+      await call('reports:generate', { type });
+      refetch();
+      setGenerated(type === 'monthly_report' ? 'Monthly report ready.' : 'Weekly digest ready.');
+    } finally {
+      setGenerating(null);
+    }
+  };
+
+  const controls = (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        disabled={generating !== null}
+        onClick={() => void generate('weekly_digest')}
+        className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)] disabled:opacity-40"
+      >
+        Run weekly digest
+      </button>
+      <button
+        type="button"
+        disabled={generating !== null}
+        onClick={() => void generate('monthly_report')}
+        className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)] disabled:opacity-40"
+      >
+        Run monthly report
+      </button>
+    </div>
+  );
 
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
   if (!data || data.length === 0) {
     return (
-      <EmptyState
-        title="No reports yet"
-        detail="A digest arrives weekly and a full report monthly, generated whether or not the app is open."
-      />
+      <div className="space-y-5">
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-[20px]">Reports</h1>
+          {controls}
+        </div>
+        {generated && <p className="text-[13px] text-[var(--color-ink-muted)]">{generated}</p>}
+        <EmptyState
+          title="No reports yet"
+          detail="A digest arrives weekly and a full report monthly, generated whether or not the app is open. You can also run one now."
+        />
+      </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      <h1 className="text-[20px]">Reports</h1>
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-[20px]">Reports</h1>
+        {controls}
+      </div>
+      {generated && <p className="text-[13px] text-[var(--color-ink-muted)]">{generated}</p>}
       <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
         {data.map((r) => (
           <li key={r.id} className="flex items-center gap-4 bg-[var(--color-surface)] px-4 py-3">
