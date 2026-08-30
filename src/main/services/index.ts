@@ -12,6 +12,7 @@ import { breakdownByCategory, spendingTotalMinor } from '@main/analysis/spending
 import type { SpendingTransaction } from '@main/analysis/spending';
 import { projectBalance } from '@main/analysis/income';
 import { buildMonthlyReport, buildWeeklyDigest } from '@main/analysis/reports';
+import { runAnalysisPass } from '@main/analysis/pass';
 import { monthBoundaries, weekBoundaries } from '@shared/periods';
 import { computeBaseline } from '@main/analysis/baselines';
 import type { CategorizationPipeline } from '@main/categorization/pipeline';
@@ -1203,8 +1204,151 @@ export class Services implements AppServices {
     }
   }
 
+  /**
+   * Rebuild the recurring-charge and income ledgers from stored transactions.
+   *
+   * Run after every sync and on demand. Both ledgers are derived data, so this
+   * recomputes rather than incrementally patches — which is what keeps them
+   * correct after a correction, a backfill, or a late-arriving transaction.
+   */
+  async refreshAnalysis(): Promise<unknown> {
+    const [transactions, existingRecurringRows, existingIncomeRows] = await Promise.all([
+      this.db.select().from(t.transactions),
+      this.db.select().from(t.recurringCharges),
+      this.db.select().from(t.incomeSources),
+    ]);
+
+    const result = runAnalysisPass({
+      asOf: this.deps.clock.now(),
+      transactions: transactions.map((r) => ({
+        id: r.id,
+        accountId: r.accountId,
+        merchantKey: r.merchantKey,
+        amountMinor: r.amountMinor,
+        postedDate: r.postedDate,
+        datetime: r.datetime,
+        isInternalTransfer: r.isInternalTransfer,
+        settlementState: r.settlementState,
+        userRecurringOverride: r.userRecurringOverride,
+      })),
+      existingRecurring: existingRecurringRows.map((r) => ({
+        id: r.id,
+        merchantKey: r.merchantKey,
+        currentAmountMinor: r.currentAmountMinor,
+        cadence: r.cadence,
+        firstSeenDate: new Date(r.firstSeenDate),
+        lastSeenDate: new Date(r.lastSeenDate),
+        cumulativePaidMinor: r.cumulativePaidMinor,
+        status: r.status,
+        userAcknowledged: r.userAcknowledged,
+      })),
+      existingIncome: existingIncomeRows.map((r) => ({
+        id: r.id,
+        accountId: r.accountId,
+        merchantKey: r.merchantKey,
+        expectedAmountMinor: r.expectedAmountMinor,
+        cadence: r.cadence,
+        nextExpectedDate: new Date(r.nextExpectedDate),
+        detectionConfidence: r.detectionConfidence,
+        isUserConfirmed: r.isUserConfirmed,
+        isActive: r.isActive,
+      })),
+    });
+
+    const now = this.deps.clock.now().toISOString();
+    const acknowledged = new Set(
+      existingRecurringRows.filter((r) => r.userAcknowledged).map((r) => r.merchantKey),
+    );
+    const priorAmounts = new Map(
+      existingRecurringRows.map((r) => [r.merchantKey, r.currentAmountMinor]),
+    );
+
+    for (const charge of result.recurring) {
+      const id = `rc_${charge.merchantKey}`;
+      await this.db
+        .insert(t.recurringCharges)
+        .values({
+          id,
+          merchantKey: charge.merchantKey,
+          currentAmountMinor: charge.currentAmountMinor,
+          cadence: charge.cadence as 'monthly',
+          firstSeenDate: charge.firstSeenDate.toISOString().slice(0, 10),
+          lastSeenDate: charge.lastSeenDate.toISOString().slice(0, 10),
+          cumulativePaidMinor: charge.cumulativePaidMinor,
+          status: 'active',
+          detectedAt: now,
+          userAcknowledged: acknowledged.has(charge.merchantKey),
+        })
+        .onConflictDoUpdate({
+          target: t.recurringCharges.id,
+          set: {
+            currentAmountMinor: charge.currentAmountMinor,
+            lastSeenDate: charge.lastSeenDate.toISOString().slice(0, 10),
+            cumulativePaidMinor: charge.cumulativePaidMinor,
+            status: 'active',
+          },
+        });
+
+      // Record a price change once, not on every pass.
+      const prior = priorAmounts.get(charge.merchantKey);
+      if (prior !== undefined && prior !== charge.currentAmountMinor) {
+        await this.db.insert(t.recurringChargeAmountChanges).values({
+          id: `ac_${uuid().slice(0, 8)}`,
+          recurringChargeId: id,
+          oldAmountMinor: prior,
+          newAmountMinor: charge.currentAmountMinor,
+          changedAt: now,
+        });
+      }
+    }
+
+    for (const stopped of result.deactivated) {
+      await this.db
+        .update(t.recurringCharges)
+        .set({ status: 'inactive' })
+        .where(eq(t.recurringCharges.id, stopped.id));
+    }
+
+    for (const source of result.income) {
+      await this.db
+        .insert(t.incomeSources)
+        .values({
+          id: `inc_${source.merchantKey}`,
+          accountId: source.accountId,
+          merchantKey: source.merchantKey,
+          expectedAmountMinor: source.expectedAmountMinor,
+          cadence: source.cadence,
+          nextExpectedDate: source.nextExpectedDate.toISOString(),
+          detectionConfidence: source.detectionConfidence,
+          isUserConfirmed: source.isUserConfirmed,
+          isActive: true,
+        })
+        .onConflictDoUpdate({
+          target: t.incomeSources.id,
+          // A confirmed source keeps its pinned values (FR-071).
+          set: source.isUserConfirmed
+            ? { isActive: true }
+            : {
+                expectedAmountMinor: source.expectedAmountMinor,
+                cadence: source.cadence,
+                nextExpectedDate: source.nextExpectedDate.toISOString(),
+                detectionConfidence: source.detectionConfidence,
+                isActive: true,
+              },
+        });
+    }
+
+    return {
+      recurringCount: result.recurring.length,
+      newlyDetected: result.newlyDetected.length,
+      amountChanges: result.amountChanges.length,
+      incomeCount: result.income.length,
+    };
+  }
+
   async syncNow(): Promise<unknown> {
     await this.deps.sync();
+    await this.refreshAnalysis();
     return { started: true };
   }
 

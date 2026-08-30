@@ -7,19 +7,38 @@ import type { IncomeSourceView } from '@shared/types';
 export function Income(): React.JSX.Element {
   const { data, loading, refetch } = useQuery<IncomeSourceView[]>('income:list');
 
+  const rescan = (
+    <button
+      type="button"
+      onClick={() => void call('analysis:refresh').then(refetch)}
+      className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+    >
+      Rescan
+    </button>
+  );
+
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
   if (!data || data.length === 0) {
     return (
-      <EmptyState
-        title="No recurring income detected yet"
-        detail="Deposits are matched into a pattern automatically. Until one is found, balance projections are withheld rather than guessed."
-      />
+      <div className="space-y-5">
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-[20px]">Income</h1>
+          {rescan}
+        </div>
+        <EmptyState
+          title="No recurring income detected yet"
+          detail="Deposits are matched into a pattern automatically. Until one is found, balance projections are withheld rather than guessed. Rescan to check again now."
+        />
+      </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      <h1 className="text-[20px]">Income</h1>
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-[20px]">Income</h1>
+        {rescan}
+      </div>
       <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
         {data.map((s) => (
           <li key={s.id} className="flex items-center gap-4 bg-[var(--color-surface)] px-4 py-3">

@@ -67,5 +67,6 @@ export interface AppServices {
   importData(srcPath: string): Promise<unknown>;
   deleteAllData(): Promise<unknown>;
   listOllamaModels(): Promise<unknown>;
+  refreshAnalysis(): Promise<unknown>;
   syncNow(): Promise<unknown>;
 }

@@ -146,6 +146,8 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('data:import', importSchema, (p) => services.importData(p.srcPath));
   registry.handle('data:deleteAll', deleteAllSchema, () => services.deleteAllData());
 
+  registry.handle('analysis:refresh', empty, () => services.refreshAnalysis());
+
   // The only caller of /transactions/refresh, and only on user request (R2).
   registry.handle('sync:now', empty, async () => {
     if (!services.isOnline()) {

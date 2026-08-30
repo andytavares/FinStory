@@ -10,13 +10,29 @@ export function Recurring(): React.JSX.Element {
     includeInactive: true,
   });
 
+  const rescan = (
+    <button
+      type="button"
+      onClick={() => void call('analysis:refresh').then(refetch)}
+      className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+    >
+      Rescan
+    </button>
+  );
+
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
   if (!data || data.length === 0) {
     return (
-      <EmptyState
-        title="No recurring charges detected yet"
-        detail="Subscriptions appear here once a repeating pattern is established, usually after two or three cycles."
-      />
+      <div className="space-y-5">
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-[20px]">Recurring</h1>
+          {rescan}
+        </div>
+        <EmptyState
+          title="No recurring charges detected yet"
+          detail="Subscriptions appear here once a repeating pattern is established, usually after two or three cycles. Rescan to check again now."
+        />
+      </div>
     );
   }
 
@@ -27,9 +43,12 @@ export function Recurring(): React.JSX.Element {
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
         <h1 className="text-[20px]">Recurring</h1>
-        <p className="text-[13px] text-[var(--color-ink-muted)]">
-          <Money minor={monthlyTotal} magnitude /> a month across {active.length}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-[13px] text-[var(--color-ink-muted)]">
+            <Money minor={monthlyTotal} magnitude /> a month across {active.length}
+          </p>
+          {rescan}
+        </div>
       </div>
 
       <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">

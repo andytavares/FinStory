@@ -66,6 +66,7 @@ const CONTRACT_CHANNELS = [
   'data:export',
   'data:import',
   'data:deleteAll',
+  'analysis:refresh',
   'sync:now',
 ];
 

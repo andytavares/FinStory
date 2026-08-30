@@ -58,6 +58,7 @@ const INVOKE_CHANNELS = [
   'data:export',
   'data:import',
   'data:deleteAll',
+  'analysis:refresh',
   'sync:now',
 ] as const;
 

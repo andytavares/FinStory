@@ -455,6 +455,117 @@ describe('Services with realistic data', () => {
     expect(dining?.parentName).toBe('Food');
   });
 
+  it('populates the recurring ledger from stored transactions', async () => {
+    // Twelve monthly Netflix charges already in the database.
+    for (let i = 0; i < 12; i += 1) {
+      const date = new Date(Date.UTC(2025, 8 + i, 15));
+      await handle.db.insert(schema.transactions).values({
+        id: `txn_nf_${i}`,
+        accountId: 'acct_1',
+        plaidTransactionId: `p_nf_${i}`,
+        amountMinor: -1599,
+        merchantName: 'Netflix',
+        merchantKey: 'netflix-auto',
+        description: 'NETFLIX.COM',
+        postedDate: date.toISOString().slice(0, 10),
+        datetime: date.toISOString(),
+        pending: false,
+        settlementState: 'posted',
+        isInternalTransfer: false,
+        reversesTransactionId: null,
+        originalCurrency: null,
+        originalAmountMinor: null,
+        userMerchantName: null,
+        userNote: null,
+        userExcluded: false,
+        userRecurringOverride: null,
+        firstSeenAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      });
+    }
+
+    const before = (await services.listRecurring()) as unknown[];
+    const result = (await services.refreshAnalysis()) as { recurringCount: number };
+    const after = (await services.listRecurring()) as Array<{ merchantKey: string; cadence: string }>;
+
+    expect(result.recurringCount).toBeGreaterThan(0);
+    expect(after.length).toBeGreaterThan(before.length);
+    const netflix = after.find((r) => r.merchantKey === 'netflix-auto');
+    expect(netflix?.cadence).toBe('monthly');
+  });
+
+  it('populates the income ledger from recurring deposits', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      const date = new Date(Date.UTC(2026, 0, 2 + i * 14));
+      await handle.db.insert(schema.transactions).values({
+        id: `txn_pay_${i}`,
+        accountId: 'acct_1',
+        plaidTransactionId: `p_pay_${i}`,
+        amountMinor: 260_000,
+        merchantName: 'Acme Payroll',
+        merchantKey: 'acme-auto',
+        description: 'ACME PAYROLL',
+        postedDate: date.toISOString().slice(0, 10),
+        datetime: date.toISOString(),
+        pending: false,
+        settlementState: 'posted',
+        isInternalTransfer: false,
+        reversesTransactionId: null,
+        originalCurrency: null,
+        originalAmountMinor: null,
+        userMerchantName: null,
+        userNote: null,
+        userExcluded: false,
+        userRecurringOverride: null,
+        firstSeenAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      });
+    }
+
+    await services.refreshAnalysis();
+    const income = (await services.listIncome()) as Array<{ merchantKey: string; cadence: string }>;
+    expect(income.some((i) => i.merchantKey === 'acme-auto' && i.cadence === 'biweekly')).toBe(true);
+  });
+
+  it('a rescan is idempotent — it does not duplicate ledger rows', async () => {
+    await services.refreshAnalysis();
+    const first = ((await services.listRecurring()) as unknown[]).length;
+    await services.refreshAnalysis();
+    expect(((await services.listRecurring()) as unknown[]).length).toBe(first);
+  });
+
+  it('respects a user marking a merchant not recurring', async () => {
+    for (let i = 0; i < 12; i += 1) {
+      const date = new Date(Date.UTC(2025, 8 + i, 20));
+      await handle.db.insert(schema.transactions).values({
+        id: `txn_gym_${i}`,
+        accountId: 'acct_1',
+        plaidTransactionId: `p_gym_${i}`,
+        amountMinor: -4500,
+        merchantName: 'Gym',
+        merchantKey: 'gym-auto',
+        description: 'GYM',
+        postedDate: date.toISOString().slice(0, 10),
+        datetime: date.toISOString(),
+        pending: false,
+        settlementState: 'posted',
+        isInternalTransfer: false,
+        reversesTransactionId: null,
+        originalCurrency: null,
+        originalAmountMinor: null,
+        userMerchantName: null,
+        userNote: null,
+        userExcluded: true,
+        userRecurringOverride: 'not_recurring',
+        firstSeenAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      });
+    }
+    await services.refreshAnalysis();
+    const rows = (await services.listRecurring()) as Array<{ merchantKey: string }>;
+    expect(rows.some((r) => r.merchantKey === 'gym-auto')).toBe(false);
+  });
+
   it('lists recurring charges with cumulative total and amount history', async () => {
     const rows = (await services.listRecurring()) as Array<{
       cumulativePaidMinor: number;

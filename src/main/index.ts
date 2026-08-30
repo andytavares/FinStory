@@ -137,6 +137,10 @@ async function bootstrap(): Promise<void> {
     for (const failure of result.failures) {
       await store.markAttempted(failure.institutionId, clock.now().toISOString(), true);
     }
+
+    // Rebuild the derived ledgers from what was just ingested. Without this the
+    // recurring and income lists stay permanently empty.
+    await services.refreshAnalysis();
     mainWindow?.webContents.send('sync:complete', { added: result.added, failures: result.failures.length });
   };
 
@@ -147,10 +151,16 @@ async function bootstrap(): Promise<void> {
     logger,
     keyring,
     pipeline,
-    sync: runSync,
+    sync: () => runSync(),
   });
 
   syncNow = runSync;
+
+  // Build the derived ledgers from whatever is already stored, so a database
+  // imported before this pass existed is not left with empty lists.
+  void services.refreshAnalysis().catch(() => {
+    /* surfaced in the health view rather than blocking startup */
+  });
 
   const registry = new IpcRegistry();
   registerHandlers(registry, services);
