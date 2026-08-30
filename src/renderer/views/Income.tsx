@@ -1,6 +1,7 @@
 import { useQuery, call } from '../lib/ipc';
 import { Money } from '../components/Money';
 import { EmptyState } from '../components/EmptyState';
+import { AddIncomeSource } from '../components/AddIncomeSource';
 import type { IncomeSourceView } from '@shared/types';
 
 /** FR-071: confirm or override a detected pattern. Detection is the default. */
@@ -21,13 +22,20 @@ export function Income({
     </button>
   );
 
+  const actions = (
+    <div className="flex gap-2">
+      <AddIncomeSource onAdded={refetch} />
+      {rescan}
+    </div>
+  );
+
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
   if (!data || data.length === 0) {
     return (
       <div className="space-y-5">
         <div className="flex items-baseline justify-between">
           <h1 className="text-[20px]">Income</h1>
-          {rescan}
+          {actions}
         </div>
         <EmptyState
           title="No recurring income detected yet"
@@ -41,7 +49,7 @@ export function Income({
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
         <h1 className="text-[20px]">Income</h1>
-        {rescan}
+        {actions}
       </div>
       <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
         {data.map((s) => (

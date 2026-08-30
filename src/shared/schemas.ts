@@ -147,6 +147,14 @@ export const merchantRenameSchema = z.object({
 export const pathSchema = z.object({ destPath: z.string().default('') });
 export const importSchema = z.object({ srcPath: z.string().default('') });
 export const deleteAllSchema = z.object({ confirmation: z.literal('DELETE ALL MY DATA') });
+export const incomeAddSchema = z.object({
+  accountId: z.string().min(1),
+  merchantKey: z.string().optional(),
+  cadence: z.enum(['weekly', 'biweekly', 'semimonthly', 'monthly']),
+  expectedAmountMinor: z.number().int().positive(),
+  nextExpectedDate: z.string().min(1),
+});
+
 export const recategorizeAllSchema = z.object({
   scope: z.enum(['unresolved', 'all']).default('unresolved'),
 });

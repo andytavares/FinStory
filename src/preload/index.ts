@@ -8,7 +8,7 @@ import { contextBridge, ipcRenderer } from 'electron';
  * reach any handler, which is exactly what contextIsolation exists to prevent.
  */
 
-const INVOKE_CHANNELS = [
+export const INVOKE_CHANNELS = [
   'setup:status',
   'setup:saveCredentials',
   'link:start',
@@ -62,6 +62,11 @@ const INVOKE_CHANNELS = [
   'data:deleteAll',
   'analysis:refresh',
   'sync:now',
+  'model:status',
+  'model:test',
+  'categorization:rerun',
+  'overrides:list',
+  'overrides:clear',
 ] as const;
 
 const EVENT_CHANNELS = [

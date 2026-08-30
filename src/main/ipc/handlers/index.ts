@@ -22,6 +22,7 @@ import {
   pathSchema,
   clearOverrideSchema,
   recategorizeAllSchema,
+  incomeAddSchema,
   importSchema,
   deleteAllSchema,
   idSchema,
@@ -98,6 +99,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('income:list', empty, () => services.listIncome());
   registry.handle('income:confirm', idSchema, (p) => services.confirmIncome(p.id));
   registry.handle('income:override', incomeOverrideSchema, (p) => services.overrideIncome(p));
+  registry.handle('income:add', incomeAddSchema, (p) => services.addIncomeSource(p));
   registry.handle('income:clearOverride', idSchema, (p) => services.clearIncomeOverride(p.id));
 
   // Corrections

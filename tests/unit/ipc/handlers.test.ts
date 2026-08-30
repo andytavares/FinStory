@@ -1,21 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { IpcRegistry } from '@main/ipc/registry';
 import { registerHandlers } from '@main/ipc/handlers/index';
-import type { AppServices } from '@main/ipc/handlers/services';
-
-/** Every service method resolves to a marker naming itself, so wiring is checkable. */
-function stubServices(overrides: Partial<AppServices> = {}): AppServices {
-  const handler: ProxyHandler<Record<string, unknown>> = {
-    get(_target, prop: string) {
-      if (prop in overrides) return (overrides as Record<string, unknown>)[prop];
-      if (prop === 'isOnline') return () => true;
-      if (prop === 'completeness')
-        return async () => ({ dataComplete: true, staleInstitutions: [] });
-      return async () => ({ called: prop });
-    },
-  };
-  return new Proxy({}, handler) as unknown as AppServices;
-}
+import { stubServices } from './stub-services';
 
 const CONTRACT_CHANNELS = [
   'setup:status',
@@ -35,6 +21,7 @@ const CONTRACT_CHANNELS = [
   'income:list',
   'income:confirm',
   'income:override',
+  'income:add',
   'income:clearOverride',
   'review:queue',
   'review:recategorize',
@@ -109,6 +96,7 @@ describe('IPC wiring matches the contract', () => {
       'income:confirm': { id: 'i' },
       'income:override': { id: 'i' },
       'income:clearOverride': { id: 'i' },
+      'income:add': { accountId: 'a', cadence: 'monthly', expectedAmountMinor: 100, nextExpectedDate: '2026-09-01' },
       'overrides:clear': { kind: 'merchant_name', target: 'uber eats' },
       'categorization:rerun': { scope: 'unresolved' },
       'review:queue': {},

@@ -529,6 +529,48 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
+  /**
+   * Record an income source the detector never found (FR-071).
+   *
+   * Cash, a new job's first deposit, anything irregular enough that three
+   * observations do not exist yet. Marked confirmed so detection leaves it be.
+   */
+  async addIncomeSource(input: unknown): Promise<unknown> {
+    const p = input as {
+      accountId: string;
+      merchantKey?: string;
+      cadence: 'weekly' | 'biweekly' | 'semimonthly' | 'monthly';
+      expectedAmountMinor: number;
+      nextExpectedDate: string;
+    };
+    const accounts = await this.db
+      .select()
+      .from(t.accounts)
+      .where(eq(t.accounts.id, p.accountId));
+    if (accounts.length === 0) {
+      throw new IpcFailure(
+        'VALIDATION_FAILED',
+        'That account no longer exists',
+        true,
+        'Choose another',
+      );
+    }
+
+    const id = `inc_${randomUUID().slice(0, 8)}`;
+    await this.db.insert(t.incomeSources).values({
+      id,
+      accountId: p.accountId,
+      merchantKey: p.merchantKey?.trim() || 'manual',
+      expectedAmountMinor: p.expectedAmountMinor,
+      cadence: p.cadence,
+      nextExpectedDate: p.nextExpectedDate,
+      detectionConfidence: 1,
+      isUserConfirmed: true,
+      isActive: true,
+    });
+    return { id };
+  }
+
   async clearIncomeOverride(id: string): Promise<unknown> {
     await this.db
       .update(t.incomeSources)

@@ -1411,4 +1411,75 @@ describe('Services with realistic data', () => {
     });
   });
 
+
+  describe('adding income the detector cannot see', () => {
+    async function anAccountId(): Promise<string> {
+      const institutions = (await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>;
+      return institutions[0]!.accounts[0]!.id;
+    }
+
+    it('appears in the income list, confirmed', async () => {
+      const before = ((await services.listIncome()) as unknown[]).length;
+      await services.addIncomeSource({
+        accountId: await anAccountId(),
+        merchantKey: 'freelance retainer',
+        cadence: 'monthly',
+        expectedAmountMinor: 240_000,
+        nextExpectedDate: '2026-09-15',
+      });
+      const after = (await services.listIncome()) as Array<{
+        expectedAmountMinor: number;
+        isUserConfirmed: boolean;
+        cadence: string;
+      }>;
+      expect(after.length).toBe(before + 1);
+      const added = after.find((r) => r.expectedAmountMinor === 240_000)!;
+      expect(added.isUserConfirmed).toBe(true);
+      expect(added.cadence).toBe('monthly');
+    });
+
+    it('refuses an account that does not exist rather than orphaning a row', async () => {
+      await expect(
+        services.addIncomeSource({
+          accountId: 'acct_nope',
+          cadence: 'weekly',
+          expectedAmountMinor: 1000,
+          nextExpectedDate: '2026-09-01',
+        }),
+      ).rejects.toThrow(/no longer exists/);
+    });
+
+    it('names it "manual" when the user gives no name', async () => {
+      await services.addIncomeSource({
+        accountId: await anAccountId(),
+        cadence: 'weekly',
+        expectedAmountMinor: 5000,
+        nextExpectedDate: '2026-09-01',
+      });
+      const rows = (await services.listIncome()) as Array<{
+        merchantKey: string;
+        expectedAmountMinor: number;
+      }>;
+      expect(rows.find((r) => r.expectedAmountMinor === 5000)?.merchantKey).toBe('manual');
+    });
+
+    it('can be overridden and cleared like a detected one', async () => {
+      const { id } = (await services.addIncomeSource({
+        accountId: await anAccountId(),
+        cadence: 'weekly',
+        expectedAmountMinor: 7000,
+        nextExpectedDate: '2026-09-01',
+      })) as { id: string };
+      await services.overrideIncome({ id, cadence: 'monthly' });
+      let rows = (await services.listIncome()) as Array<{ id: string; cadence: string }>;
+      expect(rows.find((r) => r.id === id)?.cadence).toBe('monthly');
+
+      await services.clearIncomeOverride(id);
+      rows = (await services.listIncome()) as Array<{ id: string; cadence: string }>;
+      expect(rows.find((r) => r.id === id)).toBeDefined();
+    });
+  });
+
 });

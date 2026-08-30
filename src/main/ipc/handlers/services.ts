@@ -30,6 +30,7 @@ export interface AppServices {
   listIncome(): Promise<unknown>;
   confirmIncome(id: string): Promise<unknown>;
   overrideIncome(input: unknown): Promise<unknown>;
+  addIncomeSource(input: unknown): Promise<unknown>;
   clearIncomeOverride(id: string): Promise<unknown>;
 
   reviewQueue(page: unknown): Promise<unknown>;
