@@ -1,0 +1,41 @@
+tests/unit/ipc/registry.test.ts
+  s_f1d20e583de5c0::t_c9dd510a06481c 1
+  s_f1d20e583de5c0::t_6fe818487d7299 2-41,50-92
+  s_f1d20e583de5c0::t_a968a7d3dcb770 42-49
+src/main/ipc/registry.ts
+  s_f1d20e583de5c0::t_6fe818487d7299 1-10,12-96
+  s_f1d20e583de5c0::t_c9dd510a06481c 11
+src/shared/types.ts
+  s_f1d20e583de5c0::t_a61eebe11dcba6 1-141
+src/preload/index.ts
+  s_f1d20e583de5c0::t_c20fdaca278279 1-89
+src/main/scheduler/catchup.ts
+  s_f1d20e583de5c0::t_c494dad4d2927b 1-96
+tests/unit/scheduler/catchup.test.ts
+  s_f1d20e583de5c0::t_c494dad4d2927b 1-91
+src/renderer/env.d.ts
+  s_f1d20e583de5c0::t_c20fdaca278279 1-9
+src/main/index.ts
+  s_f1d20e583de5c0::t_c20fdaca278279 1-101,105-126
+  s_f1d20e583de5c0::t_c9dd510a06481c 102-104
+src/shared/schemas.ts
+  s_f1d20e583de5c0::t_a61eebe11dcba6 1-92
+specs/001-automated-spend-tracking/tasks.md
+  s_f1d20e583de5c0::t_1fed1d44ca15df 83-86,88,187,198-199,240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4d4cc1bd48bd879306602cff563239611f7fa846",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
