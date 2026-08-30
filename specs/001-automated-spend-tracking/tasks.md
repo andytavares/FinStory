@@ -49,10 +49,10 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 **⚠️ If T012 shows the user's institutions are unsupported, stop and reassess.**
 
 - [X] T010 Plaid account access confirmed by the user; free **Trial plan** covers this scale (10 Production Items, Transactions included — research.md R3)
-- [ ] T011 Configure Sandbox credentials for all development and document setup in `docs/plaid-setup.md`. **All development runs against Sandbox** — the 10-Item Trial cap is a lifetime create limit and re-linking permanently burns quota
+- [X] T011 Configure Sandbox credentials for all development and document setup in `docs/plaid-setup.md`. **All development runs against Sandbox** — the 10-Item Trial cap is a lifetime create limit and re-linking permanently burns quota
 - [ ] T012 Verify every institution the user banks with appears in Plaid's supported institution list; record results in `docs/adr/0003-plaid-viability.md`
 - [ ] T013 Confirm Trial plan eligibility (US/Canada teams created on or after 2026-04-15); record in `docs/adr/0003-plaid-viability.md`
-- [ ] T014 Add a Production Item creation log to `docs/plaid-setup.md` so the lifetime 10-Item quota is tracked deliberately
+- [X] T014 Add a Production Item creation log to `docs/plaid-setup.md` so the lifetime 10-Item quota is tracked deliberately
 - [X] T015 Write failing test asserting `safeStorage.isEncryptionAvailable()` is checked after `app.ready` and that startup aborts when unavailable, in `tests/unit/secrets/availability.test.ts`
 - [X] T016 Implement the encryption availability gate in `src/main/secrets/availability.ts` — **fail loudly with an explanation; never fall back to an unencrypted database** (FR-054, Constitution VII)
 - [X] T017 Write failing test for database-key generation and `safeStorage` async round-trip in `tests/unit/secrets/keyring.test.ts`
@@ -87,9 +87,9 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T037 Write failing test asserting no secret value is reachable from the renderer and that `settings:get` returns presence booleans only, in `tests/unit/ipc/secret-isolation.test.ts` (FR-047, quickstart V15)
 - [X] T038 Implement Electron app lifecycle in `src/main/index.ts`: single-instance lock, tray residency, `app.setLoginItemSettings` for launch-at-login (FR-056, research.md R6)
 - [X] T039 [P] Set up Tailwind and the base renderer shell in `src/renderer/main.tsx` and `src/renderer/App.tsx`
-- [ ] T040 [P] Write ADR `docs/adr/0001-sqlcipher-driver-exception.md` recording the single-publisher adoption, health evidence, and migration trigger (Constitution III, XI; research.md R9)
-- [ ] T041 [P] Write ADR `docs/adr/0002-plaid-client-secret-on-device.md` recording the accepted deviation, blast radius, and what it forecloses (research.md R10)
-- [ ] T042 [P] Write ADR `docs/adr/0004-polling-over-webhooks.md` recording the trade and its consequences for alert latency (research.md R2, R6)
+- [X] T040 [P] Write ADR `docs/adr/0001-sqlcipher-driver-exception.md` recording the single-publisher adoption, health evidence, and migration trigger (Constitution III, XI; research.md R9)
+- [X] T041 [P] Write ADR `docs/adr/0002-plaid-client-secret-on-device.md` recording the accepted deviation, blast radius, and what it forecloses (research.md R10)
+- [X] T042 [P] Write ADR `docs/adr/0004-polling-over-webhooks.md` recording the trade and its consequences for alert latency (research.md R2, R6)
 
 ---
 
@@ -135,7 +135,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T068 [US1] Implement `local_only` categorization mode as a settings-driven skip of the model stage in `src/main/categorization/pipeline.ts` (FR-061)
 - [X] T069 [US1] Implement the single canonical spending predicate (excludes removed, excludes transfers, nets reversals) in `src/main/analysis/spending.ts` — **this must live in exactly one place** (Constitution II)
 - [X] T070 [US1] Implement category and merchant breakdown queries in `src/main/analysis/breakdown.ts` (FR-043)
-- [ ] T071 [US1] Implement IPC handlers for `setup:*`, `link:*`, `institutions:*`, `dashboard:get`, `breakdown:*`, `transactions:query`, `categories:*`, `sync:now` in `src/main/ipc/handlers/`
+- [X] T071 [US1] Implement IPC handlers for `setup:*`, `link:*`, `institutions:*`, `dashboard:get`, `breakdown:*`, `transactions:query`, `categories:*`, `sync:now` in `src/main/ipc/handlers/`
 - [X] T072 [P] [US1] Build the first-run setup view in `src/renderer/views/Setup.tsx` — credentials, environment, Hosted Link launch
 - [X] T073 [P] [US1] Build the dashboard view in `src/renderer/views/Dashboard.tsx` — balances, cash flow, category breakdown, what changed (FR-062, SC-019)
 - [X] T074 [P] [US1] Build the transaction register with search and filters in `src/renderer/views/Register.tsx` (FR-064)
@@ -307,19 +307,19 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T140b Implement the retention policy in `src/main/data/retention.ts` (FR-050)
 - [X] T141 Implement settings management including confidence threshold, poll interval, categorization mode, and schedules in `src/main/settings/index.ts`
 - [X] T142 [P] Build the settings view in `src/renderer/views/Settings.tsx`, including the FR-061 disclosure of exactly what is transmitted for categorization
-- [ ] T143 [P] Write E2E test for first-run setup through first successful sync in `tests/e2e/setup.spec.ts`, asserting completion within the 30-minute target (SC-009)
-- [ ] T144 [P] Write E2E test for dashboard drill-down in ≤2 interactions in `tests/e2e/drilldown.spec.ts` (SC-018)
-- [ ] T145 [P] Write E2E test for the review queue and retroactive correction flow in `tests/e2e/review.spec.ts`
-- [ ] T146 Write performance test asserting navigation and filtering across a 24-month, ~10k-transaction fixture stays responsive in `tests/integration/performance.test.ts` (SC-020)
+- [X] T143 [P] Write E2E test for first-run setup through first successful sync in `tests/e2e/setup.spec.ts`, asserting completion within the 30-minute target (SC-009)
+- [X] T144 [P] Write E2E test for dashboard drill-down in ≤2 interactions in `tests/e2e/drilldown.spec.ts` (SC-018)
+- [X] T145 [P] Write E2E test for the review queue and retroactive correction flow in `tests/e2e/review.spec.ts`
+- [X] T146 Write performance test asserting navigation and filtering across a 24-month, ~10k-transaction fixture stays responsive in `tests/integration/performance.test.ts` (SC-020)
 - [X] T146a Write an egress audit asserting the **only** outbound payload fields are those disclosed under FR-061, and that no transaction data reaches any third-party server beyond that, in `tests/integration/egress-audit.test.ts` (SC-016, Constitution VII)
 - [X] T146b Write a static assertion that no money-movement Plaid endpoint (transfer, payment_initiation, or any write operation) is referenced anywhere in `src/`, in `tests/unit/plaid/read-only.test.ts` (FR-049)
 - [X] T146c Write a test asserting recurring-charge detection meets 95% recall with under 10% false positives against a labeled fixture, in `tests/unit/analysis/recurring-rates.test.ts` (SC-005)
-- [ ] T147 Audit the renderer bundle for secrets and confirm zero hits in `tests/e2e/secret-audit.spec.ts` (FR-047, quickstart V15)
+- [X] T147 Audit the renderer bundle for secrets and confirm zero hits in `tests/e2e/secret-audit.spec.ts` (FR-047, quickstart V15)
 - [X] T148 Write an assertion sweep over `src/renderer/views/` confirming no manual-entry, reconciliation, or budget-allocation workflow exists, in `tests/e2e/zero-input-doctrine.spec.ts` (SC-021, Constitution VIII)
 - [X] T149 Run `npx vitest run --coverage` and confirm all four metrics ≥ 80% with no file at 0% (Constitution V)
 - [X] T150 Run `npm run lint` and confirm 0 errors (Constitution XII)
 - [X] T151 Confirm every icon in the renderer is `lucide-react` with no emoji or unicode symbols (Constitution XIV)
-- [ ] T152 Update `README.md` and `docs/` to reflect the shipped implementation (Constitution X)
+- [X] T152 Update `README.md` and `docs/` to reflect the shipped implementation (Constitution X)
 
 ---
 
