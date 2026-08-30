@@ -22,6 +22,20 @@ export const saveCredentialsSchema = z.object({
   anthropicApiKey: z.string().min(1).optional(),
 });
 
+/**
+ * Changing a credential after setup.
+ *
+ * Every field is optional so one can be replaced without re-entering the rest,
+ * and an empty string removes that credential rather than being rejected — a
+ * key you must never be able to delete is a trap.
+ */
+export const credentialsUpdateSchema = z.object({
+  plaidClientId: z.string().optional(),
+  plaidSecret: z.string().optional(),
+  plaidEnv: z.enum(['sandbox', 'production']).optional(),
+  anthropicApiKey: z.string().optional(),
+});
+
 export const accountEverydaySchema = z.object({
   accountId: z.string().min(1),
   isEveryday: z.boolean(),

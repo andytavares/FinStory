@@ -1484,4 +1484,85 @@ describe('Services with realistic data', () => {
     });
   });
 
+
+  describe('changing a credential after setup', () => {
+    async function stored(key: string): Promise<string | undefined> {
+      const rows = handle.raw
+        .prepare('SELECT value, is_secret FROM settings WHERE key = ?')
+        .all(key) as Array<{ value: string; is_secret: number }>;
+      return rows[0]?.value;
+    }
+
+    it('replaces one credential without touching the others', async () => {
+      await services.updateCredentials({ plaidClientId: 'client_a', plaidSecret: 'secret_a' });
+      await services.updateCredentials({ anthropicApiKey: 'sk-ant-new' });
+
+      const status = (await services.setupStatus()) as {
+        plaidClientIdConfigured: boolean;
+        plaidSecretConfigured: boolean;
+        categorizationConfigured: boolean;
+      };
+      expect(status.plaidClientIdConfigured).toBe(true);
+      expect(status.plaidSecretConfigured).toBe(true);
+      expect(status.categorizationConfigured).toBe(true);
+    });
+
+    it('seals the value rather than storing it in the clear', async () => {
+      await services.updateCredentials({ anthropicApiKey: 'sk-ant-secret-value' });
+      const value = await stored('anthropicApiKey');
+      expect(value).toBeDefined();
+      expect(value).not.toContain('sk-ant-secret-value');
+    });
+
+    it('never returns a stored credential to the renderer', async () => {
+      await services.updateCredentials({ anthropicApiKey: 'sk-ant-secret-value' });
+      const status = JSON.stringify(await services.setupStatus());
+      const settings = JSON.stringify(await services.getSettings());
+      expect(status).not.toContain('sk-ant-secret-value');
+      expect(settings).not.toContain('sk-ant-secret-value');
+    });
+
+    it('removes a credential when given an empty value', async () => {
+      await services.updateCredentials({ anthropicApiKey: 'sk-ant-new' });
+      await services.updateCredentials({ anthropicApiKey: '' });
+      const status = (await services.setupStatus()) as { categorizationConfigured: boolean };
+      expect(status.categorizationConfigured).toBe(false);
+      expect(await stored('anthropicApiKey')).toBeUndefined();
+    });
+
+    it('changes the Plaid environment, which decides whether keys work at all', async () => {
+      await services.updateCredentials({ plaidEnv: 'production' });
+      const status = (await services.setupStatus()) as { plaidEnv: string };
+      expect(status.plaidEnv).toBe('production');
+
+      await services.updateCredentials({ plaidEnv: 'sandbox' });
+      expect(((await services.setupStatus()) as { plaidEnv: string }).plaidEnv).toBe('sandbox');
+    });
+
+    it('trims a pasted key rather than sealing the whitespace', async () => {
+      await services.updateCredentials({ anthropicApiKey: '  sk-ant-padded  ' });
+      const sealed = await stored('anthropicApiKey');
+      const opened = await new Keyring(new TestBackend()).open(
+        Buffer.from(sealed as string, 'base64'),
+      );
+      expect(opened.value).toBe('sk-ant-padded');
+    });
+
+    it('reports what it changed and does nothing when given nothing', async () => {
+      const result = (await services.updateCredentials({})) as {
+        changed: string[];
+        message: string;
+      };
+      expect(result.changed).toEqual([]);
+      expect(result.message).toBe('Nothing to change.');
+    });
+
+    it('says which credential it saved', async () => {
+      const result = (await services.updateCredentials({ plaidSecret: 's' })) as {
+        message: string;
+      };
+      expect(result.message).toContain('plaidSecret updated');
+    });
+  });
+
 });

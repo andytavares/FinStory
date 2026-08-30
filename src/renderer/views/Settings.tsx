@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { RecategorizeButton } from '../components/RecategorizeButton';
+import { Credentials } from '../components/Credentials';
 import type { AppSettings, SetupStatus } from '@shared/types';
 
 const ANTHROPIC_MODELS = [
@@ -208,6 +209,8 @@ export function Settings(): React.JSX.Element {
       <h1 className="text-[20px]">Settings</h1>
 
       <ModelSection settings={s} />
+
+      {status.data && <Credentials status={status.data} onSaved={status.refetch} />}
 
       <section className="space-y-3">
         <p className="eyebrow">Sync</p>

@@ -11,6 +11,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 export const INVOKE_CHANNELS = [
   'setup:status',
   'setup:saveCredentials',
+  'credentials:update',
   'link:start',
   'link:complete',
   'institutions:list',

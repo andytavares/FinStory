@@ -6,6 +6,7 @@ import { stubServices } from './stub-services';
 const CONTRACT_CHANNELS = [
   'setup:status',
   'setup:saveCredentials',
+  'credentials:update',
   'link:start',
   'link:complete',
   'institutions:list',
@@ -83,6 +84,7 @@ describe('IPC wiring matches the contract', () => {
     // Valid minimal payload per channel; anything not listed takes {}.
     const payloads: Record<string, unknown> = {
       'setup:saveCredentials': { plaidClientId: 'c', plaidSecret: 's', plaidEnv: 'sandbox' },
+      'credentials:update': { anthropicApiKey: 'sk-new' },
       'link:complete': { linkToken: 'lt' },
       'institutions:disconnect': { institutionId: 'i' },
       'institutions:reauth': { institutionId: 'i' },

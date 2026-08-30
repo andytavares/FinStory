@@ -179,6 +179,10 @@ export interface HealthView {
 /** Presence only — never the values themselves (FR-047). */
 export interface SetupStatus {
   readonly plaidConfigured: boolean;
+  readonly plaidClientIdConfigured: boolean;
+  readonly plaidSecretConfigured: boolean;
+  /** Which Plaid environment requests go to. Production keys fail against sandbox. */
+  readonly plaidEnv: 'sandbox' | 'production';
   readonly categorizationConfigured: boolean;
   readonly accountCount: number;
   readonly encryptionAvailable: boolean;

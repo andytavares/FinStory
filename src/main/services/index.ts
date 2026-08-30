@@ -113,9 +113,48 @@ export class Services implements AppServices {
     // Presence only — never the values (FR-047).
     return {
       plaidConfigured: has('plaidClientId') && has('plaidSecret'),
+      plaidClientIdConfigured: has('plaidClientId'),
+      plaidSecretConfigured: has('plaidSecret'),
+      plaidEnv: (await this.readPlainSetting('plaidEnv')) === 'production' ? 'production' : 'sandbox',
       categorizationConfigured: has('anthropicApiKey'),
       accountCount: accounts.length,
       encryptionAvailable: true,
+    };
+  }
+
+  /**
+   * Replace or remove a credential after setup.
+   *
+   * Keys rotate, and the environment is the difference between a working sync
+   * and a silent one — production credentials against sandbox fail every call.
+   * Fields left out are untouched; an empty string removes that credential.
+   */
+  async updateCredentials(input: unknown): Promise<unknown> {
+    const p = input as Record<string, string | undefined>;
+    const changed: string[] = [];
+
+    for (const key of ['plaidClientId', 'plaidSecret', 'anthropicApiKey'] as const) {
+      const value = p[key];
+      if (value === undefined) continue;
+      if (value.trim() === '') {
+        await this.db.delete(t.settings).where(eq(t.settings.key, key));
+        changed.push(`${key} removed`);
+        continue;
+      }
+      const sealed = (await this.deps.keyring.seal(value.trim())).toString('base64');
+      await this.upsertSetting(key, sealed, true);
+      changed.push(`${key} updated`);
+    }
+
+    if (p['plaidEnv']) {
+      await this.upsertSetting('plaidEnv', p['plaidEnv'], false);
+      changed.push(`environment set to ${p['plaidEnv']}`);
+    }
+
+    return {
+      ok: true,
+      changed,
+      message: changed.length > 0 ? `Saved: ${changed.join(', ')}.` : 'Nothing to change.',
     };
   }
 

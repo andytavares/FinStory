@@ -13,6 +13,7 @@ export interface AppServices {
 
   setupStatus(): Promise<unknown>;
   saveCredentials(input: unknown): Promise<unknown>;
+  updateCredentials(input: unknown): Promise<unknown>;
   startLink(): Promise<unknown>;
   completeLink(linkToken: string): Promise<unknown>;
   listInstitutions(): Promise<unknown>;

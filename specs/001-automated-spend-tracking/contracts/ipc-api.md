@@ -38,6 +38,7 @@ The renderer is untrusted UI. It has **no Node integration**, runs with `context
 | `income:list` | — | `IncomeSource[]` with `detectionConfidence`, `isUserConfirmed` | FR-069, FR-070 |
 | `income:confirm` | `{ id }` | `{ ok }` | Pins the detected pattern (FR-071) |
 | `income:override` | `{ id, cadence?, expectedAmountMinor?, nextExpectedDate?, accountId? }` | `{ ok }` | FR-071 |
+| `credentials:update` | `{ plaidClientId?, plaidSecret?, plaidEnv?, anthropicApiKey? }` | `{ ok, changed, message }` | Replaces a credential after setup. Omitted fields are untouched; an empty string removes that credential. Values are sealed and never read back (FR-047) |
 | `income:add` | `{ accountId, cadence, expectedAmountMinor, nextExpectedDate }` | `{ id }` | Undetected source (FR-071) |
 | `income:clearOverride` | `{ id }` | `{ ok }` | Resumes automatic re-derivation |
 

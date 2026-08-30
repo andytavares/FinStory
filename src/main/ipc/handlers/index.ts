@@ -3,6 +3,7 @@ import { IpcRegistry, IpcFailure } from '../registry';
 import {
   dateRangeSchema,
   saveCredentialsSchema,
+  credentialsUpdateSchema,
   linkCompleteSchema,
   institutionIdSchema,
   accountEverydaySchema,
@@ -50,6 +51,9 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
 
   // Setup and connection
   registry.handle('setup:status', empty, () => services.setupStatus());
+  registry.handle('credentials:update', credentialsUpdateSchema, (p) =>
+    services.updateCredentials(p),
+  );
   registry.handle('setup:saveCredentials', saveCredentialsSchema, (p) =>
     services.saveCredentials(p),
   );

@@ -317,6 +317,9 @@ describe('Reports, Health, Settings, Categories', () => {
       },
       'setup:status': {
         plaidConfigured: true,
+        plaidClientIdConfigured: true,
+        plaidSecretConfigured: true,
+        plaidEnv: 'sandbox' as const,
         categorizationConfigured: true,
         accountCount: 3,
         encryptionAvailable: true,
@@ -381,6 +384,9 @@ describe('App shell', () => {
 describe('Setup (first run)', () => {
   const ok = {
     plaidConfigured: false,
+        plaidClientIdConfigured: true,
+        plaidSecretConfigured: true,
+        plaidEnv: 'sandbox' as const,
     categorizationConfigured: false,
     accountCount: 0,
     encryptionAvailable: true,
@@ -642,6 +648,9 @@ describe('App shell navigation covers every area', () => {
     installMoneyBridge({
       'setup:status': {
         plaidConfigured: true,
+        plaidClientIdConfigured: true,
+        plaidSecretConfigured: true,
+        plaidEnv: 'sandbox' as const,
         categorizationConfigured: true,
         accountCount: 1,
         encryptionAvailable: true,
@@ -711,6 +720,9 @@ describe('App shell navigation covers every area', () => {
     installMoneyBridge({
       'setup:status': {
         plaidConfigured: true,
+        plaidClientIdConfigured: true,
+        plaidSecretConfigured: true,
+        plaidEnv: 'sandbox' as const,
         categorizationConfigured: true,
         accountCount: 1,
         encryptionAvailable: true,
@@ -738,6 +750,9 @@ describe('App shell navigation covers every area', () => {
     installMoneyBridge({
       'setup:status': {
         plaidConfigured: true,
+        plaidClientIdConfigured: true,
+        plaidSecretConfigured: true,
+        plaidEnv: 'sandbox' as const,
         categorizationConfigured: true,
         accountCount: 1,
         encryptionAvailable: true,
@@ -759,6 +774,9 @@ describe('App shell navigation covers every area', () => {
     installMoneyBridge({
       'setup:status': {
         plaidConfigured: false,
+        plaidClientIdConfigured: true,
+        plaidSecretConfigured: true,
+        plaidEnv: 'sandbox' as const,
         categorizationConfigured: false,
         accountCount: 0,
         encryptionAvailable: true,
