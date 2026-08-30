@@ -26,7 +26,16 @@ const GROUPS: ReadonlyArray<{ kind: OverrideKind; title: string; blurb: string }
     blurb: 'A category you set by hand on one transaction.',
   },
   { kind: 'excluded', title: 'Excluded from totals', blurb: 'Kept on record, left out of every total.' },
-  { kind: 'recurring', title: 'Recurring overrides', blurb: 'Your answer beats the detector.' },
+  {
+    kind: 'recurring_rule',
+    title: 'Recurring decisions',
+    blurb: 'Covers every instance of that charge, including ones that arrive later.',
+  },
+  {
+    kind: 'recurring',
+    title: 'Single transaction recurring flags',
+    blurb: 'Set on one transaction rather than the whole charge.',
+  },
   { kind: 'note', title: 'Notes', blurb: 'Your own text on a transaction.' },
 ];
 

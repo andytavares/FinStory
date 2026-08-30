@@ -13,6 +13,7 @@ import type { SpendingTransaction } from '@main/analysis/spending';
 import { projectBalance } from '@main/analysis/income';
 import { buildMonthlyReport, buildWeeklyDigest } from '@main/analysis/reports';
 import { runAnalysisPass } from '@main/analysis/pass';
+import { findRecurringCandidates } from '@main/analysis/recurring-candidates';
 import { monthBoundaries, weekBoundaries } from '@shared/periods';
 import { computeBaseline } from '@main/analysis/baselines';
 import type { CategorizationPipeline } from '@main/categorization/pipeline';
@@ -1052,6 +1053,134 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
+
+  // ---- Finding recurring charges -------------------------------------------
+
+  /**
+   * Charges that look recurring but have not been decided on.
+   *
+   * Suggestions, not conclusions: anything the user has already answered — in
+   * either direction — is gone from this list.
+   */
+  async recurringCandidates(): Promise<unknown> {
+    const [rows, aliases, rules, everydayIds] = await Promise.all([
+      this.db.select().from(t.transactions),
+      this.merchantAliases(),
+      this.db.select().from(t.recurringRules),
+      this.everydayAccountIds(),
+    ]);
+    const decided = new Set(rules.map((r) => `${r.merchantKey}:${r.amountMinor}`));
+
+    const candidates = findRecurringCandidates(
+      this.everyday(rows, everydayIds)
+        .filter((r) => !r.isInternalTransfer && !r.userExcluded && r.settlementState !== 'removed')
+        .map((r) => ({
+          transactionId: r.id,
+          merchantKey: r.merchantKey ?? '',
+          merchantName: resolveMerchantName(r, aliases),
+          amountMinor: r.amountMinor,
+          occurredAt: new Date(r.datetime ?? `${r.postedDate}T12:00:00Z`),
+        })),
+    );
+
+    return candidates
+      .filter((c) => !decided.has(`${c.merchantKey}:${c.amountMinor}`))
+      .map((c) => ({
+        key: c.key,
+        merchantKey: c.merchantKey,
+        merchantName: c.merchantName,
+        amountMinor: c.amountMinor,
+        cadence: c.cadence,
+        occurrences: c.occurrences,
+        firstSeen: c.firstSeen.toISOString(),
+        lastSeen: c.lastSeen.toISOString(),
+        nextExpected: c.nextExpected.toISOString(),
+        confidence: c.confidence,
+        totalPaidMinor: c.totalPaidMinor,
+        transactionIds: c.transactionIds,
+      }));
+  }
+
+  /**
+   * Record the user's answer about a candidate and apply it everywhere.
+   *
+   * Every instance of the charge is marked, which is the whole point of being
+   * asked once. The rule is stored too, so instances that arrive later follow
+   * the same answer rather than reappearing as a fresh question.
+   */
+  async decideRecurring(input: unknown): Promise<unknown> {
+    const p = input as {
+      merchantKey: string;
+      amountMinor: number;
+      decision: 'recurring' | 'not_recurring';
+      cadence?: string;
+    };
+    const at = this.deps.clock.now().toISOString();
+
+    await this.db
+      .insert(t.recurringRules)
+      .values({
+        id: `rrule_${randomUUID().slice(0, 8)}`,
+        merchantKey: p.merchantKey,
+        amountMinor: p.amountMinor,
+        decision: p.decision,
+        cadence: p.cadence ?? null,
+        createdAt: at,
+      })
+      .onConflictDoUpdate({
+        target: [t.recurringRules.merchantKey, t.recurringRules.amountMinor],
+        set: { decision: p.decision, cadence: p.cadence ?? null, createdAt: at },
+      });
+
+    const marked = await this.applyRecurringRules();
+
+    if (p.decision === 'recurring') {
+      await this.db
+        .insert(t.recurringCharges)
+        .values({
+          id: `rec_${randomUUID().slice(0, 8)}`,
+          merchantKey: p.merchantKey,
+          currentAmountMinor: p.amountMinor,
+          cadence: normalizeLedgerCadence(p.cadence),
+          firstSeenDate: at.slice(0, 10),
+          lastSeenDate: at.slice(0, 10),
+          cumulativePaidMinor: 0,
+          detectedAt: at,
+          status: 'active',
+          userAcknowledged: true,
+        })
+        .onConflictDoNothing();
+      // Rebuild so the ledger reflects the confirmation immediately.
+      await this.refreshAnalysis();
+    }
+
+    return { ok: true, marked };
+  }
+
+  /**
+   * Stamp every standing decision onto the transactions it covers.
+   *
+   * Run after a decision and on every analysis pass, so a charge that arrives
+   * next month inherits the answer the user already gave.
+   */
+  private async applyRecurringRules(): Promise<number> {
+    const rules = await this.db.select().from(t.recurringRules);
+    let marked = 0;
+    for (const rule of rules) {
+      const result = await this.db
+        .update(t.transactions)
+        .set({ userRecurringOverride: rule.decision })
+        .where(
+          and(
+            eq(t.transactions.merchantKey, rule.merchantKey),
+            eq(t.transactions.amountMinor, rule.amountMinor),
+          ),
+        );
+      marked += Number((result as { changes?: number }).changes ?? 0);
+    }
+    return marked;
+  }
+
   // ---- Alerts and reports --------------------------------------------------
 
   async listAlerts(): Promise<unknown> {
@@ -1438,6 +1567,10 @@ export class Services implements AppServices {
    * correct after a correction, a backfill, or a late-arriving transaction.
    */
   async refreshAnalysis(): Promise<unknown> {
+    // Standing decisions first: a charge that arrived since the last pass must
+    // inherit the answer the user already gave for it.
+    await this.applyRecurringRules();
+
     const [transactions, existingRecurringRows, existingIncomeRows] = await Promise.all([
       this.db.select().from(t.transactions),
       this.db.select().from(t.recurringCharges),
@@ -1757,13 +1890,15 @@ export class Services implements AppServices {
    * turns up wrong in a report, with no way to find what caused it.
    */
   async listOverrides(): Promise<unknown> {
-    const [aliases, profiles, transactions, categorizations, categoryNames] = await Promise.all([
-      this.db.select().from(t.merchantAliases),
-      this.db.select().from(t.merchantProfiles),
-      this.db.select().from(t.transactions),
-      this.liveCategorizations(),
-      this.categoryNames(),
-    ]);
+    const [aliases, profiles, transactions, categorizations, categoryNames, recurringRules] =
+      await Promise.all([
+        this.db.select().from(t.merchantAliases),
+        this.db.select().from(t.merchantProfiles),
+        this.db.select().from(t.transactions),
+        this.liveCategorizations(),
+        this.categoryNames(),
+        this.db.select().from(t.recurringRules),
+      ]);
 
     const byMerchant = new Map<string, TransactionRow[]>();
     for (const row of transactions) {
@@ -1809,6 +1944,23 @@ export class Services implements AppServices {
     }
 
     const aliasMap = new Map(aliases.map((a) => [a.merchantKey, a.displayName]));
+    const ruledMerchants = new Set(recurringRules.map((r) => `${r.merchantKey}:${r.amountMinor}`));
+
+    for (const rule of recurringRules) {
+      const covered = transactions.filter(
+        (r) => r.merchantKey === rule.merchantKey && r.amountMinor === rule.amountMinor,
+      );
+      out.push({
+        id: `recurring_rule:${rule.merchantKey}:${rule.amountMinor}`,
+        kind: 'recurring_rule',
+        target: `${rule.merchantKey}:${rule.amountMinor}`,
+        label: covered[0] ? resolveMerchantName(covered[0], aliasMap) : rule.merchantKey,
+        original: 'Detected automatically',
+        current: rule.decision === 'recurring' ? 'Recurring' : 'Not recurring',
+        affectedCount: covered.length,
+        occurredAt: rule.createdAt,
+      });
+    }
     for (const row of transactions) {
       const name = resolveMerchantName(row, aliasMap);
 
@@ -1836,7 +1988,9 @@ export class Services implements AppServices {
           occurredAt: row.postedDate,
         });
       }
-      if (row.userRecurringOverride) {
+      // A per-transaction flag explained by a standing rule is listed once as
+      // that rule, not once per transaction it touched.
+      if (row.userRecurringOverride && !ruledMerchants.has(`${row.merchantKey}:${row.amountMinor}`)) {
         out.push({
           id: `recurring:${row.id}`,
           kind: 'recurring',
@@ -1920,6 +2074,29 @@ export class Services implements AppServices {
           .set({ userNote: null })
           .where(eq(t.transactions.id, p.target));
         break;
+      case 'recurring_rule': {
+        // The rule and the flags it stamped go together: leaving the flags
+        // behind would keep enforcing a decision the user just withdrew.
+        const [merchantKey, amount] = splitRuleTarget(p.target);
+        await this.db
+          .delete(t.recurringRules)
+          .where(
+            and(
+              eq(t.recurringRules.merchantKey, merchantKey),
+              eq(t.recurringRules.amountMinor, amount),
+            ),
+          );
+        await this.db
+          .update(t.transactions)
+          .set({ userRecurringOverride: null })
+          .where(
+            and(
+              eq(t.transactions.merchantKey, merchantKey),
+              eq(t.transactions.amountMinor, amount),
+            ),
+          );
+        break;
+      }
       case 'transaction_category':
         await this.revertCategorization(p.target);
         break;
@@ -2260,4 +2437,20 @@ export class Services implements AppServices {
 /** Opens the Hosted Link URL in the system browser (research.md R1). */
 export async function openHostedLink(url: string): Promise<void> {
   await shell.openExternal(url);
+}
+
+/** The ledger stores a coarser cadence set than the candidate detector reports. */
+function normalizeLedgerCadence(
+  cadence: string | undefined,
+): 'weekly' | 'monthly' | 'quarterly' | 'annual' {
+  if (cadence === 'weekly' || cadence === 'biweekly') return 'weekly';
+  if (cadence === 'quarterly') return 'quarterly';
+  if (cadence === 'annual') return 'annual';
+  return 'monthly';
+}
+
+/** A recurring-rule override target is "merchantKey:amountMinor". */
+function splitRuleTarget(target: string): [string, number] {
+  const at = target.lastIndexOf(':');
+  return [target.slice(0, at), Number(target.slice(at + 1))];
 }

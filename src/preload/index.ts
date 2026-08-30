@@ -43,6 +43,8 @@ export const INVOKE_CHANNELS = [
   'recurring:list',
   'recurring:acknowledge',
   'recurring:markNotRecurring',
+  'recurring:candidates',
+  'recurring:decide',
   'alerts:list',
   'alerts:dismiss',
   'alertRules:list',

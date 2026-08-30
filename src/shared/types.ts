@@ -131,6 +131,7 @@ export type OverrideKind =
   | 'transaction_category'
   | 'excluded'
   | 'recurring'
+  | 'recurring_rule'
   | 'note';
 
 export interface OverrideRecord {
@@ -147,6 +148,22 @@ export interface OverrideRecord {
   /** How many transactions this override reaches. */
   readonly affectedCount: number;
   readonly occurredAt: string | null;
+}
+
+/** A charge that looks recurring and is waiting on the user's answer. */
+export interface RecurringCandidateView {
+  readonly key: string;
+  readonly merchantKey: string;
+  readonly merchantName: string;
+  readonly amountMinor: number;
+  readonly cadence: string;
+  readonly occurrences: number;
+  readonly firstSeen: string;
+  readonly lastSeen: string;
+  readonly nextExpected: string;
+  readonly confidence: number;
+  readonly totalPaidMinor: number;
+  readonly transactionIds: string[];
 }
 
 export interface HealthContents {

@@ -1712,4 +1712,237 @@ describe('Services with realistic data', () => {
     });
   });
 
+
+  describe('finding and confirming recurring charges', () => {
+    async function seedSubscription(): Promise<{ merchantKey: string; amountMinor: number }> {
+      const accountId = ((await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>)[0]!.accounts[0]!.id;
+      const insert = handle.raw.prepare(
+        'INSERT INTO transactions (id,plaid_transaction_id,account_id,amount_minor,merchant_name,merchant_key,description,posted_date,datetime,pending,settlement_state,is_internal_transfer,reverses_transaction_id,original_currency,original_amount_minor,user_excluded,first_seen_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,0,\'posted\',0,NULL,NULL,NULL,0,?,?)',
+      );
+      for (const [i, date] of ['2026-06-04', '2026-07-04', '2026-08-04'].entries()) {
+        insert.run(
+          `sub_${i}`,
+          `psub_${i}`,
+          accountId,
+          -1599,
+          'Streamly',
+          'streamly',
+          'STREAMLY.COM',
+          date,
+          null,
+          NOW.toISOString(),
+          NOW.toISOString(),
+        );
+      }
+      return { merchantKey: 'streamly', amountMinor: -1599 };
+    }
+
+    it('suggests a monthly charge at the same amount', async () => {
+      const { merchantKey } = await seedSubscription();
+      const candidates = (await services.recurringCandidates()) as Array<{
+        merchantKey: string;
+        cadence: string;
+        occurrences: number;
+        merchantName: string;
+      }>;
+      const found = candidates.find((c) => c.merchantKey === merchantKey);
+      expect(found).toBeDefined();
+      expect(found?.cadence).toBe('monthly');
+      expect(found?.occurrences).toBe(3);
+      expect(found?.merchantName).toBe('Streamly');
+    });
+
+    it('marks every instance when confirmed', async () => {
+      const { merchantKey, amountMinor } = await seedSubscription();
+      const result = (await services.decideRecurring({
+        merchantKey,
+        amountMinor,
+        decision: 'recurring',
+        cadence: 'monthly',
+      })) as { marked: number };
+      expect(result.marked).toBe(3);
+
+      const rows = handle.raw
+        .prepare('SELECT user_recurring_override FROM transactions WHERE merchant_key = ?')
+        .all(merchantKey) as Array<{ user_recurring_override: string | null }>;
+      expect(rows).toHaveLength(3);
+      for (const row of rows) expect(row.user_recurring_override).toBe('recurring');
+    });
+
+    it('stops suggesting it once answered, either way', async () => {
+      const { merchantKey, amountMinor } = await seedSubscription();
+      await services.decideRecurring({ merchantKey, amountMinor, decision: 'not_recurring' });
+      const candidates = (await services.recurringCandidates()) as Array<{ merchantKey: string }>;
+      expect(candidates.some((c) => c.merchantKey === merchantKey)).toBe(false);
+    });
+
+    it('applies the answer to an instance that arrives later', async () => {
+      const { merchantKey, amountMinor } = await seedSubscription();
+      await services.decideRecurring({
+        merchantKey,
+        amountMinor,
+        decision: 'recurring',
+        cadence: 'monthly',
+      });
+
+      const accountId = ((await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>)[0]!.accounts[0]!.id;
+      handle.raw
+        .prepare(
+          'INSERT INTO transactions (id,plaid_transaction_id,account_id,amount_minor,merchant_name,merchant_key,description,posted_date,datetime,pending,settlement_state,is_internal_transfer,reverses_transaction_id,original_currency,original_amount_minor,user_excluded,first_seen_at,updated_at) VALUES (?,?,?,?,?,?,?,?,NULL,0,\'posted\',0,NULL,NULL,NULL,0,?,?)',
+        )
+        .run(
+          'sub_next',
+          'psub_next',
+          accountId,
+          -1599,
+          'Streamly',
+          'streamly',
+          'STREAMLY.COM',
+          '2026-09-04',
+          NOW.toISOString(),
+          NOW.toISOString(),
+        );
+
+      await services.refreshAnalysis();
+      const row = handle.raw
+        .prepare('SELECT user_recurring_override FROM transactions WHERE id = ?')
+        .get('sub_next') as { user_recurring_override: string | null };
+      expect(row.user_recurring_override).toBe('recurring');
+    });
+
+    it('adds the confirmed charge to the recurring ledger', async () => {
+      const { merchantKey, amountMinor } = await seedSubscription();
+      await services.decideRecurring({
+        merchantKey,
+        amountMinor,
+        decision: 'recurring',
+        cadence: 'monthly',
+      });
+      const ledger = (await services.listRecurring()) as Array<{ merchantKey: string }>;
+      expect(ledger.some((r) => r.merchantKey === merchantKey)).toBe(true);
+    });
+
+    it('changing the answer replaces it rather than stacking rules', async () => {
+      const { merchantKey, amountMinor } = await seedSubscription();
+      await services.decideRecurring({ merchantKey, amountMinor, decision: 'recurring' });
+      await services.decideRecurring({ merchantKey, amountMinor, decision: 'not_recurring' });
+
+      const rules = handle.raw
+        .prepare('SELECT decision FROM recurring_rules WHERE merchant_key = ?')
+        .all(merchantKey) as Array<{ decision: string }>;
+      expect(rules).toHaveLength(1);
+      expect(rules[0]?.decision).toBe('not_recurring');
+
+      const rows = handle.raw
+        .prepare('SELECT user_recurring_override FROM transactions WHERE merchant_key = ?')
+        .all(merchantKey) as Array<{ user_recurring_override: string }>;
+      for (const row of rows) expect(row.user_recurring_override).toBe('not_recurring');
+    });
+
+    it('does not suggest charges from accounts kept out of day-to-day money', async () => {
+      const { merchantKey } = await seedSubscription();
+      const institutions = (await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>;
+      for (const inst of institutions) {
+        for (const account of inst.accounts) {
+          await services.setAccountEveryday({ accountId: account.id, isEveryday: false });
+        }
+      }
+      const candidates = (await services.recurringCandidates()) as Array<{ merchantKey: string }>;
+      expect(candidates.some((c) => c.merchantKey === merchantKey)).toBe(false);
+    });
+
+    it('uses the name the user chose, not the imported one', async () => {
+      const { merchantKey } = await seedSubscription();
+      await services.renameMerchant({ merchantKey, displayName: 'My Streaming' });
+      const candidates = (await services.recurringCandidates()) as Array<{
+        merchantKey: string;
+        merchantName: string;
+      }>;
+      expect(candidates.find((c) => c.merchantKey === merchantKey)?.merchantName).toBe(
+        'My Streaming',
+      );
+    });
+  });
+
+
+  describe('a recurring decision appears on the overrides page', () => {
+    async function seedAndDecide(decision: 'recurring' | 'not_recurring'): Promise<void> {
+      const accountId = ((await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>)[0]!.accounts[0]!.id;
+      const insert = handle.raw.prepare(
+        'INSERT INTO transactions (id,plaid_transaction_id,account_id,amount_minor,merchant_name,merchant_key,description,posted_date,datetime,pending,settlement_state,is_internal_transfer,reverses_transaction_id,original_currency,original_amount_minor,user_excluded,first_seen_at,updated_at) VALUES (?,?,?,?,?,?,?,?,NULL,0,\'posted\',0,NULL,NULL,NULL,0,?,?)',
+      );
+      for (const [i, date] of ['2026-06-04', '2026-07-04', '2026-08-04'].entries()) {
+        insert.run(
+          `ov_${i}`,
+          `pov_${i}`,
+          accountId,
+          -1599,
+          'Streamly',
+          'streamly',
+          'STREAMLY.COM',
+          date,
+          NOW.toISOString(),
+          NOW.toISOString(),
+        );
+      }
+      await services.decideRecurring({
+        merchantKey: 'streamly',
+        amountMinor: -1599,
+        decision,
+        cadence: 'monthly',
+      });
+    }
+
+    it('lists the decision once, not once per transaction', async () => {
+      await seedAndDecide('recurring');
+      const rows = (await services.listOverrides()) as Array<{
+        kind: string;
+        affectedCount: number;
+        current: string;
+      }>;
+      const rules = rows.filter((r) => r.kind === 'recurring_rule');
+      expect(rules).toHaveLength(1);
+      expect(rules[0]?.affectedCount).toBe(3);
+      expect(rules[0]?.current).toBe('Recurring');
+      expect(rows.filter((r) => r.kind === 'recurring')).toHaveLength(0);
+    });
+
+    it('undoing it clears the rule and every flag it set', async () => {
+      await seedAndDecide('recurring');
+      await services.clearOverride({ kind: 'recurring_rule', target: 'streamly:-1599' });
+
+      const rows = handle.raw
+        .prepare('SELECT user_recurring_override FROM transactions WHERE merchant_key = ?')
+        .all('streamly') as Array<{ user_recurring_override: string | null }>;
+      for (const row of rows) expect(row.user_recurring_override).toBeNull();
+
+      const rules = handle.raw.prepare('SELECT id FROM recurring_rules').all();
+      expect(rules).toHaveLength(0);
+    });
+
+    it('undoing it puts the charge back in the suggestions', async () => {
+      await seedAndDecide('not_recurring');
+      expect(
+        ((await services.recurringCandidates()) as Array<{ merchantKey: string }>).some(
+          (c) => c.merchantKey === 'streamly',
+        ),
+      ).toBe(false);
+
+      await services.clearOverride({ kind: 'recurring_rule', target: 'streamly:-1599' });
+      expect(
+        ((await services.recurringCandidates()) as Array<{ merchantKey: string }>).some(
+          (c) => c.merchantKey === 'streamly',
+        ),
+      ).toBe(true);
+    });
+  });
+
 });

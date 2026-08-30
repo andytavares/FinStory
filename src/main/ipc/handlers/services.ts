@@ -51,6 +51,8 @@ export interface AppServices {
   listRecurring(): Promise<unknown>;
   acknowledgeRecurring(id: string): Promise<unknown>;
   markNotRecurring(id: string): Promise<unknown>;
+  recurringCandidates(): Promise<unknown>;
+  decideRecurring(input: unknown): Promise<unknown>;
 
   listAlerts(): Promise<unknown>;
   dismissAlert(id: string): Promise<unknown>;

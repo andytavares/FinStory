@@ -174,6 +174,14 @@ export const recategorizeAllSchema = z.object({
   scope: z.enum(['unresolved', 'all']).default('unresolved'),
 });
 
+/** Answering "is this a recurring charge?" for one payee at one amount. */
+export const decideRecurringSchema = z.object({
+  merchantKey: z.string().min(1),
+  amountMinor: z.number().int(),
+  decision: z.enum(['recurring', 'not_recurring']),
+  cadence: z.string().optional(),
+});
+
 export const clearOverrideSchema = z.object({
   kind: z.enum([
     'merchant_name',

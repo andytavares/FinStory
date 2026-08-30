@@ -281,6 +281,19 @@ export const settings = sqliteTable('settings', {
  * renaming one row at a time would be exactly the manual bookkeeping this
  * product exists to avoid.
  */
+export const recurringRules = sqliteTable(
+  'recurring_rules',
+  {
+    id: text('id').primaryKey(),
+    merchantKey: text('merchant_key').notNull(),
+    amountMinor: integer('amount_minor').notNull(),
+    decision: text('decision', { enum: ['recurring', 'not_recurring'] }).notNull(),
+    cadence: text('cadence'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('recurring_rule_idx').on(t.merchantKey, t.amountMinor)],
+);
+
 export const merchantAliases = sqliteTable('merchant_aliases', {
   merchantKey: text('merchant_key').primaryKey(),
   displayName: text('display_name').notNull(),

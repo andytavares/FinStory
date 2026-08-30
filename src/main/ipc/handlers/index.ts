@@ -22,6 +22,7 @@ import {
   settingsUpdateSchema,
   pathSchema,
   clearOverrideSchema,
+  decideRecurringSchema,
   recategorizeAllSchema,
   incomeAddSchema,
   importSchema,
@@ -135,6 +136,8 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('merchants:rename', merchantRenameSchema, (p) => services.renameMerchant(p));
   registry.handle('recurring:list', empty, () => services.listRecurring());
   registry.handle('recurring:acknowledge', idSchema, (p) => services.acknowledgeRecurring(p.id));
+  registry.handle('recurring:candidates', empty, () => services.recurringCandidates());
+  registry.handle('recurring:decide', decideRecurringSchema, (p) => services.decideRecurring(p));
   registry.handle('recurring:markNotRecurring', idSchema, (p) => services.markNotRecurring(p.id));
 
   // Alerts and reports

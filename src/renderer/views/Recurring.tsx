@@ -3,7 +3,8 @@ import { useQuery, call } from '../lib/ipc';
 import { Money } from '../components/Money';
 import { EmptyState } from '../components/EmptyState';
 import { shortDate } from '../lib/format';
-import type { RecurringChargeView } from '@shared/types';
+import type { RecurringChargeView, RecurringCandidateView } from '@shared/types';
+import { RecurringCandidates } from './RecurringCandidates';
 
 /** FR-021: the ledger. Cumulative total is the column that changes behaviour. */
 export function Recurring({
@@ -14,6 +15,8 @@ export function Recurring({
   const { data, loading, refetch } = useQuery<RecurringChargeView[]>('recurring:list', {
     includeInactive: true,
   });
+  const candidates = useQuery<RecurringCandidateView[]>('recurring:candidates');
+  const [tab, setTab] = useState<'confirmed' | 'possible'>('confirmed');
   const [scanned, setScanned] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
 
@@ -46,6 +49,7 @@ export function Recurring({
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
 
   const active = (data ?? []).filter((c) => c.status === 'active');
+  const possibleCount = candidates.data?.length ?? 0;
   const monthlyTotal = active.reduce((sum, c) => sum + normalizeMonthly(c), 0);
 
   return (
@@ -62,10 +66,44 @@ export function Recurring({
         </div>
       </div>
 
-      {(data ?? []).length === 0 ? (
+      <div className="flex gap-1 border-b border-[var(--color-line)]">
+        {(
+          [
+            { id: 'confirmed' as const, label: 'Confirmed' },
+            {
+              id: 'possible' as const,
+              label: `Possible${possibleCount > 0 ? ` (${possibleCount})` : ''}`,
+            },
+          ]
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            aria-current={tab === t.id ? 'page' : undefined}
+            className={`-mb-px border-b-2 px-3 py-2 text-[13px] ${
+              tab === t.id
+                ? 'border-[var(--color-ink)] text-[var(--color-ink)]'
+                : 'border-transparent text-[var(--color-ink-faint)] hover:text-[var(--color-ink-muted)]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'possible' ? (
+        <RecurringCandidates
+          onOpenMerchant={onOpenMerchant}
+          onDecided={() => {
+            refetch();
+            candidates.refetch();
+          }}
+        />
+      ) : (data ?? []).length === 0 ? (
         <EmptyState
           title="No recurring charges detected yet"
-          detail="Subscriptions appear here once a repeating pattern is established, usually after two or three cycles. Rescan to check again now."
+          detail="Subscriptions appear here once a repeating pattern is established. Anything the app is unsure about is under Possible, waiting on your answer."
         />
       ) : (
         <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">

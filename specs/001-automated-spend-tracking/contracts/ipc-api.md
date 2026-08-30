@@ -83,6 +83,8 @@ The renderer is untrusted UI. It has **no Node integration**, runs with `context
 | `data:export` / `data:import` | `{ destPath }` / `{ srcPath }` | `{ ok, path }` / `{ ok, restored }` | FR-060, SC-017 |
 | `data:deleteAll` | `{ confirmation }` | `{ ok }` | FR-048 |
 | `sync:now` | — | `{ added, updated, removed, skipped, failures, modelFailures, modelError, message, warning }` | Manual trigger; the only caller of `/transactions/refresh` (R2). Throws `SYNC_FAILED` when the run reached nothing, so a failed sync is never reported as a quiet success |
+| `recurring:candidates` | — | `RecurringCandidate[]` | Charges that look recurring and have not been decided on: same payee, same amount, at a plausible interval |
+| `recurring:decide` | `{ merchantKey, amountMinor, decision, cadence? }` | `{ ok, marked }` | Records the answer, marks every instance of that charge, and keeps applying to instances that arrive later |
 | `categorization:cancel` | — | `{ ok, running }` | Asks a running rerun to stop; checked between transactions, so work already done is kept |
 | `overrides:list` | — | `OverrideRecord[]` | Every user decision that overrides the app: renames, categories, exclusions, recurring flags, notes |
 | `overrides:clear` | `{ kind, target }` | `{ ok }` | Undoes one override; the transaction history itself is untouched |
