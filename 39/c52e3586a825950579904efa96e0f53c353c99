@@ -1,0 +1,68 @@
+electron-builder.yml
+  s_f1d20e583de5c0::t_4bf8d00ba2437a 1-13
+.gitignore
+  s_f1d20e583de5c0::t_b91fd8160d9cf1 1-20
+src/main/diagnostics/logger.ts
+  s_f1d20e583de5c0::t_476c81aee00845 1-123
+specs/001-automated-spend-tracking/tasks.md
+  s_f1d20e583de5c0::t_4999c60eb585fa 11-12,33-41,47,49,51-55,70-73,76-77,79,115-117,166-167,306-307,310,314-316,382
+eslint.config.js
+  s_f1d20e583de5c0::t_4bf8d00ba2437a 1-17
+.prettierrc
+  s_f1d20e583de5c0::t_b91fd8160d9cf1 1-6
+vitest.config.ts
+  s_f1d20e583de5c0::t_b91fd8160d9cf1 1-18,23-34
+  s_f1d20e583de5c0::t_63337ea5d6ac64 19-22
+specs/001-automated-spend-tracking/quickstart.md
+  s_f1d20e583de5c0::t_2f1dd9b9449ead 33-34,36-37,39
+package.json
+  s_f1d20e583de5c0::t_eb9ac44684af0f 28,37,39-41,43,47-48,51,53
+  s_f1d20e583de5c0::t_2681cb160f6530 1-3,5-27,29-35,44-46,49,54
+  s_f1d20e583de5c0::t_04c8e447869516 42
+  s_f1d20e583de5c0::t_82345a3faf48f7 50
+  s_f1d20e583de5c0::t_2af9a8a1ef65e8 52
+  s_f1d20e583de5c0::t_4bf8d00ba2437a 4,36,38,55
+src/shared/money.ts
+  s_f1d20e583de5c0::t_9400573316c5ae 1-105
+tests/unit/shared/money.test.ts
+  s_f1d20e583de5c0::t_0cdeb96287f482 1-106
+specs/001-automated-spend-tracking/research.md
+  s_f1d20e583de5c0::t_2f1dd9b9449ead 52,54,56,58,60-67,282
+src/shared/clock.ts
+  s_f1d20e583de5c0::t_b47fa5a96bf047 1-46
+tests/unit/diagnostics/redaction.test.ts
+  s_f1d20e583de5c0::t_cb77d09b27399c 1-104
+tests/unit/shared/clock.test.ts
+  s_f1d20e583de5c0::t_b47fa5a96bf047 1-43
+src/main/diagnostics/sink.ts
+  s_f1d20e583de5c0::t_476c81aee00845 1-15
+electron.vite.config.ts
+  s_f1d20e583de5c0::t_b91fd8160d9cf1 1-35
+playwright.config.ts
+  s_f1d20e583de5c0::t_4bf8d00ba2437a 1-8
+tsconfig.json
+  s_f1d20e583de5c0::t_962ea6040a7bc3 22-24
+  s_f1d20e583de5c0::t_b91fd8160d9cf1 1-21,25-29
+.prettierignore
+  s_f1d20e583de5c0::t_b91fd8160d9cf1 1-5
+docs/adr/0001-sqlcipher-driver-exception.md
+  s_f1d20e583de5c0::t_a9bab08e098041 1-48
+package-lock.json
+  s_f1d20e583de5c0::t_b9c5ca39d29415 1-8740
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "39c52e3586a825950579904efa96e0f53c353c99",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
