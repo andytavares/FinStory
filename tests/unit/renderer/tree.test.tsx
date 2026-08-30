@@ -96,6 +96,24 @@ describe('CategoryTree interaction', () => {
     expect(drilled).toBe('travel');
   });
 
+  it('drills into spending recorded directly on the parent', () => {
+    const withOwn = [
+      ...ROWS,
+      row({ categoryId: 'food', name: 'Food', totalMinor: -41_387, txCount: 3 }),
+    ];
+    let drilled: string | null = null;
+    render(<CategoryTree rows={withOwn} onDrill={(id) => (drilled = id)} />);
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    fireEvent.click(screen.getByLabelText('View transactions directly in Food'));
+    expect(drilled).toBe('food');
+  });
+
+  it('omits the direct row when nothing sits on the parent itself', () => {
+    render(<CategoryTree rows={ROWS} onDrill={() => {}} />);
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    expect(screen.queryByLabelText(/View transactions directly in/)).toBeNull();
+  });
+
   it('drills into a subcategory once expanded', () => {
     let drilled: string | null = null;
     render(<CategoryTree rows={ROWS} onDrill={(id) => (drilled = id)} />);

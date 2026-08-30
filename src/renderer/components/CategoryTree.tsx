@@ -137,12 +137,19 @@ export function CategoryTree({
               ))}
 
             {isOpen && group.ownMinor !== 0 && (
-              <div className="flex items-center gap-3 border-t border-[var(--color-line)] bg-[var(--color-ground)] px-4 py-2 pl-11 text-[13px] text-[var(--color-ink-faint)]">
+              // Spending sitting on the parent itself is a real set of
+              // transactions, so it drills like any other row.
+              <button
+                type="button"
+                onClick={() => onDrill(group.id)}
+                aria-label={`View transactions directly in ${group.name}`}
+                className="flex w-full items-center gap-3 border-t border-[var(--color-line)] bg-[var(--color-ground)] px-4 py-2 pl-11 text-left text-[13px] text-[var(--color-ink-faint)] hover:bg-[var(--color-surface)] hover:text-[var(--color-ink-muted)]"
+              >
                 <span className="w-40 shrink-0 truncate">Directly in {group.name}</span>
                 <span className="flex-1" />
                 <Money minor={group.ownMinor} magnitude className="w-28 text-right" />
                 <span className="w-10" />
-              </div>
+              </button>
             )}
           </li>
         );
