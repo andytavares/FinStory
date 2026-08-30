@@ -35,6 +35,8 @@ export interface TransactionView {
   readonly id: string;
   readonly amountMinor: number;
   readonly merchantName: string | null;
+  /** The stable grouping key. An identifier, never shown to the user. */
+  readonly merchantKey: string | null;
   readonly description: string;
   readonly postedDate: string;
   readonly categoryId: string;
@@ -114,7 +116,19 @@ export interface AlertView {
   readonly dismissed: boolean;
 }
 
+export interface HealthContents {
+  readonly institutions: number;
+  readonly accounts: number;
+  readonly everydayAccounts: number;
+  readonly transactions: number;
+  readonly transactionsInEverydayAccounts: number;
+  readonly transactionsThisMonth: number;
+  readonly categorized: number;
+  readonly uncategorizable: number;
+}
+
 export interface HealthView {
+  readonly contents: HealthContents;
   readonly perAccount: Array<{
     institutionId: string;
     institutionName: string;

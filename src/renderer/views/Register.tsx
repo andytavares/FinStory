@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
+import { transactionName } from '../lib/name';
 import { Money } from '../components/Money';
 import { Qualification } from '../components/Qualification';
 import { EmptyState } from '../components/EmptyState';
@@ -182,7 +183,7 @@ export function Register({
                   {shortDate(t.postedDate)}
                 </td>
                 <td className="px-3 py-2">
-                  {t.merchantName ?? t.description}
+                  {transactionName(t)}
                   {t.originalCurrency && (
                     // Display-only; never enters a calculation (FR-085).
                     <span className="ml-2 text-[11px] text-[var(--color-ink-faint)]">
@@ -211,12 +212,12 @@ export function Register({
                             merchantKey: result.merchantKey,
                             categoryId: next,
                             count: result.retroactiveCandidateCount,
-                            label: t.merchantName ?? t.description,
+                            label: transactionName(t),
                           });
                         }
                       });
                     }}
-                    aria-label={`Category for ${t.merchantName ?? t.description}`}
+                    aria-label={`Category for ${transactionName(t)}`}
                     className="border border-transparent bg-transparent px-1 py-0.5 text-[13px] text-[var(--color-ink-muted)] hover:border-[var(--color-line)]"
                   >
                     {assignableCategories(categories.data ?? []).map((c) => (
@@ -236,7 +237,7 @@ export function Register({
                   <button
                     type="button"
                     onClick={() => setEditing(editing === t.id ? null : t.id)}
-                    aria-label={`Edit ${t.merchantName ?? t.description}`}
+                    aria-label={`Edit ${transactionName(t)}`}
                     className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
                   >
                     {editing === t.id ? 'Close' : 'Edit'}

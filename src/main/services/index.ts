@@ -32,6 +32,7 @@ import { exchangePublicToken, pollForPublicToken, startHostedLink } from '@main/
 import { fetchItemAccounts } from '@main/plaid/accounts';
 import { isEverydayAccount } from '@main/accounts/everyday';
 import { summarizeSync, type SyncOutcome } from '@main/sync/outcome';
+import { resolveMerchantName } from '@shared/merchant-name';
 
 export interface ModelDescription {
   readonly provider: string;
@@ -353,19 +354,23 @@ export class Services implements AppServices {
 
   async breakdownByMerchant(range: unknown): Promise<unknown> {
     const { periodStart, periodEnd } = range as { periodStart: string; periodEnd: string };
-    const rows = this.everyday(
-      await this.transactionsIn(periodStart, periodEnd),
-      await this.everydayAccountIds(),
-    );
-    const totals = new Map<string, { totalMinor: number; count: number }>();
+    const [all, everydayIds, aliases] = await Promise.all([
+      this.transactionsIn(periodStart, periodEnd),
+      this.everydayAccountIds(),
+      this.merchantAliases(),
+    ]);
+    const rows = this.everyday(all, everydayIds);
+    const totals = new Map<string, { name: string; totalMinor: number; count: number }>();
     for (const r of rows) {
       if (!this.countsAsSpending(r)) continue;
       const key = r.merchantKey ?? r.description;
-      const cur = totals.get(key) ?? { totalMinor: 0, count: 0 };
-      totals.set(key, { totalMinor: cur.totalMinor + r.amountMinor, count: cur.count + 1 });
+      // Grouped by the stable key, but labelled with the name the user chose —
+      // this list used to show the normalized key back to them.
+      const cur = totals.get(key) ?? { name: resolveMerchantName(r, aliases), totalMinor: 0, count: 0 };
+      totals.set(key, { ...cur, totalMinor: cur.totalMinor + r.amountMinor, count: cur.count + 1 });
     }
     const out = [...totals.entries()]
-      .map(([key, v]) => ({ categoryId: key, name: key, totalMinor: v.totalMinor, txCount: v.count }))
+      .map(([key, v]) => ({ categoryId: key, name: v.name, totalMinor: v.totalMinor, txCount: v.count }))
       .sort((a, b) => a.totalMinor - b.totalMinor);
     return {
       rows: out,
@@ -432,10 +437,8 @@ export class Services implements AppServices {
         return {
           id: r.id,
           amountMinor: r.amountMinor,
-          // Precedence: this transaction's own override, then the merchant-wide
-          // alias, then what the bank sent.
-          merchantName:
-            r.userMerchantName ?? aliases.get(r.merchantKey ?? '') ?? r.merchantName,
+          merchantName: resolveMerchantName(r, aliases),
+          merchantKey: r.merchantKey,
           description: r.description,
           postedDate: r.postedDate,
           categoryId: c?.categoryId ?? 'uncategorizable',
@@ -551,8 +554,8 @@ export class Services implements AppServices {
             transaction: {
               id: tx.id,
               amountMinor: tx.amountMinor,
-              merchantName:
-                tx.userMerchantName ?? aliases.get(tx.merchantKey ?? '') ?? tx.merchantName,
+              merchantName: resolveMerchantName(tx, aliases),
+              merchantKey: tx.merchantKey,
               description: tx.description,
               userMerchantName: tx.userMerchantName,
               userNote: tx.userNote,
@@ -1208,7 +1211,32 @@ export class Services implements AppServices {
     ]);
     const summary = summarizeHealth(events.map((e) => this.toDiagnosticEvent(e)));
 
+    // What is actually stored, so an empty screen can be told apart from a
+    // broken one. "The dashboard is blank" has two very different causes:
+    // nothing was ever imported, or everything imported sits in an account the
+    // user excluded from day-to-day money.
+    const [accounts, categorizations] = await Promise.all([
+      this.db.select().from(t.accounts),
+      this.db.select().from(t.categorizations).where(isNull(t.categorizations.supersededBy)),
+    ]);
+    const everydayIds = new Set(accounts.filter((a) => a.isEveryday).map((a) => a.id));
+    const now = this.deps.clock.now();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+
     return {
+      contents: {
+        institutions: institutions.length,
+        accounts: accounts.length,
+        everydayAccounts: everydayIds.size,
+        transactions: transactions.length,
+        transactionsInEverydayAccounts: transactions.filter((r) => everydayIds.has(r.accountId))
+          .length,
+        transactionsThisMonth: transactions.filter(
+          (r) => r.postedDate >= monthStart && everydayIds.has(r.accountId),
+        ).length,
+        categorized: categorizations.filter((c) => c.categoryId !== 'uncategorizable').length,
+        uncategorizable: categorizations.filter((c) => c.categoryId === 'uncategorizable').length,
+      },
       perAccount: institutions.map((i) => ({
         institutionId: i.id,
         institutionName: i.institutionName,
@@ -1777,10 +1805,13 @@ export class Services implements AppServices {
     ]);
     const names = new Map<string, string>();
     for (const tx of transactions) {
-      if (!tx.merchantKey) continue;
-      const preferred = tx.userMerchantName ?? tx.merchantName;
-      if (preferred && !names.has(tx.merchantKey)) names.set(tx.merchantKey, preferred);
+      if (!tx.merchantKey || names.has(tx.merchantKey)) continue;
+      // Always resolvable: the descriptor is the last resort, so these lists can
+      // never fall back to showing the normalized merchant key.
+      names.set(tx.merchantKey, resolveMerchantName(tx, aliases));
     }
+    // A merchant-wide rename is the user's answer for the whole merchant, so it
+    // wins over any single transaction's name in a per-merchant list.
     for (const [key, alias] of aliases) names.set(key, alias);
     return names;
   }

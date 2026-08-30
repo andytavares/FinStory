@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { call } from '../lib/ipc';
+import { transactionName } from '../lib/name';
 import type { TransactionView } from '@shared/types';
 
 interface CategoryOption {
@@ -245,7 +246,7 @@ export function TransactionEditor({
         <CategoryPicker
           categories={categories}
           value={categoryId}
-          transactionLabel={transaction.description}
+          transactionLabel={transactionName(transaction)}
           onChange={(next) => {
             setCategoryId(next);
             setStatus('idle');
@@ -263,7 +264,8 @@ export function TransactionEditor({
               setName(e.target.value);
               setStatus('idle');
             }}
-            placeholder={transaction.merchantName ?? transaction.description}
+            // Shows what the name falls back to if this override is cleared.
+            placeholder={transactionName({ ...transaction, userMerchantName: null })}
             className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px] outline-none"
           />
         </label>

@@ -1,5 +1,6 @@
 import { EMPTY_SYNC } from '@main/sync/outcome';
 import type { ModelDescription } from '@main/services/index';
+import type { HealthContents } from '@shared/types';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1095,6 +1096,100 @@ describe('Services with realistic data', () => {
       const result = (await warned.syncNow()) as { message: string; warning: string };
       expect(result.message).toContain('4 new transactions');
       expect(result.warning).toContain('overloaded_error');
+    });
+  });
+
+
+  describe('the name override wins on every surface', () => {
+    it('uses a merchant-wide rename in the transaction register', async () => {
+      const first = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
+        rows: Array<{ id: string; merchantKey: string | null; merchantName: string }>;
+      }).rows.find((r) => r.merchantKey !== null);
+      expect(first).toBeDefined();
+      await services.renameMerchant({ merchantKey: first!.merchantKey, displayName: 'MY NAME' });
+
+      const after = (await services.queryTransactions({ limit: 200, offset: 0 })) as {
+        rows: Array<{ merchantKey: string | null; merchantName: string }>;
+      };
+      const renamed = after.rows.filter((r) => r.merchantKey === first!.merchantKey);
+      expect(renamed.length).toBeGreaterThan(0);
+      for (const row of renamed) expect(row.merchantName).toBe('MY NAME');
+    });
+
+    it('uses it in the review queue as well', async () => {
+      const queue = (await services.reviewQueue({ limit: 200, offset: 0 })) as {
+        rows: Array<{ transaction: { merchantKey: string | null; merchantName: string } }>;
+      };
+      const target = queue.rows.find((r) => r.transaction.merchantKey !== null);
+      expect(target).toBeDefined();
+      const key = target!.transaction.merchantKey!;
+      await services.renameMerchant({ merchantKey: key, displayName: 'REVIEW NAME' });
+
+      const after = (await services.reviewQueue({ limit: 200, offset: 0 })) as {
+        rows: Array<{ transaction: { merchantKey: string | null; merchantName: string } }>;
+      };
+      for (const row of after.rows) {
+        if (row.transaction.merchantKey === key) {
+          expect(row.transaction.merchantName).toBe('REVIEW NAME');
+        }
+      }
+    });
+
+    it('labels the merchant breakdown with the override, not the normalized key', async () => {
+      const rows = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
+        rows: Array<{ merchantKey: string | null; postedDate: string }>;
+      }).rows.filter((r) => r.merchantKey !== null);
+      const key = rows[0]!.merchantKey!;
+      await services.renameMerchant({ merchantKey: key, displayName: 'BREAKDOWN NAME' });
+
+      const breakdown = (await services.breakdownByMerchant({
+        periodStart: '2000-01-01T00:00:00Z',
+        periodEnd: '2100-01-01T00:00:00Z',
+      })) as { rows: Array<{ categoryId: string; name: string }> };
+      const row = breakdown.rows.find((r) => r.categoryId === key);
+      if (row) expect(row.name).toBe('BREAKDOWN NAME');
+      for (const r of breakdown.rows) expect(r.name).not.toBe('');
+    });
+
+    it('never labels a merchant list with the normalized key', async () => {
+      const recurring = (await services.listRecurring()) as Array<{
+        merchantKey: string;
+        merchantName: string;
+      }>;
+      for (const r of recurring) expect(r.merchantName).not.toBe(r.merchantKey);
+    });
+  });
+
+
+  describe('health reports what is actually stored', () => {
+    it('counts institutions, accounts and transactions', async () => {
+      const h = (await services.health()) as { contents: HealthContents };
+      expect(h.contents.institutions).toBeGreaterThan(0);
+      expect(h.contents.accounts).toBeGreaterThan(0);
+      expect(h.contents.transactions).toBeGreaterThan(0);
+    });
+
+    it('separates day-to-day transactions from the rest', async () => {
+      const h = (await services.health()) as { contents: HealthContents };
+      expect(h.contents.transactionsInEverydayAccounts).toBeLessThanOrEqual(
+        h.contents.transactions,
+      );
+      expect(h.contents.everydayAccounts).toBeLessThanOrEqual(h.contents.accounts);
+    });
+
+    it('shows day-to-day transactions dropping to zero when every account is turned off', async () => {
+      const institutions = (await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>;
+      for (const inst of institutions) {
+        for (const account of inst.accounts) {
+          await services.setAccountEveryday({ accountId: account.id, isEveryday: false });
+        }
+      }
+      const h = (await services.health()) as { contents: HealthContents };
+      expect(h.contents.everydayAccounts).toBe(0);
+      expect(h.contents.transactionsInEverydayAccounts).toBe(0);
+      expect(h.contents.transactions).toBeGreaterThan(0);
     });
   });
 

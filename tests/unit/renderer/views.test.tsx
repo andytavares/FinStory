@@ -273,6 +273,16 @@ describe('Reports, Health, Settings, Categories', () => {
   it('shows per-account sync status and the redaction promise', async () => {
     installMoneyBridge({
       'health:get': {
+        contents: {
+          institutions: 1,
+          accounts: 1,
+          everydayAccounts: 1,
+          transactions: 12,
+          transactionsInEverydayAccounts: 12,
+          transactionsThisMonth: 4,
+          categorized: 10,
+          uncategorizable: 2,
+        },
         perAccount: [
           {
             institutionId: 'i1',
@@ -647,6 +657,16 @@ describe('App shell navigation covers every area', () => {
       'institutions:list': [],
       'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
       'health:get': {
+        contents: {
+          institutions: 1,
+          accounts: 1,
+          everydayAccounts: 1,
+          transactions: 12,
+          transactionsInEverydayAccounts: 12,
+          transactionsThisMonth: 4,
+          categorized: 10,
+          uncategorizable: 2,
+        },
         perAccount: [],
         metrics: {
           syncDurationMsP50: null,

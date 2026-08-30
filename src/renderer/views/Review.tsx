@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
+import { transactionName } from '../lib/name';
 import { Money } from '../components/Money';
 import { EmptyState } from '../components/EmptyState';
 import { TransactionEditor, assignableCategories } from '../components/TransactionEditor';
@@ -59,7 +60,7 @@ export function Review(): React.JSX.Element {
     const first = data?.rows.find((r) => selected.has(r.transaction.id));
     if (result.retroactiveCandidateCount > 0 && first) {
       setPendingRetro({
-        merchantKey: first.transaction.description,
+        merchantKey: transactionName(first.transaction),
         categoryId,
         count: result.retroactiveCandidateCount,
       });
@@ -170,10 +171,10 @@ export function Review(): React.JSX.Element {
               checked={selected.has(item.transaction.id)}
               onChange={() => toggle(item.transaction.id)}
               className="mt-1"
-              aria-label={`Select ${item.transaction.description}`}
+              aria-label={`Select ${transactionName(item.transaction)}`}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px]">{item.transaction.description}</p>
+              <p className="truncate text-[13px]">{transactionName(item.transaction)}</p>
               <p className="text-[12px] text-[var(--color-ink-faint)]">
                 {shortDate(item.transaction.postedDate)} · guessed {item.guessCategoryId} at{' '}
                 {Math.round(item.confidence * 100)}%
@@ -190,7 +191,7 @@ export function Review(): React.JSX.Element {
                 onClick={() =>
                   setEditing(editing === item.transaction.id ? null : item.transaction.id)
                 }
-                aria-label={`Edit ${item.transaction.description}`}
+                aria-label={`Edit ${transactionName(item.transaction)}`}
                 className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
               >
                 {editing === item.transaction.id ? 'Close' : 'Edit'}
