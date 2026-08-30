@@ -23,6 +23,16 @@ Where it must differ from those products:
 - **Opinionated about what matters.** The system surfaces what changed and what is unusual on its own, instead of leaving the user to discover it by browsing reports.
 - **Optional to open.** The interface is the depth; the push notifications and scheduled reports are the floor. A user who never opens the application still gets the product's core value, which is not true of the reference products.
 
+## Clarifications
+
+### Session 2026-08-29
+
+- Q: How should the system know when your next paycheck is due, so it can warn you about running low before then? → A: Auto-detect from recurring deposits, with user confirmation and override available in settings.
+- Q: When you correct a transaction's category, should the system also fix past transactions from that same merchant, or only apply going forward? → A: Forward by default, with an explicit opt-in prompt to apply retroactively, showing the count of affected transactions. Previously user-corrected transactions are never overwritten.
+- Q: Who decides what the spending categories are — a fixed list, or user-defined? → A: Curated default taxonomy, with the user able to add, rename, merge, and hide categories. Nesting is capped at one level of subcategories.
+- Q: What happens with a foreign-currency purchase on a US card? → A: The settled USD amount is the value used in all calculations; original currency and amount are retained as display-only metadata.
+- Q: How should background failures (sync, categorization, report generation) be surfaced and diagnosed? → A: Local rotating diagnostic log plus an in-app system-health view, with local metrics and timings, exportable for debugging. All diagnostic output redacts financial detail.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Every dollar is captured and categorized without me doing anything (Priority: P1)
@@ -127,7 +137,9 @@ The user can review flagged low-confidence transactions and recategorize any tra
 1. **Given** transactions are in the review queue, **When** the user opens the queue, **Then** they see each transaction with its best-guess category, confidence, and the context behind the guess.
 2. **Given** the user changes a transaction's category, **When** the change is saved, **Then** all breakdowns, digests, and reports covering that transaction reflect the corrected category.
 3. **Given** the user has corrected a merchant's categorization, **When** a subsequent comparable transaction from that merchant is ingested, **Then** it is categorized consistently with the correction.
-4. **Given** the user never opens the review queue, **When** time passes, **Then** the system continues to operate and report using best-guess categories, clearly marking unconfirmed amounts.
+4. **Given** the user corrects a categorization for a merchant with existing history, **When** the correction is saved, **Then** the user is offered a retroactive fix stating how many past transactions it would change, and nothing historical changes unless they accept.
+5. **Given** the user accepts a retroactive correction, **When** it is applied, **Then** transactions they had previously corrected by hand keep their existing categories, and all affected totals and reports are restated.
+6. **Given** the user never opens the review queue, **When** time passes, **Then** the system continues to operate and report using best-guess categories, clearly marking unconfirmed amounts.
 
 ---
 
@@ -137,14 +149,18 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - An upstream data source is unavailable for an extended period: on recovery, backfilled transactions must be ingested, categorized, and retroactively folded into any already-delivered periods.
 - A transaction is reversed, refunded, or disputed: totals and category breakdowns must net it out rather than double-count the original and the reversal as separate spending.
 - Transfers between the user's own connected accounts, and credit card payments from a connected checking account: these move money without being spending and must not inflate spending totals or category breakdowns.
-- Income arrives irregularly or from multiple sources: balance-shortfall projections must degrade gracefully rather than assert a confident wrong prediction.
+- Income arrives irregularly, from multiple sources, or changes (raise, job change, gap in pay): detection must re-learn rather than hold a stale pattern, and balance-shortfall projections must be withheld or qualified while confidence is low rather than asserting a confident wrong prediction.
 - Cash withdrawals: spending is visible as an ATM withdrawal but its true category is unknowable, and must be represented honestly rather than guessed.
 - A merchant's descriptor is unreadable or generic (payment processor strings, aggregator descriptors): categorization must fall back to low confidence and the review queue rather than assigning a confident wrong category.
 - The first weeks after setup, when there is little or no history: baselines, deviations, and projections must be withheld or explicitly qualified rather than computed from meaningless samples.
 - The user connects an account with a long transaction history: historical data must be backfilled and categorized so insights are available without waiting months.
+- A foreign-currency purchase settles at a different USD amount than the authorization, or the same merchant abroad posts at varying dollar amounts: reconciliation and duplicate detection must operate on settled amounts and must not treat normal exchange-rate variation as a duplicate or a distinct merchant.
+- A category is renamed or merged after reports referencing it were already generated: prior reports must remain coherent rather than showing a category that no longer exists or silently comparing mismatched buckets.
 - Duplicate-charge detection versus legitimate repeat purchases (two identical coffees in one day): the user must be able to dismiss a false positive without suppressing genuine future duplicate alerts.
 - The user's delivery destination for alerts or reports becomes unavailable: undelivered notifications must be retained and surfaced, not lost.
 - A single alert-worthy event that satisfies multiple triggers at once must not generate a burst of redundant notifications.
+- A background failure repeats silently — an expired token, a persistent categorization error, a job that never completes: the user must be told rather than left to discover it from a wrong number weeks later.
+- Diagnostic export is requested: the export must be verifiably free of merchant names, amounts, balances, and credentials before it leaves the machine.
 - The application is closed for days or weeks: on next launch it must backfill, categorize, evaluate every alert rule against the backlog, and generate any missed scheduled reports — while making clear these are late, not live.
 - A long absence produces a large alert backlog: the user must receive a coherent digest of what happened rather than dozens of stale individual notifications.
 - The machine is offline or the aggregation provider is unreachable: all existing data stays viewable and is explicitly labeled as of the last successful sync.
@@ -165,17 +181,30 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - **FR-006**: System MUST reconcile pending transactions with their final posted form by updating the existing record rather than creating a second one.
 - **FR-007**: System MUST identify transfers between the user's own connected accounts and payments toward connected credit accounts, and MUST exclude them from spending totals and category breakdowns.
 - **FR-008**: System MUST net refunds, reversals, and chargebacks against the original transaction so that spending totals reflect actual net spend.
+- **FR-084**: For a transaction originating in a currency other than the account's currency, System MUST use the settled amount in the account's currency as the authoritative value for all totals, categorization, alerts, baselines, and reports.
+- **FR-085**: System MUST retain the original currency code and original amount as display-only metadata, and MUST show them when presenting that transaction's detail.
+- **FR-086**: System MUST NOT perform currency conversion of its own, and MUST NOT include an original foreign amount in any calculation.
 - **FR-009**: System MUST detect when a connected account's data feed is stale, disconnected, or requires re-authentication, notify the user, and mark affected periods as incomplete wherever totals are presented.
 
 #### Categorization
 
 - **FR-010**: System MUST assign a spending category to every captured transaction without user involvement.
+- **FR-078**: System MUST ship a curated default category taxonomy that is usable immediately, with no setup or configuration required from the user.
+- **FR-079**: Users MUST be able to add, rename, merge, and hide categories.
+- **FR-080**: System MUST support at most one level of subcategories beneath a top-level category. Deeper nesting MUST NOT be permitted.
+- **FR-081**: Merging two categories MUST reassign all affected transactions and restate all derived figures, consistent with FR-015.
+- **FR-082**: Hiding a category MUST NOT delete or orphan its historical transactions; hidden categories remain in historical reporting and are excluded only from new-assignment choices.
+- **FR-083**: System MUST keep month-over-month and period-over-period comparisons coherent across category changes, presenting the comparison under the current taxonomy rather than silently mismatching renamed or merged categories.
 - **FR-011**: System MUST use transaction context beyond the merchant name — including amount, day of week, time of day, and the user's own prior purchase history at that merchant — when determining a category.
 - **FR-012**: System MUST record a confidence value with every categorization.
 - **FR-013**: System MUST flag for user review any categorization whose confidence falls below a configurable threshold, while still including the transaction in totals under its best-guess category, marked as unconfirmed.
 - **FR-014**: System MUST allow the user to change any transaction's category, whether flagged or not.
 - **FR-015**: System MUST restate all affected historical totals, breakdowns, and previously generated period figures when a category is corrected.
 - **FR-016**: System MUST apply a user's correction to future comparable transactions from the same merchant.
+- **FR-074**: When a user corrects a categorization, System MUST offer to apply that correction retroactively to existing transactions from the same merchant, and MUST state how many transactions would be affected before the user decides.
+- **FR-075**: System MUST NOT apply a retroactive correction without explicit user confirmation; forward-only is the default behavior.
+- **FR-076**: A retroactive correction MUST NOT overwrite any categorization the user previously confirmed by hand. Prior user corrections always win.
+- **FR-077**: System MUST restate all affected historical totals, reports, and baselines after a retroactive correction is applied, consistent with FR-015.
 - **FR-017**: System MUST continue operating and reporting on best-guess categories indefinitely if the user never reviews the flagged queue.
 - **FR-018**: System MUST categorize every transaction such that category totals for any period sum to that period's transaction total with no unaccounted remainder.
 
@@ -188,6 +217,14 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - **FR-023**: System MUST notify the user when a detected recurring charge changes amount.
 - **FR-024**: System MUST mark a recurring charge inactive when it stops occurring beyond its expected cadence, rather than removing it from history.
 - **FR-025**: System MUST NOT classify irregular repeat purchases at the same merchant as recurring charges.
+
+#### Income Detection
+
+- **FR-069**: System MUST detect recurring income by identifying repeating deposits across connected accounts, using the same cadence-detection approach applied to recurring charges.
+- **FR-070**: System MUST derive the next expected income date and expected amount from the detected pattern, and MUST re-derive them when the pattern changes.
+- **FR-071**: Users MUST be able to confirm, correct, or override a detected income pattern — including its cadence, amount, and source account — and MUST be able to add an income source the system did not detect.
+- **FR-072**: System MUST NOT require the user to configure income for the system to function; detection is the default and confirmation is optional.
+- **FR-073**: System MUST qualify or withhold any balance-shortfall projection when no income pattern has been detected or confirmed, rather than projecting against an assumed date.
 
 #### Alerts
 
@@ -212,6 +249,17 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - **FR-041**: System MUST state the assumptions underlying every projection wherever a projection is presented.
 - **FR-042**: System MUST fold backfilled or late-arriving transactions into subsequent insights and corrected period figures.
 - **FR-043**: System MUST allow the user to view a spending breakdown by category, by merchant, and by time period on demand, independently of the scheduled digest and report.
+
+#### Diagnostics & System Health
+
+- **FR-087**: System MUST maintain a local, rotating diagnostic log covering sync attempts, categorization outcomes, alert evaluation, scheduled job execution, and every failure with its cause.
+- **FR-088**: System MUST provide an in-app system-health view showing, per connected account: current connection status, last successful sync, last attempted sync, and recent failures.
+- **FR-089**: System MUST record local operational metrics and timings — sync duration, transactions processed, categorization latency and local-vs-model resolution rates, job success and failure counts.
+- **FR-090**: Users MUST be able to export diagnostics — log and metrics together — as a single file for debugging.
+- **FR-091**: Diagnostic output MUST redact all financial detail. Merchant names, transaction amounts, account numbers, balances, access tokens, and API keys MUST NOT appear in any log, metric, or export. Transactions MUST be referenced by opaque identifier only.
+- **FR-092**: System MUST notify the user when a background failure persists beyond a threshold, rather than relying on the user to check the health view.
+- **FR-093**: Diagnostic logs MUST be bounded in size and age by rotation, and MUST NOT grow without limit.
+- **FR-094**: A diagnostic or logging failure MUST NOT block ingestion, categorization, alerting, or reporting.
 
 #### Effort, Trust & Data Handling
 
@@ -250,12 +298,14 @@ The user can review flagged low-confidence transactions and recategorize any tra
 ### Key Entities
 
 - **Connected Account**: A financial account the user has linked — checking, credit card, or payment application. Holds institution, account type, connection health status, last successful sync time, and current balance where available.
-- **Transaction**: A single money movement on a connected account. Holds amount, direction, merchant or description, posted and pending timestamps, source account, settlement status, and whether it is an internal transfer or a refund of another transaction.
-- **Category**: A spending classification applied to transactions. Categories are the unit of every breakdown, baseline, deviation, and comparison in the product.
+- **Transaction**: A single money movement on a connected account. Holds settled amount (authoritative for all calculations), direction, merchant or description, posted and pending timestamps, source account, settlement status, whether it is an internal transfer or a refund of another transaction, and — when the purchase originated in another currency — the original currency code and amount as display-only metadata.
+- **Category**: A spending classification applied to transactions. Seeded from a curated default taxonomy and extensible by the user (add, rename, merge, hide), with at most one level of subcategory nesting. Categories are the unit of every breakdown, baseline, deviation, and comparison in the product.
 - **Categorization**: The assignment of a category to a transaction. Holds the assigned category, a confidence value, the context that drove the decision, whether it is user-confirmed or system-guessed, and any correction history.
 - **Recurring Charge**: A detected repeating obligation. Holds merchant, current amount, cadence, first-seen date, most recent occurrence, cumulative amount paid, amount-change history, and active/inactive status.
+- **Income Source**: A detected or user-confirmed recurring deposit. Holds source account, amount, cadence, next expected date, detection confidence, and whether the user has confirmed or overridden it. Supplies the horizon for balance-shortfall projection.
 - **Alert Rule**: A user-configurable trigger condition — threshold amount, time window, and enabled state — that governs when the user is notified.
 - **Alert**: A fired instance of an alert rule. Holds the triggering transaction or condition, time fired, delivery status, and whether the user dismissed it as a false positive.
+- **Diagnostic Event**: A recorded operational occurrence — sync attempt, categorization outcome, job run, or failure. Holds event type, timestamp, outcome, duration, opaque subject identifier, and error cause. Contains no financial detail.
 - **Baseline**: The user's own established normal range for a category over a period, derived from their history and used as the reference for every deviation claim.
 - **Period Report**: A generated weekly digest or monthly report. Holds the period covered, the figures and insights presented, generation time, and delivery status.
 
@@ -285,6 +335,9 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - **SC-019**: On opening the application, a user can state their current position — balances, period cash flow, and what is unusual — within 30 seconds and without navigating away from the first screen.
 - **SC-020**: Navigating, filtering, and drilling through the full retained transaction history feels immediate, with no perceptible wait on the user's own machine.
 - **SC-021**: The application contains zero workflows that require the user to enter or reconcile transaction data in order for the system to stay accurate.
+- **SC-022**: Any background failure is discoverable by the user within one day of occurring, without the user having gone looking for it.
+- **SC-023**: A diagnostic export contains zero merchant names, transaction amounts, balances, account numbers, or credentials — verifiable by automated scan.
+- **SC-024**: Every background failure recorded in the health view has a corresponding log entry sufficient to identify its cause.
 
 ## Assumptions
 
@@ -302,7 +355,7 @@ The user can review flagged low-confidence transactions and recategorize any tra
 - **Baselines are personal**: All "normal" and "unusual" judgments derive from the individual user's own history. No external benchmarks, peer comparisons, or population averages are used.
 - **History requirement**: Meaningful baselines, deviation detection, and projections require roughly 4–8 weeks of history. Before that, the system reports facts and withholds comparative claims.
 - **Experience benchmark**: Quicken and Monarch Money define the expected depth and polish of the interface — a complete financial application, not a utility. They are a benchmark for surface quality and breadth, not a specification of their feature set; their data-entry, reconciliation, and manual-budgeting workflows are explicitly not being reproduced.
-- **Currency and locale**: Single currency, US financial institutions, US date and dollar conventions. Multi-currency and international institutions are out of scope for v1.
-- **Income regularity**: Balance-shortfall projection assumes a broadly predictable income cadence. Irregular income degrades projection confidence, and the system must qualify rather than assert in that case.
+- **Currency and locale**: US financial institutions, US date and dollar conventions. Accounts are USD-denominated; multi-currency *accounts* and international institutions are out of scope for v1. Individual foreign-currency *purchases* on a USD account are supported and handled per FR-084–FR-086: the settled USD amount is authoritative, the original currency and amount are display-only.
+- **Income regularity**: Income is detected automatically from recurring deposits, with user confirmation and override available (FR-069–FR-073). Balance-shortfall projection assumes a broadly predictable income cadence; irregular income degrades projection confidence, and the system must qualify or withhold rather than assert in that case.
 - **Notification channels exist**: Unprompted delivery uses native desktop notifications at minimum, so alerts reach the user without opening the application. Any additional destination (messaging, email) is optional and secondary.
 - **Out of scope for v1**: Investment and retirement account tracking, net worth calculation, debt payoff planning, tax preparation and categorization, bill payment, goal-based savings automation, multi-currency, shared or household budgets, credit score monitoring, mobile applications, and any cross-device sync.
