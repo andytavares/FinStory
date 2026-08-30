@@ -1,0 +1,53 @@
+src/renderer/components/TransactionEditor.tsx
+  s_f1d20e583de5c0::t_594160513f21dc 3
+  s_f1d20e583de5c0::t_7e112faeac8294 249
+  s_f1d20e583de5c0::t_bd40dadf3ab7e0 267-268
+src/renderer/views/Health.tsx
+  s_f1d20e583de5c0::t_a86ab374159eb4 37-73
+src/renderer/lib/name.ts
+  s_f1d20e583de5c0::t_7e112faeac8294 1-13
+src/renderer/views/Register.tsx
+  s_f1d20e583de5c0::t_7e112faeac8294 3,186,215,220,240
+tests/unit/renderer/views.test.tsx
+  s_f1d20e583de5c0::t_7f534c6b27ea09 276-285,660-669
+src/shared/merchant-name.ts
+  s_f1d20e583de5c0::t_084d78da3663fc 1-41
+tests/integration/services-with-data.test.ts
+  s_f1d20e583de5c0::t_e20ff3c7113d80 1163-1165,1167-1172,1174-1188,1190-1195
+  s_f1d20e583de5c0::t_b58927179ccf67 3,1166,1173,1189
+  s_f1d20e583de5c0::t_f50d10cbfcbea3 1102-1162
+src/main/services/index.ts
+  s_f1d20e583de5c0::t_fac7b828255893 441,558
+  s_f1d20e583de5c0::t_ccab111df762c2 35,357-363,367-370,373,440,557
+  s_f1d20e583de5c0::t_663aef1888bc83 1214-1225,1227-1239
+  s_f1d20e583de5c0::t_d996e58d86cd5f 1808-1811,1813-1814
+src/shared/types.ts
+  s_f1d20e583de5c0::t_a86ab374159eb4 119-129,131
+  s_f1d20e583de5c0::t_fac7b828255893 38-39
+tests/unit/renderer/name-override.test.tsx
+  s_f1d20e583de5c0::t_b32df5bc253ad8 1-81
+src/renderer/views/Review.tsx
+  s_f1d20e583de5c0::t_7e112faeac8294 3,63,174,177,194
+tests/unit/shared/merchant-name.test.ts
+  s_f1d20e583de5c0::t_084d78da3663fc 1-75
+tests/unit/renderer/editor.test.tsx
+  s_f1d20e583de5c0::t_284a34bbdc1b3e 21
+tests/unit/renderer/health-contents.test.tsx
+  s_f1d20e583de5c0::t_7e81f96a9a2204 1-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "5cc13d88440c146f489051bdd4b87bf51180e586",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
