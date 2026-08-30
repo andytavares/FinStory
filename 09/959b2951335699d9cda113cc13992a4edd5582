@@ -1,0 +1,24 @@
+specs/001-automated-spend-tracking/spec.md
+  s_f1d20e583de5c0::t_aaa63565ea4df3 34,162-163,253-263,308,338-340
+  s_f1d20e583de5c0::t_7045baa9b9d56e 26-30,35,152,221-227,305,359
+  s_f1d20e583de5c0::t_573133b61a78d1 31,140-142,204-207
+  s_f1d20e583de5c0::t_6bd7c166702a46 32,158,192-197,302
+  s_f1d20e583de5c0::t_407bccbd0382b5 33,157,184-186,301,358
+  s_f1d20e583de5c0::t_cdd32f7b4d0637 228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "09959b2951335699d9cda113cc13992a4edd5582",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
