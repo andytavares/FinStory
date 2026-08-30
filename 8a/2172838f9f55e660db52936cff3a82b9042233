@@ -1,0 +1,40 @@
+src/main/services/index.ts
+  s_f1d20e583de5c0::t_030ccbda9be6d1 15,1207-1348,1351
+tests/unit/ipc/handlers.test.ts
+  s_f1d20e583de5c0::t_030ccbda9be6d1 69
+src/preload/index.ts
+  s_f1d20e583de5c0::t_030ccbda9be6d1 61
+src/renderer/views/Income.tsx
+  s_f1d20e583de5c0::t_bf8c0d7bea1d91 10-19,23-32,38-41
+src/main/index.ts
+  s_f1d20e583de5c0::t_2cea587ff85467 140-143,154
+  s_f1d20e583de5c0::t_bf8c0d7bea1d91 159-164
+tests/unit/analysis/pass.test.ts
+  s_f1d20e583de5c0::t_925eb7390f4d80 1-193
+src/main/ipc/handlers/index.ts
+  s_f1d20e583de5c0::t_030ccbda9be6d1 149-150
+src/renderer/views/Recurring.tsx
+  s_f1d20e583de5c0::t_bf8c0d7bea1d91 13-22,26-35,46-51
+tests/integration/services-with-data.test.ts
+  s_f1d20e583de5c0::t_df58c5df6b30ed 458-568
+src/main/analysis/pass.ts
+  s_f1d20e583de5c0::t_4cf49b352c6700 1-110
+src/main/ipc/handlers/services.ts
+  s_f1d20e583de5c0::t_030ccbda9be6d1 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8a2172838f9f55e660db52936cff3a82b9042233",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
