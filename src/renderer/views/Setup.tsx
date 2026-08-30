@@ -81,6 +81,7 @@ export function Setup({
         <label className="block">
           <span className="text-[12px] text-[var(--color-ink-faint)]">Client ID</span>
           <input
+            aria-label="Client ID"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px] outline-none"
@@ -90,6 +91,7 @@ export function Setup({
         <label className="block">
           <span className="text-[12px] text-[var(--color-ink-faint)]">Secret</span>
           <input
+            aria-label="Secret"
             type="password"
             value={secret}
             onChange={(e) => setSecret(e.target.value)}

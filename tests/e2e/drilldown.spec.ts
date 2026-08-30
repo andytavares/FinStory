@@ -19,7 +19,7 @@ test.describe('dashboard drill-down', () => {
       // Interaction 1: click the category.
       await rows.first().click();
       // Interaction 2: none needed — the register is already showing.
-      await expect(harness.page.getByText('Transactions', { exact: true })).toBeVisible();
+      await expect(harness.page.getByRole('button', { name: 'Transactions' })).toBeVisible();
     }
   });
 });

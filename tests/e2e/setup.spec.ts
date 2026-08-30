@@ -24,13 +24,13 @@ test.describe('first run', () => {
 
   test('shows navigation for every area of the app', async () => {
     for (const label of ['Dashboard', 'Transactions', 'Recurring', 'Review', 'Settings']) {
-      await expect(harness.page.getByText(label, { exact: true })).toBeVisible();
+      await expect(harness.page.getByRole('button', { name: label })).toBeVisible();
     }
   });
 
   test('reaches an interactive state well within the setup budget', async () => {
     const start = Date.now();
-    await harness.page.getByText('Settings', { exact: true }).click();
+    await harness.page.getByRole('button', { name: 'Settings' }).click();
     await expect(harness.page.getByText('Your data')).toBeVisible();
     // The whole automated path must be a rounding error against SC-009's 30 min.
     expect(Date.now() - start).toBeLessThan(30_000);

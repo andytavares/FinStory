@@ -81,6 +81,16 @@ export function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey);
   }, [nav]);
 
+  // Hold the frame until setup status resolves. Rendering the shell first and
+  // swapping to Setup a moment later flashes a UI the user cannot act on.
+  if (status.loading) {
+    return (
+      <div className="flex h-full items-center justify-center text-[13px] text-[var(--color-ink-faint)]">
+        Opening your data…
+      </div>
+    );
+  }
+
   // First run: there is nothing to show until an account is connected, so the
   // setup screen is the app rather than a banner on an empty dashboard.
   if (status.data && !status.data.plaidConfigured && !setupDismissed) {

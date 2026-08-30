@@ -16,12 +16,19 @@ export interface Harness {
 
 /** Get past first-run setup so nav-dependent tests can reach the shell. */
 export async function dismissSetup(page: Page): Promise<void> {
+  // Wait for the app to settle on either the setup screen or the shell, so this
+  // does not race the initial status query.
+  await page
+    .locator('input[aria-label="Client ID"], nav')
+    .first()
+    .waitFor({ timeout: 20_000 });
+
   const clientId = page.getByLabel('Client ID');
   if (await clientId.isVisible().catch(() => false)) {
     await clientId.fill('e2e-client');
     await page.getByLabel('Secret').fill('e2e-secret');
     await page.getByRole('button', { name: /Save and continue/ }).click();
-    await page.getByText('Dashboard', { exact: true }).waitFor({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Dashboard' }).waitFor({ timeout: 15_000 });
   }
 }
 
