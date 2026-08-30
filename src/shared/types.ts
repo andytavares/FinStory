@@ -162,6 +162,7 @@ export type IpcErrorCode =
   | 'DB_LOCKED'
   | 'VALIDATION_FAILED'
   | 'CATEGORY_NESTING_EXCEEDED'
+  | 'SYNC_FAILED'
   | 'INCOME_UNDETECTED'
   | 'INTERNAL';
 

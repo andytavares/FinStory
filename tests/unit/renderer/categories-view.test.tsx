@@ -8,9 +8,9 @@ import { Alerts } from '@renderer/views/Alerts';
 afterEach(cleanup);
 
 const CATS = [
-  { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, canDelete: false },
-  { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, canDelete: false },
-  { id: 'custom', name: 'Custom', parentId: null, isSystem: false, isHidden: true, mergedIntoId: null, usageCount: 0, childCount: 0, canDelete: true },
+  { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
+  { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
+  { id: 'custom', name: 'Custom', parentId: null, isSystem: false, isHidden: true, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
 ];
 
 describe('Categories screen', () => {
@@ -42,7 +42,8 @@ describe('Categories screen', () => {
   it('opens and cancels the subcategory input', async () => {
     render(<Categories />);
     await waitFor(() => screen.getAllByText('+ Add subcategory'));
-    fireEvent.click(screen.getAllByText('+ Add subcategory')[0]!);
+    // Sorted alphabetically, so target Food explicitly rather than by position.
+    fireEvent.click(screen.getByLabelText('Add a subcategory under Food'));
     const input = screen.getByLabelText('New subcategory under Food');
     fireEvent.keyDown(input, { key: 'Escape' });
     await waitFor(() =>
@@ -53,7 +54,8 @@ describe('Categories screen', () => {
   it('creates a subcategory on Enter', async () => {
     render(<Categories />);
     await waitFor(() => screen.getAllByText('+ Add subcategory'));
-    fireEvent.click(screen.getAllByText('+ Add subcategory')[0]!);
+    // Sorted alphabetically, so target Food explicitly rather than by position.
+    fireEvent.click(screen.getByLabelText('Add a subcategory under Food'));
     const input = screen.getByLabelText('New subcategory under Food');
     fireEvent.change(input, { target: { value: 'Takeout' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -75,27 +77,66 @@ describe('Categories screen', () => {
   it('reveals merge targets and excludes the category itself', async () => {
     render(<Categories />);
     await waitFor(() => screen.getAllByText('Merge'));
-    fireEvent.click(screen.getAllByText('Merge')[0]!);
+    fireEvent.click(screen.getByLabelText('Merge Food'));
     const select = screen.getByLabelText('Merge Food into') as HTMLSelectElement;
     const values = Array.from(select.options).map((o) => o.value);
     expect(values).not.toContain('food');
     expect(values).toContain('dining');
   });
 
-  it('offers Delete only for an unused, user-created category', async () => {
+  it('offers Delete on every category, built in or not', async () => {
     render(<Categories />);
     await waitFor(() => screen.getByLabelText('Name for Custom'));
-    // Custom is deletable; Food and Dining are built in, so theirs is inert.
-    const deletes = screen.getAllByText('Delete');
-    expect(deletes.some((d) => d.tagName === 'BUTTON')).toBe(true);
-    expect(deletes.some((d) => d.tagName === 'SPAN')).toBe(true);
+    expect(screen.getByLabelText('Delete Food')).toBeDefined();
+    expect(screen.getByLabelText('Delete Dining')).toBeDefined();
+    expect(screen.getByLabelText('Delete Custom')).toBeDefined();
   });
 
-  it('explains why a category cannot be deleted', async () => {
+  it('asks where transactions should move before deleting a category in use', async () => {
+    installMoneyBridge({
+      'categories:list': [
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 12, childCount: 0, needsReassignment: true },
+        { id: 'travel', name: 'Travel', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
+      ],
+    });
     render(<Categories />);
     await waitFor(() => screen.getByLabelText('Name for Food'));
-    const inert = screen.getAllByText('Delete').find((d) => d.tagName === 'SPAN');
-    expect(inert?.getAttribute('title')).toMatch(/Built-in|subcategories|Used by/);
+    fireEvent.click(screen.getByLabelText('Delete Food'));
+    expect(screen.getByText(/12 transactions use Food/)).toBeDefined();
+    expect(screen.getByLabelText('Move contents of Food to')).toBeDefined();
+  });
+
+  it('keeps Move and delete disabled until a destination is chosen', async () => {
+    installMoneyBridge({
+      'categories:list': [
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 3, childCount: 0, needsReassignment: true },
+        { id: 'travel', name: 'Travel', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
+      ],
+    });
+    render(<Categories />);
+    await waitFor(() => screen.getByLabelText('Name for Food'));
+    fireEvent.click(screen.getByLabelText('Delete Food'));
+    const confirm = screen.getByRole('button', { name: 'Move and delete' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Move contents of Food to'), {
+      target: { value: 'travel' },
+    });
+    expect((screen.getByRole('button', { name: 'Move and delete' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it('mentions orphaned subcategories in the prompt', async () => {
+    installMoneyBridge({
+      'categories:list': [
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 2, needsReassignment: true },
+        { id: 'travel', name: 'Travel', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
+      ],
+    });
+    render(<Categories />);
+    await waitFor(() => screen.getByLabelText('Name for Food'));
+    fireEvent.click(screen.getByLabelText('Delete Food'));
+    expect(screen.getByText(/2 subcategories sit under it/)).toBeDefined();
   });
 
   it('shows Show for a hidden category and Hide for a visible one', async () => {
@@ -204,5 +245,66 @@ describe('Accounts and Alerts branches', () => {
     await waitFor(() => screen.getByRole('button', { name: 'Connect an account' }));
     expect(screen.getByRole('button', { name: 'Connect an account' })).toBeDefined();
     expect(screen.getByText('Sync now')).toBeDefined();
+  });
+});
+
+describe('Categories list behaviour', () => {
+  const unsorted = [
+    { id: 'z', name: 'Zebra', parentId: null, isSystem: false, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
+    { id: 'a', name: 'Apple', parentId: null, isSystem: false, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
+    { id: 'm', name: 'Mango', parentId: null, isSystem: false, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
+  ];
+
+  it('sorts categories alphabetically', async () => {
+    installMoneyBridge({ 'categories:list': unsorted });
+    render(<Categories />);
+    await waitFor(() => screen.getByLabelText('Name for Apple'));
+    const names = screen.getAllByLabelText(/^Name for /).map((i) => (i as HTMLInputElement).value);
+    expect(names).toEqual(['Apple', 'Mango', 'Zebra']);
+  });
+
+  it('offers a cancel on the merge picker', async () => {
+    installMoneyBridge({ 'categories:list': unsorted });
+    render(<Categories />);
+    await waitFor(() => screen.getAllByText('Merge'));
+    fireEvent.click(screen.getByLabelText('Merge Apple'));
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByLabelText(/Merge .* into/)).toBeNull());
+  });
+
+  it('offers a cancel on the delete prompt', async () => {
+    installMoneyBridge({
+      'categories:list': [
+        { ...unsorted[0]!, usageCount: 4, needsReassignment: true },
+        unsorted[1]!,
+      ],
+    });
+    render(<Categories />);
+    await waitFor(() => screen.getByLabelText('Delete Zebra'));
+    fireEvent.click(screen.getByLabelText('Delete Zebra'));
+    expect(screen.getByLabelText(/Move contents of/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByLabelText(/Move contents of/)).toBeNull());
+  });
+
+  it('reverts a rename on Escape', async () => {
+    installMoneyBridge({ 'categories:list': unsorted });
+    render(<Categories />);
+    await waitFor(() => screen.getByLabelText('Name for Apple'));
+    const input = screen.getByLabelText('Name for Apple') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Banana' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(input.value).toBe('Apple');
+  });
+
+  it('sorts merge destinations alphabetically and excludes itself', async () => {
+    installMoneyBridge({ 'categories:list': unsorted });
+    render(<Categories />);
+    await waitFor(() => screen.getAllByText('Merge'));
+    fireEvent.click(screen.getByLabelText('Merge Apple'));
+    const select = screen.getByLabelText('Merge Apple into') as HTMLSelectElement;
+    const options = Array.from(select.options).slice(1).map((o) => o.text);
+    expect(options).toEqual(['Mango', 'Zebra']);
   });
 });

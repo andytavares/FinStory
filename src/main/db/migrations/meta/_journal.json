@@ -43,6 +43,13 @@
       "when": 1788101358385,
       "tag": "0005_everyday_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788101358386,
+      "tag": "0006_credit_is_everyday",
+      "breakpoints": true
     }
   ]
 }

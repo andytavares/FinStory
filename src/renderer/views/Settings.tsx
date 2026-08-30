@@ -118,7 +118,68 @@ function ModelSection({ settings }: { settings: AppSettings }): React.JSX.Elemen
           )}
         </label>
       )}
+
+      <ModelCheck />
     </section>
+  );
+}
+
+/**
+ * Prove the model actually answers.
+ *
+ * Categorization degrades to local heuristics whenever the model errors, which
+ * is right for ingestion but makes a bad key indistinguishable from a good one.
+ * This calls the model for real and prints whatever came back.
+ */
+function ModelCheck(): React.JSX.Element {
+  const [busy, setBusy] = useState<'test' | 'rerun' | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const run = async (which: 'test' | 'rerun'): Promise<void> => {
+    setBusy(which);
+    setNote(null);
+    try {
+      const channel = which === 'test' ? 'model:test' : 'categorization:rerun';
+      const result = await call<{ message: string }>(channel);
+      setNote(result.message);
+    } catch (e) {
+      setNote((e as { message?: string }).message ?? 'The check itself failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-2 border border-[var(--color-line)] px-4 py-3">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => void run('test')}
+          disabled={busy !== null}
+          className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-50"
+        >
+          {busy === 'test' ? 'Checking…' : 'Test the model'}
+        </button>
+        <button
+          type="button"
+          onClick={() => void run('rerun')}
+          disabled={busy !== null}
+          className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-50"
+        >
+          {busy === 'rerun' ? 'Recategorizing…' : 'Recategorize unresolved'}
+        </button>
+      </div>
+      {note && (
+        <p role="status" className="text-[12px] text-[var(--color-ink-faint)]">
+          {note}
+        </p>
+      )}
+      <p className="text-[12px] text-[var(--color-ink-faint)]">
+        Anything imported before a model was configured was categorized from merchant patterns
+        alone. Recategorizing sends only those to the model; your own corrections are never
+        overwritten.
+      </p>
+    </div>
   );
 }
 

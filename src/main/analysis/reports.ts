@@ -23,6 +23,8 @@ export interface ReportInput {
   readonly periodEnd: Date;
   /** categoryId -> display name, captured at generation time. */
   readonly categoryNames: Readonly<Record<string, string>>;
+  /** categoryId -> parentId, so a stored report can be grouped like the dashboard. */
+  readonly categoryParents?: Readonly<Record<string, string | null>>;
   readonly transactions: readonly SpendingTransaction[];
   readonly priorPeriodTotals: Readonly<Record<string, number>>;
   readonly baselinesByCategory: Readonly<Record<string, Baseline>>;
@@ -45,6 +47,8 @@ export interface CategoryComparison {
   readonly categoryId: string;
   /** Stored with the report so it stays readable if the category is later renamed. */
   readonly categoryName: string;
+  readonly parentId: string | null;
+  readonly parentName: string | null;
   readonly currentMinor: number;
   readonly priorMinor: number;
   readonly changeMinor: number;
@@ -79,9 +83,12 @@ export function buildMonthlyReport(input: ReportInput): MonthlyReport {
   const categoryComparisons = breakdown.rows.map((row) => {
     const priorMinor = input.priorPeriodTotals[row.categoryId] ?? 0;
     const changeMinor = row.totalMinor - priorMinor;
+    const parentId = input.categoryParents?.[row.categoryId] ?? null;
     return {
       categoryId: row.categoryId,
       categoryName: input.categoryNames[row.categoryId] ?? row.categoryId,
+      parentId,
+      parentName: parentId ? (input.categoryNames[parentId] ?? parentId) : null,
       currentMinor: row.totalMinor,
       priorMinor,
       // Spending is negative, so a more-negative change means spending went up.
@@ -121,7 +128,13 @@ export interface WeeklyDigest {
   readonly periodStart: string;
   readonly periodEnd: string;
   readonly hadActivity: boolean;
-  readonly categoryTotals: Array<{ categoryId: string; categoryName: string; totalMinor: number }>;
+  readonly categoryTotals: Array<{
+    categoryId: string;
+    categoryName: string;
+    parentId: string | null;
+    parentName: string | null;
+    totalMinor: number;
+  }>;
   readonly deviations: DigestDeviation[];
   readonly dataComplete: boolean;
   readonly qualification: string | null;
@@ -151,11 +164,16 @@ export function buildWeeklyDigest(input: ReportInput): WeeklyDigest {
     periodStart: input.periodStart.toISOString(),
     periodEnd: input.periodEnd.toISOString(),
     hadActivity: breakdown.rows.length > 0,
-    categoryTotals: breakdown.rows.map((r) => ({
-      categoryId: r.categoryId,
-      categoryName: input.categoryNames[r.categoryId] ?? r.categoryId,
-      totalMinor: r.totalMinor,
-    })),
+    categoryTotals: breakdown.rows.map((r) => {
+      const parentId = input.categoryParents?.[r.categoryId] ?? null;
+      return {
+        categoryId: r.categoryId,
+        categoryName: input.categoryNames[r.categoryId] ?? r.categoryId,
+        parentId,
+        parentName: parentId ? (input.categoryNames[parentId] ?? parentId) : null,
+        totalMinor: r.totalMinor,
+      };
+    }),
     deviations,
     dataComplete: input.dataComplete,
     qualification: qualificationFor(input),

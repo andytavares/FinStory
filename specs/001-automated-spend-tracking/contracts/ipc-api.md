@@ -81,7 +81,9 @@ The renderer is untrusted UI. It has **no Node integration**, runs with `context
 | `settings:get` / `settings:update` | — / `Partial<Settings>` | Non-secret settings only | Includes `categorizationMode`, `confidenceThreshold`, `pollIntervalMinutes` (FR-061) |
 | `data:export` / `data:import` | `{ destPath }` / `{ srcPath }` | `{ ok, path }` / `{ ok, restored }` | FR-060, SC-017 |
 | `data:deleteAll` | `{ confirmation }` | `{ ok }` | FR-048 |
-| `sync:now` | — | `{ started }` | Manual trigger; the only caller of `/transactions/refresh` (R2) |
+| `sync:now` | — | `{ added, updated, removed, skipped, failures, modelFailures, modelError, message, warning }` | Manual trigger; the only caller of `/transactions/refresh` (R2). Throws `SYNC_FAILED` when the run reached nothing, so a failed sync is never reported as a quiet success |
+| `model:test` | — | `{ ok, provider, model, message }` | Calls the configured model for real and reports the raw failure, since categorization otherwise degrades silently |
+| `categorization:rerun` | — | `{ ok, examined, changed, message }` | Sends still-unresolved transactions to the model; user-set categories are never overwritten |
 
 ---
 

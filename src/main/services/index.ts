@@ -30,6 +30,15 @@ import { listOllamaModels } from '@main/categorization/ollama';
 import { createPlaidClient, type PlaidEnvironment } from '@main/plaid/client';
 import { exchangePublicToken, pollForPublicToken, startHostedLink } from '@main/plaid/link';
 import { fetchItemAccounts } from '@main/plaid/accounts';
+import { isEverydayAccount } from '@main/accounts/everyday';
+import { summarizeSync, type SyncOutcome } from '@main/sync/outcome';
+
+export interface ModelDescription {
+  readonly provider: string;
+  readonly model: string | null;
+  readonly localOnly: boolean;
+  readonly reason: string;
+}
 import { randomUUID as uuid } from 'node:crypto';
 
 /**
@@ -53,7 +62,14 @@ export interface ServiceDeps {
   readonly logger: DiagnosticLogger;
   readonly keyring: Keyring;
   readonly pipeline: CategorizationPipeline;
-  readonly sync: () => Promise<void>;
+  /**
+   * Builds a categorizer from the CURRENT settings. Needed as a factory rather
+   * than an instance: entering an API key in Settings must take effect without
+   * a restart, and the instance above is the one captured at launch.
+   */
+  readonly buildPipeline: () => Promise<CategorizationPipeline>;
+  readonly describeModel: () => Promise<ModelDescription>;
+  readonly sync: () => Promise<SyncOutcome>;
 }
 
 type TransactionRow = typeof t.transactions.$inferSelect;
@@ -170,7 +186,7 @@ export class Services implements AppServices {
         balanceAsOf: this.deps.clock.now().toISOString(),
         // Savings and investments are not day-to-day money; the user can
         // change this per account.
-        isEveryday: a.type === 'depository' && !isSavingsLike(a.subtype),
+        isEveryday: isEverydayAccount(a.type, a.subtype),
       });
     }
 
@@ -739,58 +755,85 @@ export class Services implements AppServices {
       childCount: childCount.get(c.id) ?? 0,
       // Only an unused, childless, non-system category can be deleted; anything
       // else would orphan history or break reconciliation.
-      canDelete: !c.isSystem && (usage.get(c.id) ?? 0) === 0 && (childCount.get(c.id) ?? 0) === 0,
+      // Anything can be deleted; whether it needs a destination first is the
+      // question the UI asks.
+      needsReassignment: (usage.get(c.id) ?? 0) > 0 || (childCount.get(c.id) ?? 0) > 0,
     }));
   }
 
   /**
-   * Delete a category.
+   * Delete a category, optionally moving its transactions somewhere else.
    *
-   * Refuses when it is in use or has children. Deleting a category that history
-   * references would orphan transactions and break the reconciliation invariant
-   * (Constitution II) — merging or hiding is the right move there instead.
+   * Any category can go, including the ones shipped by default — a taxonomy the
+   * user cannot prune is one they will work around instead. What is never
+   * allowed is orphaning history: if transactions reference it, the caller must
+   * say where they go, which keeps the reconciliation invariant intact
+   * (Constitution II).
    */
-  async deleteCategory(id: string): Promise<unknown> {
-    const rows = await this.db.select().from(t.categories).where(eq(t.categories.id, id));
+  async deleteCategory(input: unknown): Promise<unknown> {
+    const p = typeof input === 'string' ? { id: input } : (input as { id: string; reassignToId?: string });
+    const rows = await this.db.select().from(t.categories).where(eq(t.categories.id, p.id));
     const category = rows[0];
     if (!category) throw new IpcFailure('INTERNAL', 'That category no longer exists', false);
-    if (category.isSystem) {
+
+    const children = await this.db.select().from(t.categories).where(eq(t.categories.parentId, p.id));
+    if (children.length > 0 && !p.reassignToId) {
       throw new IpcFailure(
         'VALIDATION_FAILED',
-        'Built-in categories cannot be deleted. Hide it instead.',
+        `${children.length} subcategor${children.length === 1 ? 'y' : 'ies'} would be orphaned. ` +
+          'Choose where they should go.',
         true,
-        'Hide',
       );
     }
 
     const inUse = await this.db
       .select()
       .from(t.categorizations)
-      .where(and(eq(t.categorizations.categoryId, id), isNull(t.categorizations.supersededBy)));
-    if (inUse.length > 0) {
+      .where(and(eq(t.categorizations.categoryId, p.id), isNull(t.categorizations.supersededBy)));
+
+    if (inUse.length > 0 && !p.reassignToId) {
       throw new IpcFailure(
         'VALIDATION_FAILED',
-        `${inUse.length} transaction${inUse.length === 1 ? '' : 's'} still use this category. ` +
-          'Merge it into another category, or hide it to keep the history intact.',
+        `${inUse.length} transaction${inUse.length === 1 ? '' : 's'} use this category. ` +
+          'Choose where they should move.',
         true,
-        'Merge instead',
+        'Choose a category',
       );
     }
 
-    const children = await this.db
-      .select()
-      .from(t.categories)
-      .where(eq(t.categories.parentId, id));
-    if (children.length > 0) {
-      throw new IpcFailure(
-        'VALIDATION_FAILED',
-        'Remove or move its subcategories first.',
-        true,
-      );
+    if (p.reassignToId) {
+      if (p.reassignToId === p.id) {
+        throw new IpcFailure('VALIDATION_FAILED', 'Pick a different category to move them to', false);
+      }
+      const target = await this.db
+        .select()
+        .from(t.categories)
+        .where(eq(t.categories.id, p.reassignToId));
+      if (!target[0]) {
+        throw new IpcFailure('VALIDATION_FAILED', 'That destination category does not exist', false);
+      }
+
+      // Move every categorization, live and superseded, so history stays
+      // resolvable rather than pointing at a row that no longer exists.
+      await this.db
+        .update(t.categorizations)
+        .set({ categoryId: p.reassignToId })
+        .where(eq(t.categorizations.categoryId, p.id));
+
+      // Subcategories move up to the destination rather than being deleted.
+      await this.db
+        .update(t.categories)
+        .set({ parentId: target[0].parentId === null ? p.reassignToId : target[0].parentId })
+        .where(eq(t.categories.parentId, p.id));
+
+      await this.db
+        .update(t.merchantProfiles)
+        .set({ userConfirmedCategoryId: p.reassignToId })
+        .where(eq(t.merchantProfiles.userConfirmedCategoryId, p.id));
     }
 
-    await this.db.delete(t.categories).where(eq(t.categories.id, id));
-    return { ok: true };
+    await this.db.delete(t.categories).where(eq(t.categories.id, p.id));
+    return { ok: true, movedTransactions: p.reassignToId ? inUse.length : 0 };
   }
 
   async createCategory(input: unknown): Promise<unknown> {
@@ -846,6 +889,27 @@ export class Services implements AppServices {
   }
 
   // ---- Recurring -----------------------------------------------------------
+
+  /** Rename a merchant everywhere it appears. */
+  async renameMerchant(input: unknown): Promise<unknown> {
+    const p = input as { merchantKey: string; displayName: string | null };
+    if (p.displayName === null || p.displayName.trim() === '') {
+      await this.db.delete(t.merchantAliases).where(eq(t.merchantAliases.merchantKey, p.merchantKey));
+      return { ok: true };
+    }
+    await this.db
+      .insert(t.merchantAliases)
+      .values({
+        merchantKey: p.merchantKey,
+        displayName: p.displayName,
+        createdAt: this.deps.clock.now().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: t.merchantAliases.merchantKey,
+        set: { displayName: p.displayName },
+      });
+    return { ok: true };
+  }
 
   async listRecurring(): Promise<unknown> {
     const [rows, changes, names] = await Promise.all([
@@ -1048,6 +1112,7 @@ export class Services implements AppServices {
       periodStart: range.start,
       periodEnd: range.end,
       categoryNames: Object.fromEntries(await this.categoryNames()),
+      categoryParents: Object.fromEntries(await this.categoryParents()),
       transactions,
       priorPeriodTotals,
       baselinesByCategory: await this.baselines(
@@ -1380,10 +1445,108 @@ export class Services implements AppServices {
     };
   }
 
+  /**
+   * Actually call the configured model and report what happened.
+   *
+   * The pipeline degrades to local heuristics when the model errors, which is
+   * correct for ingestion but means a misconfigured key looks identical to a
+   * working one. This is the button that tells the user which it is.
+   */
+  async testModel(): Promise<unknown> {
+    const description = await this.deps.describeModel();
+    if (description.localOnly) {
+      return { ok: false, ...description, message: description.reason };
+    }
+
+    const pipeline = await this.deps.buildPipeline();
+    const result = await pipeline.categorize({
+      // A descriptor with no history and no heuristic match, so the model stage
+      // is genuinely exercised rather than short-circuited.
+      transactionId: 'model-test',
+      descriptor: 'ZZQX TEST MERCHANT 4417',
+      amountMinor: -1234,
+      occurredAt: this.deps.clock.now(),
+    });
+
+    if (pipeline.lastModelError) {
+      return { ok: false, ...description, message: pipeline.lastModelError };
+    }
+    if (result.source !== 'model') {
+      return {
+        ok: false,
+        ...description,
+        message: 'The model was not reached and no error was reported.',
+      };
+    }
+    return {
+      ok: true,
+      ...description,
+      message: `${description.model ?? description.provider} answered: ${result.categoryId}`,
+    };
+  }
+
+  /**
+   * Run the model over transactions that never got a real answer.
+   *
+   * Anything imported while no model was configured was categorized by
+   * heuristics and would otherwise stay that way forever, because the model
+   * only ever runs at ingestion time.
+   */
+  async recategorizePending(): Promise<unknown> {
+    const description = await this.deps.describeModel();
+    if (description.localOnly) {
+      return { ok: false, examined: 0, changed: 0, message: description.reason };
+    }
+
+    const [rows, live] = await Promise.all([
+      this.db.select().from(t.transactions),
+      this.liveCategorizations(),
+    ]);
+
+    // A category the user set is never overwritten by a model.
+    const pending = rows.filter((r) => {
+      const current = live.get(r.id);
+      if (!current || current.source === 'user') return false;
+      return current.categoryId === 'uncategorizable' || current.needsReview;
+    });
+
+    const pipeline = await this.deps.buildPipeline();
+    const at = this.deps.clock.now().toISOString();
+    let changed = 0;
+    for (const row of pending) {
+      const result = await pipeline.categorize({
+        transactionId: row.id,
+        descriptor: row.merchantName ?? row.description,
+        amountMinor: row.amountMinor,
+        occurredAt: new Date(row.datetime ?? `${row.postedDate}T12:00:00Z`),
+      });
+      if (result.source !== 'model') continue;
+      await this.replaceCategorization(row.id, result, at);
+      changed += 1;
+    }
+
+    const message = pipeline.lastModelError
+      ? `Recategorized ${changed} of ${pending.length}. The model then failed: ${pipeline.lastModelError}`
+      : `Recategorized ${changed} of ${pending.length} unresolved transactions.`;
+    return { ok: pipeline.lastModelError === null, examined: pending.length, changed, message };
+  }
+
   async syncNow(): Promise<unknown> {
-    await this.deps.sync();
+    const outcome = await this.deps.sync();
+    const summary = summarizeSync(outcome);
+    if (!summary.ok) {
+      // A sync that fetched nothing because it could not reach Plaid is a
+      // failure, and it is told to the user as one. Returning quietly here is
+      // what made "Sync now" look like it did nothing.
+      throw new IpcFailure(
+        outcome.blocked ? 'PLAID_UNCONFIGURED' : 'SYNC_FAILED',
+        summary.message,
+        true,
+        outcome.blocked ? 'Open Settings' : 'Try again',
+      );
+    }
     await this.refreshAnalysis();
-    return { started: true };
+    return { ...outcome, message: summary.message, warning: summary.warning };
   }
 
   // ---- Internals -----------------------------------------------------------
@@ -1543,6 +1706,34 @@ export class Services implements AppServices {
   }
 
   /** Append a correction to the chain; never overwrite (data-model.md). */
+  /** Record a model answer over the current one, keeping the audit chain. */
+  private async replaceCategorization(
+    transactionId: string,
+    result: { categoryId: string; confidence: number; needsReview: boolean; reasoning: string },
+    at: string,
+  ): Promise<void> {
+    const current = liveCategorization(await this.categorizationRecords(), transactionId);
+    const id = `cat_${randomUUID().slice(0, 12)}`;
+    await this.db.insert(t.categorizations).values({
+      id,
+      transactionId,
+      categoryId: result.categoryId,
+      confidence: result.confidence,
+      source: 'model',
+      isConfirmed: false,
+      needsReview: result.needsReview,
+      reasoning: result.reasoning,
+      supersededBy: null,
+      createdAt: at,
+    });
+    if (current) {
+      await this.db
+        .update(t.categorizations)
+        .set({ supersededBy: id })
+        .where(eq(t.categorizations.id, current.id));
+    }
+  }
+
   private async supersede(transactionId: string, categoryId: string, at: string): Promise<void> {
     const current = liveCategorization(await this.categorizationRecords(), transactionId);
     const id = `cat_${randomUUID().slice(0, 12)}`;
@@ -1641,22 +1832,6 @@ export class Services implements AppServices {
     });
     return result.canceled ? null : (result.filePaths[0] ?? null);
   }
-}
-
-const SAVINGS_SUBTYPES = new Set([
-  'savings',
-  'cd',
-  'money market',
-  'hsa',
-  'ira',
-  '401k',
-  'brokerage',
-  'roth',
-  '529',
-]);
-
-function isSavingsLike(subtype: string | null): boolean {
-  return subtype !== null && SAVINGS_SUBTYPES.has(subtype.toLowerCase());
 }
 
 /** Opens the Hosted Link URL in the system browser (research.md R1). */

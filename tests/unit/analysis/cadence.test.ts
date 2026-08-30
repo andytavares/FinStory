@@ -95,12 +95,31 @@ describe('cadence edge cases', () => {
     expect(detectCadence(odd)).toBeNull();
   });
 
-  it('rejects when one gap falls outside tolerance even if the median fits', () => {
-    const mostlyMonthly = [0, 30, 60, 90, 200].map((d) => ({
+  it('tolerates a skipped period — a missed month is still a monthly charge', () => {
+    // Requiring every gap to be exact meant one missed or duplicated charge hid
+    // the subscription entirely, which is the common real-world case.
+    const withSkip = [0, 30, 60, 120, 150, 180].map((d) => ({
       occurredAt: new Date(2026, 0, 1 + d),
       amountMinor: 1599,
     }));
-    expect(detectCadence(mostlyMonthly)).toBeNull();
+    expect(detectCadence(withSkip)?.cadence).toBe('monthly');
+  });
+
+  it('still rejects when most gaps do not fit the cadence', () => {
+    const mostlyWrong = [0, 30, 97, 181, 300].map((d) => ({
+      occurredAt: new Date(2026, 0, 1 + d),
+      amountMinor: 1599,
+    }));
+    expect(detectCadence(mostlyWrong)).toBeNull();
+  });
+
+  it('tolerates a subscription whose price moved once', () => {
+    const priceChange = [0, 30, 60, 90, 120, 150].map((d, i) => ({
+      occurredAt: new Date(2026, 0, 1 + d),
+      amountMinor: i < 3 ? 1599 : 1899,
+    }));
+    expect(priceChange.length).toBe(6);
+    expect(detectCadence(priceChange)?.cadence).toBe('monthly');
   });
 
   it('reports occurrence count and interval', () => {

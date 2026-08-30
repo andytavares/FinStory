@@ -56,6 +56,23 @@ const UNCATEGORIZABLE = 'uncategorizable';
 export class CategorizationPipeline {
   readonly #profiles = new Map<string, MerchantProfile>();
 
+  /**
+   * The model stage degrades silently by design — a categorization failure must
+   * never block ingestion. But silent degradation with no record of *why* is how
+   * "Claude isn't working" becomes undiagnosable, so the reason is kept here and
+   * surfaced by the sync outcome (Constitution IX).
+   */
+  #modelFailures = 0;
+  #lastModelError: string | null = null;
+
+  get modelFailures(): number {
+    return this.#modelFailures;
+  }
+
+  get lastModelError(): string | null {
+    return this.#lastModelError;
+  }
+
   constructor(
     private readonly model: ModelClassifier,
     private readonly options: PipelineOptions,
@@ -118,10 +135,14 @@ export class CategorizationPipeline {
         occurredAt: input.occurredAt,
         priorDistribution: profile?.categoryDistribution ?? {},
       });
-    } catch {
+    } catch (error) {
       // Categorization failure must never block ingestion: a missing
       // transaction is a correctness bug, a poorly categorized one is a
-      // review-queue item (contracts/external-services.md).
+      // review-queue item (contracts/external-services.md). The reason is
+      // recorded so the user is told the model is down instead of quietly
+      // receiving worse categories.
+      this.#modelFailures += 1;
+      this.#lastModelError = error instanceof Error ? error.message : String(error);
       return this.#withoutModel(input, merchantKey, profile);
     }
 

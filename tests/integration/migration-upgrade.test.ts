@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -109,5 +109,47 @@ describe('migrating a populated database forward', () => {
   it('is idempotent — running migrations twice is a no-op', () => {
     runMigrations(handle, MIGRATIONS);
     expect(() => runMigrations(handle, MIGRATIONS)).not.toThrow();
+  });
+});
+
+describe('migration 0006 repairs credit accounts', () => {
+  let dir: string;
+  let handle: DatabaseHandle;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'money-credit-'));
+    handle = await openDatabase(dir, new TestBackend());
+  });
+  afterEach(() => {
+    handle.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('marks credit cards day-to-day again without touching savings', async () => {
+    runMigrations(handle, MIGRATIONS);
+    handle.raw
+      .prepare(
+        "INSERT INTO institutions (id,plaid_item_id,institution_name,access_token_encrypted,status,created_at) VALUES ('i1','item','Bank','x','healthy','2026-08-01T00:00:00Z')",
+      )
+      .run();
+    const insert = handle.raw.prepare(
+      'INSERT INTO accounts (id,institution_id,plaid_account_id,name,mask,type,subtype,current_balance_minor,balance_as_of,is_everyday) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    );
+    insert.run('a1', 'i1', 'p1', 'Card', '1111', 'credit', 'credit card', 0, null, 0);
+    insert.run('a2', 'i1', 'p2', 'Savings', '2222', 'depository', 'savings', 0, null, 0);
+    insert.run('a3', 'i1', 'p3', 'Checking', '3333', 'depository', 'checking', 0, null, 1);
+
+    // Re-apply the real migration SQL rather than a copy of it, so this test
+    // fails if the shipped file changes.
+    handle.raw.exec(readFileSync(join(MIGRATIONS, '0006_credit_is_everyday.sql'), 'utf8'));
+
+    const rows = handle.raw
+      .prepare('SELECT id, is_everyday FROM accounts ORDER BY id')
+      .all() as Array<{ id: string; is_everyday: number }>;
+    expect(rows).toEqual([
+      { id: 'a1', is_everyday: 1 },
+      { id: 'a2', is_everyday: 0 },
+      { id: 'a3', is_everyday: 1 },
+    ]);
   });
 });

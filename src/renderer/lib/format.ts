@@ -39,6 +39,22 @@ export function relativeAge(iso: string | null): string {
  * the previous month for anyone behind UTC, which would label an August report
  * "July".
  */
+/**
+ * A percentage, always with its unit and two decimals.
+ *
+ * Numbers in this app are money or percentages; a bare figure leaves the reader
+ * guessing which — and "up 5259" for a $5,258.67 change is simply wrong.
+ */
+export function percent(fraction: number): string {
+  return `${(fraction * 100).toFixed(2)}%`;
+}
+
+/** Signed money for a change, e.g. "+$412.00" / "−$88.10". */
+export function signedMoney(minor: number): string {
+  const sign = minor > 0 ? '+' : minor < 0 ? '−' : '';
+  return `${sign}${USD.format(Math.abs(minor) / 100)}`;
+}
+
 export function periodLabel(startIso: string, endIso: string): string {
   const start = new Date(startIso).getTime();
   const end = new Date(endIso).getTime();

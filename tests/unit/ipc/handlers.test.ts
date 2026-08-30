@@ -46,6 +46,7 @@ const CONTRACT_CHANNELS = [
   'categories:merge',
   'categories:setHidden',
   'categories:delete',
+  'merchants:rename',
   'recurring:list',
   'recurring:acknowledge',
   'recurring:markNotRecurring',
@@ -69,6 +70,8 @@ const CONTRACT_CHANNELS = [
   'data:deleteAll',
   'analysis:refresh',
   'sync:now',
+  'model:test',
+  'categorization:rerun',
 ];
 
 describe('IPC wiring matches the contract', () => {
@@ -112,6 +115,7 @@ describe('IPC wiring matches the contract', () => {
       'categories:merge': { sourceId: 'a', targetId: 'b' },
       'categories:setHidden': { id: 'c', hidden: true },
       'categories:delete': { id: 'c' },
+      'merchants:rename': { merchantKey: 'm', displayName: 'X' },
       'recurring:acknowledge': { id: 'r' },
       'recurring:markNotRecurring': { id: 'r' },
       'alerts:dismiss': { alertId: 'a' },

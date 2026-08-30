@@ -40,8 +40,17 @@ const CADENCES: ReadonlyArray<{ cadence: Cadence; days: number; tolerance: numbe
 ];
 
 const MIN_OCCURRENCES = 3;
-/** Amounts may vary this much relative to the median and still count as "the same charge". */
-const MAX_AMOUNT_VARIATION = 0.15;
+/**
+ * Amounts may vary this much from the median and still be "the same charge".
+ *
+ * Real subscriptions move: tax changes, proration, plan tweaks, usage-based
+ * lines. Measured against the median so one outlier does not drag the centre.
+ */
+const MAX_AMOUNT_VARIATION = 0.25;
+/** Share of intervals that must match the cadence. */
+const MIN_INTERVAL_AGREEMENT = 0.6;
+/** A gap may span this many missed periods and still count as the same cadence. */
+const MAX_SKIPPED_PERIODS = 3;
 
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -62,14 +71,15 @@ export function detectCadence(inputs: readonly CadenceInput[]): CadenceResult | 
   const sorted = [...inputs].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
 
   // Amount consistency. A charge whose amount swings wildly is not one
-  // subscription, however regular its timing.
+  // subscription, however regular its timing. Judged on the typical deviation
+  // rather than the worst one, so a single odd month does not disqualify a
+  // genuine subscription.
   const amounts = sorted.map((o) => o.amountMinor);
   const medianAmount = median(amounts);
   if (medianAmount === 0) return null;
-  const worstAmountDeviation = Math.max(
-    ...amounts.map((a) => Math.abs(a - medianAmount) / Math.abs(medianAmount)),
-  );
-  if (worstAmountDeviation > MAX_AMOUNT_VARIATION) return null;
+  const deviations = amounts.map((a) => Math.abs(a - medianAmount) / Math.abs(medianAmount));
+  const typicalAmountDeviation = median(deviations);
+  if (typicalAmountDeviation > MAX_AMOUNT_VARIATION) return null;
 
   // Interval consistency.
   const gaps: number[] = [];
@@ -85,14 +95,31 @@ export function detectCadence(inputs: readonly CadenceInput[]): CadenceResult | 
   const match = CADENCES.find((c) => Math.abs(medianGap - c.days) <= c.tolerance);
   if (!match) return null;
 
-  // Every gap must sit within tolerance, not just the median — otherwise a
-  // cluster of irregular purchases with a coincidental median would qualify.
-  const allWithinTolerance = gaps.every((g) => Math.abs(g - match.days) <= match.tolerance);
-  if (!allWithinTolerance) return null;
+  /**
+   * A gap counts if it matches the cadence, or a small whole multiple of it —
+   * a skipped month is still a monthly subscription. Requiring every gap to be
+   * exact meant one missed or duplicated charge hid the subscription entirely.
+   */
+  const agreeing = gaps.filter((g) => {
+    for (let periods = 1; periods <= MAX_SKIPPED_PERIODS; periods += 1) {
+      if (Math.abs(g - match.days * periods) <= match.tolerance * periods) return true;
+    }
+    return false;
+  });
+  const agreement = agreeing.length / gaps.length;
+  if (agreement < MIN_INTERVAL_AGREEMENT) return null;
 
-  const worstGapDeviation = Math.max(...gaps.map((g) => Math.abs(g - match.days) / match.days));
-  const timingScore = 1 - Math.min(worstGapDeviation, 1);
-  const amountScore = 1 - Math.min(worstAmountDeviation / MAX_AMOUNT_VARIATION, 1);
+  // Deviation from the NEAREST whole multiple, not from one period — a 60-day
+  // gap on a monthly charge is exact, not 100% off.
+  const worstGapDeviation = Math.max(
+    ...agreeing.map((g) => {
+      const periods = Math.max(1, Math.round(g / match.days));
+      return Math.abs(g - match.days * periods) / (match.days * periods);
+    }),
+    0,
+  );
+  const timingScore = (1 - Math.min(worstGapDeviation, 1)) * agreement;
+  const amountScore = 1 - Math.min(typicalAmountDeviation / MAX_AMOUNT_VARIATION, 1);
   // More observations mean more confidence, saturating at six.
   const sampleScore = Math.min(sorted.length / 6, 1);
   const confidence = Number((timingScore * 0.5 + amountScore * 0.3 + sampleScore * 0.2).toFixed(4));

@@ -9,10 +9,11 @@ import { defaultCategories, defaultAlertRules } from './db/seed-categories';
 import { categories as categoriesTable } from './db/schema';
 import { IpcRegistry } from './ipc/registry';
 import { registerHandlers } from './ipc/handlers/index';
-import { Services } from './services/index';
+import { Services, type ModelDescription } from './services/index';
 import { CategorizationPipeline } from './categorization/pipeline';
 import { buildClassifier, DEFAULT_ANTHROPIC_MODEL, type ModelProvider } from './categorization/factory';
 import { taxonomyPromptList } from './db/seed-categories';
+import { EMPTY_SYNC, type SyncOutcome } from '@main/sync/outcome';
 import { SyncEngine, type SyncPage } from './sync/engine';
 import { DrizzleSyncStore } from './sync/store';
 import { createPlaidClient } from './plaid/client';
@@ -34,7 +35,7 @@ import { SystemClock } from '@shared/clock';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let databaseHandle: DatabaseHandle | null = null;
-let syncNow: (() => Promise<void>) | null = null;
+let syncNow: (() => Promise<SyncOutcome>) | null = null;
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
@@ -99,14 +100,32 @@ async function bootstrap(): Promise<void> {
 
   const pipeline = await buildPipeline();
 
+  /** What the categorizer is currently configured to do, for the Settings test. */
+  const describeModel = async (): Promise<ModelDescription> => {
+    const provider = ((await readSetting('modelProvider')) ?? 'anthropic') as ModelProvider;
+    const built = buildClassifier({
+      provider,
+      taxonomy: '',
+      anthropicApiKey: (await readSecret('anthropicApiKey')) ?? undefined,
+      anthropicModel: (await readSetting('anthropicModel')) ?? DEFAULT_ANTHROPIC_MODEL,
+      ollamaModel: (await readSetting('ollamaModel')) ?? undefined,
+      ollamaBaseUrl: (await readSetting('ollamaBaseUrl')) ?? undefined,
+    });
+    const model =
+      provider === 'ollama'
+        ? ((await readSetting('ollamaModel')) ?? null)
+        : ((await readSetting('anthropicModel')) ?? DEFAULT_ANTHROPIC_MODEL);
+    return { provider, model, localOnly: built.localOnly, reason: built.reason };
+  };
+
   /** Sync every connected institution. Called on launch, on a timer, and after linking. */
-  const runSync = async (): Promise<void> => {
+  const runSync = async (): Promise<SyncOutcome> => {
     const rows = await handle.db.select().from(institutionsTable);
-    if (rows.length === 0) return;
+    if (rows.length === 0) return { ...EMPTY_SYNC, blocked: 'no_institutions' };
 
     const clientId = await readSecret('plaidClientId');
     const secret = await readSecret('plaidSecret');
-    if (!clientId || !secret) return;
+    if (!clientId || !secret) return { ...EMPTY_SYNC, blocked: 'no_credentials' };
     const client = createPlaidClient({
       clientId,
       secret,
@@ -114,7 +133,8 @@ async function bootstrap(): Promise<void> {
     });
 
     const store = new DrizzleSyncStore(handle, clock);
-    const engine = new SyncEngine({ store, clock, pipeline: await buildPipeline() });
+    const syncPipeline = await buildPipeline();
+    const engine = new SyncEngine({ store, clock, pipeline: syncPipeline });
 
     const sources = await Promise.all(
       rows.map(async (inst) => ({
@@ -141,7 +161,20 @@ async function bootstrap(): Promise<void> {
     // Rebuild the derived ledgers from what was just ingested. Without this the
     // recurring and income lists stay permanently empty.
     await services.refreshAnalysis();
-    mainWindow?.webContents.send('sync:complete', { added: result.added, failures: result.failures.length });
+
+    const outcome: SyncOutcome = {
+      added: result.added,
+      updated: result.updated,
+      removed: result.removed,
+      skipped: result.skipped,
+      institutionCount: rows.length,
+      failures: result.failures.map((f) => f.message),
+      modelFailures: syncPipeline.modelFailures,
+      modelError: syncPipeline.lastModelError,
+      blocked: null,
+    };
+    mainWindow?.webContents.send('sync:complete', outcome);
+    return outcome;
   };
 
   const services = new Services({
@@ -151,6 +184,8 @@ async function bootstrap(): Promise<void> {
     logger,
     keyring,
     pipeline,
+    buildPipeline,
+    describeModel,
     sync: () => runSync(),
   });
 

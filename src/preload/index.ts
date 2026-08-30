@@ -38,6 +38,7 @@ const INVOKE_CHANNELS = [
   'categories:merge',
   'categories:setHidden',
   'categories:delete',
+  'merchants:rename',
   'recurring:list',
   'recurring:acknowledge',
   'recurring:markNotRecurring',

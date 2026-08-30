@@ -163,12 +163,21 @@ export function App(): React.JSX.Element {
           {view === 'dashboard' && <Dashboard onDrill={drill} />}
           {view === 'register' && (
             <Register
-              key={nav.current.categoryId ?? 'all'}
+              key={`${nav.current.categoryId ?? 'all'}-${nav.current.merchantKey ?? ''}`}
               initialCategoryId={nav.current.categoryId ?? null}
+              initialMerchantKey={nav.current.merchantKey ?? null}
             />
           )}
-          {view === 'recurring' && <Recurring />}
-          {view === 'income' && <Income />}
+          {view === 'recurring' && (
+            <Recurring
+              onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
+            />
+          )}
+          {view === 'income' && (
+            <Income
+              onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
+            />
+          )}
           {view === 'review' && <Review />}
           {view === 'alerts' && <Alerts />}
           {view === 'reports' && (

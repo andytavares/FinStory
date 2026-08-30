@@ -166,7 +166,7 @@ describe('Recurring', () => {
         },
       ],
     });
-    render(<Recurring />);
+    render(<Recurring onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByText('Netflix')).toBeDefined());
     expect(screen.getByText(/price changed/)).toBeDefined();
     expect(screen.getByText(/monthly/)).toBeDefined();
@@ -174,7 +174,7 @@ describe('Recurring', () => {
 
   it('explains why the ledger is empty rather than showing a blank list', async () => {
     installMoneyBridge({ 'recurring:list': [] });
-    render(<Recurring />);
+    render(<Recurring onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByText(/No recurring charges detected yet/)).toBeDefined());
   });
 });
@@ -195,13 +195,13 @@ describe('Income', () => {
         },
       ],
     });
-    render(<Income />);
+    render(<Income onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeDefined());
   });
 
   it('says projections are withheld when no income is detected', async () => {
     installMoneyBridge({ 'income:list': [] });
-    render(<Income />);
+    render(<Income onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByText(/withheld rather than guessed/)).toBeDefined());
   });
 });
@@ -321,8 +321,8 @@ describe('Reports, Health, Settings, Categories', () => {
   it('explains that hiding a category preserves history', async () => {
     installMoneyBridge({
       'categories:list': [
-        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, canDelete: false },
-        { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, canDelete: false },
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, needsReassignment: true },
+        { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, needsReassignment: false },
       ],
     });
     render(<Categories />);
@@ -336,7 +336,7 @@ describe('Reports, Health, Settings, Categories', () => {
   it('adds a subcategory under a parent', async () => {
     installMoneyBridge({
       'categories:list': [
-        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, canDelete: false },
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, needsReassignment: true },
       ],
       'categories:create': { id: 'new' },
     });
@@ -349,7 +349,7 @@ describe('Reports, Health, Settings, Categories', () => {
   it('offers hide and merge on every category', async () => {
     installMoneyBridge({
       'categories:list': [
-        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, canDelete: false },
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, needsReassignment: true },
       ],
     });
     render(<Categories />);

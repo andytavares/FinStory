@@ -1,12 +1,16 @@
 import { useQuery } from '../lib/ipc';
 import { Money } from '../components/Money';
 import { Qualification } from '../components/Qualification';
-import { shortDate } from '../lib/format';
+import { shortDate, percent, signedMoney } from '../lib/format';
+import { useState } from 'react';
 import { CategoryBars } from '../charts/CategoryBars';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 
 interface CategoryComparison {
   readonly categoryId: string;
   readonly categoryName: string;
+  readonly parentId: string | null;
+  readonly parentName: string | null;
   readonly currentMinor: number;
   readonly priorMinor: number;
   readonly changeMinor: number;
@@ -38,7 +42,13 @@ interface MonthlyContent {
 
 interface DigestContent {
   readonly hadActivity: boolean;
-  readonly categoryTotals: Array<{ categoryId: string; categoryName: string; totalMinor: number }>;
+  readonly categoryTotals: Array<{
+    categoryId: string;
+    categoryName: string;
+    parentId: string | null;
+    parentName: string | null;
+    totalMinor: number;
+  }>;
   readonly deviations: Array<{
     categoryId: string;
     categoryName: string;
@@ -120,6 +130,142 @@ function BackLink({ onBack }: { onBack: () => void }): React.JSX.Element {
   );
 }
 
+interface Groupable {
+  readonly categoryId: string;
+  readonly categoryName: string;
+  readonly parentId: string | null;
+  readonly parentName: string | null;
+  readonly totalMinor: number;
+}
+
+/** Roll rows up to their parent, keeping the grand total intact. */
+function rollUp(rows: readonly Groupable[]): Groupable[] {
+  const groups = new Map<string, Groupable>();
+  for (const row of rows) {
+    const id = row.parentId ?? row.categoryId;
+    const name = row.parentId ? (row.parentName ?? row.parentId) : row.categoryName;
+    const existing = groups.get(id);
+    groups.set(id, {
+      categoryId: id,
+      categoryName: name,
+      parentId: null,
+      parentName: null,
+      totalMinor: (existing?.totalMinor ?? 0) + row.totalMinor,
+    });
+  }
+  return [...groups.values()].sort((a, b) => a.totalMinor - b.totalMinor);
+}
+
+/** How a change reads: worded direction plus the amount, never a bare number. */
+function ChangeCell({
+  changeMinor,
+  priorMinor,
+}: {
+  changeMinor: number;
+  priorMinor: number;
+}): React.JSX.Element {
+  // Spending is negative, so a more-negative change means spending went up.
+  const direction = changeMinor === 0 ? 'flat' : changeMinor < 0 ? 'up' : 'down';
+  if (direction === 'flat') {
+    return <span className="w-40 text-right text-[12px] text-[var(--color-ink-faint)]">unchanged</span>;
+  }
+  // Share of the prior period, so "up $50" on a $60 baseline reads differently
+  // from the same $50 on a $5,000 one. Omitted when there is no baseline.
+  const share = priorMinor === 0 ? null : Math.abs(changeMinor / priorMinor);
+  return (
+    <span
+      className="numeric w-40 text-right text-[12px]"
+      style={{ color: direction === 'up' ? 'var(--color-attention)' : 'var(--color-ink-faint)' }}
+    >
+      {direction} {signedMoney(-changeMinor)}
+      {share !== null && ` (${percent(share)})`}
+      {priorMinor === 0 && ' (new)'}
+    </span>
+  );
+}
+
+/** Parent categories with their subcategories, collapsible like the dashboard. */
+function ComparisonTree({ rows }: { rows: readonly CategoryComparison[] }): React.JSX.Element {
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+
+  const groups = new Map<
+    string,
+    {
+      name: string;
+      total: number;
+      change: number;
+      prior: number;
+      children: CategoryComparison[];
+      own: CategoryComparison[];
+    }
+  >();
+  for (const row of rows) {
+    const id = row.parentId ?? row.categoryId;
+    const name = row.parentId ? (row.parentName ?? row.parentId) : row.categoryName;
+    const g = groups.get(id) ?? { name, total: 0, change: 0, prior: 0, children: [], own: [] };
+    groups.set(id, {
+      name: g.name || name,
+      total: g.total + row.currentMinor,
+      // The parent carries its subcategories' change, so a collapsed group
+      // still says whether it moved.
+      change: g.change + row.changeMinor,
+      prior: g.prior + row.priorMinor,
+      children: row.parentId ? [...g.children, row] : g.children,
+      own: row.parentId ? g.own : [...g.own, row],
+    });
+  }
+  const ordered = [...groups.entries()].sort((a, b) => a[1].total - b[1].total);
+
+  const toggle = (id: string): void => {
+    const next = new Set(expanded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpanded(next);
+  };
+
+  return (
+    <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
+      {ordered.map(([id, group]) => {
+        const isOpen = expanded.has(id);
+        const hasChildren = group.children.length > 0;
+        return (
+          <li key={id}>
+            <button
+              type="button"
+              onClick={() => hasChildren && toggle(id)}
+              aria-expanded={hasChildren ? isOpen : undefined}
+              aria-label={hasChildren ? `Expand ${group.name}` : group.name}
+              disabled={!hasChildren}
+              className="icon flex w-full items-center gap-3 bg-[var(--color-surface)] px-4 py-2 text-left text-[13px] enabled:hover:bg-[var(--color-surface-raised)]"
+            >
+              <span className="w-4 shrink-0 text-[var(--color-ink-faint)]">
+                {hasChildren ? isOpen ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden /> : null}
+              </span>
+              <span className="flex-1 truncate">{group.name}</span>
+              <Money minor={group.total} magnitude className="w-28 text-right" />
+              <ChangeCell changeMinor={group.change} priorMinor={group.prior} />
+            </button>
+
+            {isOpen &&
+              [...group.own, ...group.children].map((row) => (
+                <div
+                  key={row.categoryId}
+                  className="flex items-center gap-3 border-t border-[var(--color-line)] bg-[var(--color-ground)] px-4 py-2 pl-11 text-[13px]"
+                >
+                  <span className="flex-1 truncate text-[var(--color-ink-muted)]">
+                    {row.categoryId === id ? `Directly in ${group.name}` : row.categoryName}
+                  </span>
+                  <Money minor={row.currentMinor} magnitude className="w-28 text-right" />
+                  <ChangeCell changeMinor={row.changeMinor} priorMinor={row.priorMinor} />
+                </div>
+              ))}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function MonthlyBody({ content }: { content: MonthlyContent }): React.JSX.Element {
   return (
     <div className="space-y-6">
@@ -141,41 +287,24 @@ function MonthlyBody({ content }: { content: MonthlyContent }): React.JSX.Elemen
       </section>
 
       <section>
+        {/* Charted at the parent level, matching the dashboard. */}
         <CategoryBars
-          data={content.categoryComparisons.map((c) => ({
-            categoryId: c.categoryId,
-            categoryName: c.categoryName,
-            totalMinor: c.currentMinor,
-          }))}
+          data={rollUp(
+            content.categoryComparisons.map((c) => ({
+              categoryId: c.categoryId,
+              categoryName: c.categoryName,
+              parentId: c.parentId,
+              parentName: c.parentName,
+              totalMinor: c.currentMinor,
+            })),
+          )}
           title="Where it went"
         />
       </section>
 
       <section>
         <h2 className="mb-2 text-[15px]">Versus last period</h2>
-        <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
-          {content.categoryComparisons.map((c) => (
-            <li
-              key={c.categoryId}
-              className="flex items-center gap-4 bg-[var(--color-surface)] px-4 py-2 text-[13px]"
-            >
-              <span className="flex-1 truncate">{c.categoryName}</span>
-              <Money minor={c.currentMinor} magnitude className="w-24 text-right" />
-              <span
-                className="numeric w-28 text-right text-[12px]"
-                style={{
-                  color:
-                    c.direction === 'up' ? 'var(--color-attention)' : 'var(--color-ink-faint)',
-                }}
-              >
-                {/* Direction is worded, not colour-only. */}
-                {c.direction === 'flat'
-                  ? 'unchanged'
-                  : `${c.direction} ${Math.abs(c.changeMinor / 100).toFixed(0)}`}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <ComparisonTree rows={content.categoryComparisons} />
       </section>
 
       {content.largestPurchases.length > 0 && (
@@ -267,7 +396,7 @@ function DigestBody({ content }: { content: DigestContent }): React.JSX.Element 
       )}
 
       <section>
-        <CategoryBars data={content.categoryTotals} title="Spending this period" />
+        <CategoryBars data={rollUp(content.categoryTotals)} title="Spending this period" />
       </section>
 
       <section>

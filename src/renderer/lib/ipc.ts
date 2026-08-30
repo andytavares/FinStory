@@ -25,7 +25,10 @@ export function useQuery<T>(channel: string, payload?: unknown): Query<T> {
 
   useEffect(() => {
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true }));
+    // Keep the previous data on screen while refetching. Blanking the list and
+    // re-rendering it scrolls the view back to the top, which loses the user's
+    // place every time they toggle something.
+    setState((s) => ({ ...s, loading: s.data === null }));
     call<T>(channel, JSON.parse(key) as unknown)
       .then((data) => {
         if (!cancelled) setState({ data, error: null, loading: false });

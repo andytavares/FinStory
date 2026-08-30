@@ -131,8 +131,21 @@ export const reportGenerateSchema = z
     message: 'A custom report needs a start and end date',
   });
 
-export const pathSchema = z.object({ destPath: z.string().min(1) });
-export const importSchema = z.object({ srcPath: z.string().min(1) });
+export const categoryDeleteSchema = z.object({
+  id: z.string().min(1),
+  reassignToId: z.string().min(1).optional(),
+});
+
+export const merchantRenameSchema = z.object({
+  merchantKey: z.string().min(1),
+  displayName: z.string().max(120).nullable(),
+});
+
+// An empty path is the normal case, not a malformed one: it means "ask me where
+// to put it" and the service answers with a native save dialog. Requiring a
+// non-empty string made every Export button in the UI fail validation.
+export const pathSchema = z.object({ destPath: z.string().default('') });
+export const importSchema = z.object({ srcPath: z.string().default('') });
 export const deleteAllSchema = z.object({ confirmation: z.literal('DELETE ALL MY DATA') });
 export const idSchema = z.object({ id: z.string().min(1) });
 export const alertIdSchema = z.object({ alertId: z.string().min(1) });

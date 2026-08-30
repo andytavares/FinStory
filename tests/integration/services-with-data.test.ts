@@ -1,3 +1,5 @@
+import { EMPTY_SYNC } from '@main/sync/outcome';
+import type { ModelDescription } from '@main/services/index';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -45,6 +47,8 @@ describe('Services with realistic data', () => {
   let dir: string;
   let handle: DatabaseHandle;
   let services: InstanceType<typeof Services>;
+  let modelDescription: ModelDescription;
+  let classify: () => Promise<{ categoryId: string; confidence: number; reasoning: string }>;
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-data-'));
@@ -196,6 +200,14 @@ describe('Services with realistic data', () => {
       },
     ]);
 
+    classify = async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' });
+    modelDescription = {
+      provider: 'local_only',
+      model: null,
+      localOnly: true,
+      reason: 'History only in tests',
+    };
+
     services = new Services({
       handle,
       userDataDir: dir,
@@ -206,7 +218,12 @@ describe('Services with realistic data', () => {
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
       ),
-      sync: async () => {},
+      sync: async () => EMPTY_SYNC,
+      buildPipeline: () =>
+        Promise.resolve(
+          new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
+        ),
+      describeModel: () => Promise.resolve(modelDescription),
     });
   });
 
@@ -460,22 +477,22 @@ describe('Services with realistic data', () => {
     expect(q.totalCount).toBe(0);
   });
 
-  it('reports usage and deletability per category', async () => {
+  it('reports usage and whether deletion needs a destination', async () => {
     const cats = (await services.listCategories()) as Array<{
       id: string;
       usageCount: number;
-      canDelete: boolean;
+      needsReassignment: boolean;
     }>;
     expect(cats.find((c) => c.id === 'dining')?.usageCount).toBe(1);
-    // Built-in categories are never deletable, however unused.
-    expect(cats.find((c) => c.id === 'dining')?.canDelete).toBe(false);
+    // In use, so deleting it requires saying where its transactions go.
+    expect(cats.find((c) => c.id === 'dining')?.needsReassignment).toBe(true);
   });
 
-  it('deletes an unused, user-created category', async () => {
+  it('deletes an unused category with no prompt', async () => {
     const created = (await services.createCategory({ name: 'Scratch', parentId: null })) as {
       id: string;
     };
-    await services.deleteCategory(created.id);
+    await services.deleteCategory({ id: created.id });
     const cats = (await services.listCategories()) as Array<{ id: string }>;
     expect(cats.some((c) => c.id === created.id)).toBe(false);
   });
@@ -485,31 +502,84 @@ describe('Services with realistic data', () => {
       id: string;
     };
     await services.updateTransaction({ transactionId: 'txn_1', categoryId: created.id });
-    await expect(services.deleteCategory(created.id)).rejects.toMatchObject({
+    await expect(services.deleteCategory({ id: created.id })).rejects.toMatchObject({
       code: 'VALIDATION_FAILED',
       message: expect.stringContaining('1 transaction'),
     });
   });
 
-  it('refuses to delete a built-in category, and suggests hiding instead', async () => {
-    await expect(services.deleteCategory('dining')).rejects.toMatchObject({
+  it('deletes a built-in category once its transactions have somewhere to go', async () => {
+    const result = (await services.deleteCategory({
+      id: 'dining',
+      reassignToId: 'groceries',
+    })) as { movedTransactions: number };
+    expect(result.movedTransactions).toBe(1);
+    const cats = (await services.listCategories()) as Array<{ id: string }>;
+    expect(cats.some((c) => c.id === 'dining')).toBe(false);
+  });
+
+  it('moves the transactions rather than orphaning them', async () => {
+    await services.deleteCategory({ id: 'dining', reassignToId: 'groceries' });
+    const q = (await services.queryTransactions({ limit: 50, offset: 0 })) as {
+      rows: Array<{ id: string; categoryId: string }>;
+    };
+    expect(q.rows.find((r) => r.id === 'txn_1')?.categoryId).toBe('groceries');
+  });
+
+  it('keeps totals reconciling after a delete-and-move', async () => {
+    const before = (await services.breakdownByCategory(RANGE)) as { totalMinor: number };
+    await services.deleteCategory({ id: 'dining', reassignToId: 'groceries' });
+    const after = (await services.breakdownByCategory(RANGE)) as {
+      rows: Array<{ totalMinor: number }>;
+      totalMinor: number;
+    };
+    expect(after.totalMinor).toBe(before.totalMinor);
+    expect(after.rows.reduce((a, r) => a + r.totalMinor, 0)).toBe(after.totalMinor);
+  });
+
+  it('prompts for a destination when the category is in use', async () => {
+    await expect(services.deleteCategory({ id: 'dining' })).rejects.toMatchObject({
       code: 'VALIDATION_FAILED',
-      action: 'Hide',
+      message: expect.stringContaining('1 transaction'),
     });
   });
 
-  it('refuses to delete a category that still has subcategories', async () => {
+  it('rejects moving a category into itself', async () => {
+    await expect(
+      services.deleteCategory({ id: 'dining', reassignToId: 'dining' }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+
+  it('rejects a destination that does not exist', async () => {
+    await expect(
+      services.deleteCategory({ id: 'dining', reassignToId: 'nope' }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+
+  it('asks where subcategories should go before deleting their parent', async () => {
     const parent = (await services.createCategory({ name: 'Parent', parentId: null })) as {
       id: string;
     };
     await services.createCategory({ name: 'Child', parentId: parent.id });
-    await expect(services.deleteCategory(parent.id)).rejects.toMatchObject({
-      message: expect.stringContaining('subcategories'),
+    await expect(services.deleteCategory({ id: parent.id })).rejects.toMatchObject({
+      message: expect.stringContaining('orphaned'),
     });
   });
 
+  it('re-parents subcategories when the parent is deleted with a destination', async () => {
+    const parent = (await services.createCategory({ name: 'Parent', parentId: null })) as {
+      id: string;
+    };
+    const child = (await services.createCategory({ name: 'Child', parentId: parent.id })) as {
+      id: string;
+    };
+    await services.deleteCategory({ id: parent.id, reassignToId: 'housing' });
+    const cats = (await services.listCategories()) as Array<{ id: string; parentId: string | null }>;
+    expect(cats.find((c) => c.id === child.id)?.parentId).toBe('housing');
+  });
+
   it('reports a missing category honestly', async () => {
-    await expect(services.deleteCategory('nope')).rejects.toMatchObject({ code: 'INTERNAL' });
+    await expect(services.deleteCategory({ id: 'nope' })).rejects.toMatchObject({ code: 'INTERNAL' });
   });
 
   it('rolls the dashboard breakdown up to parents', async () => {
@@ -716,7 +786,7 @@ describe('Services with realistic data', () => {
   });
 
   it('sync:now delegates to the injected sync', async () => {
-    expect(await services.syncNow()).toMatchObject({ started: true });
+    expect(await services.syncNow()).toMatchObject({ added: 0, failures: [], message: 'Synced. Nothing new.' });
   });
 
   it('disconnecting an institution removes it', async () => {
@@ -909,4 +979,123 @@ describe('Services with realistic data', () => {
       expect(list.some((x) => x.type === 'monthly_report')).toBe(true);
     });
   });
+
+  describe('testModel says plainly whether the model answers', () => {
+    it('reports local-only mode as a configuration state, not a failure', async () => {
+      const result = (await services.testModel()) as { ok: boolean; message: string };
+      expect(result.ok).toBe(false);
+      expect(result.message).toBe('History only in tests');
+    });
+
+    it('reports success when the model answers', async () => {
+      modelDescription = { provider: 'anthropic', model: 'claude-haiku-4-5', localOnly: false, reason: '' };
+      const result = (await services.testModel()) as { ok: boolean; message: string };
+      expect(result.ok).toBe(true);
+      expect(result.message).toContain('claude-haiku-4-5');
+    });
+
+    it('surfaces the raw error instead of degrading quietly', async () => {
+      modelDescription = { provider: 'anthropic', model: 'claude-haiku-4-5', localOnly: false, reason: '' };
+      classify = () => Promise.reject(new Error('401 invalid x-api-key'));
+      const result = (await services.testModel()) as { ok: boolean; message: string };
+      expect(result.ok).toBe(false);
+      expect(result.message).toBe('401 invalid x-api-key');
+    });
+  });
+
+  describe('recategorizePending sends unresolved transactions to the model', () => {
+    it('does nothing but say why when no model is configured', async () => {
+      const result = (await services.recategorizePending()) as { ok: boolean; changed: number };
+      expect(result.ok).toBe(false);
+      expect(result.changed).toBe(0);
+    });
+
+    it('replaces heuristic answers with model answers', async () => {
+      modelDescription = { provider: 'anthropic', model: 'claude-haiku-4-5', localOnly: false, reason: '' };
+      const before = (await services.reviewQueue({ limit: 200, offset: 0 })) as { rows: unknown[] };
+      const result = (await services.recategorizePending()) as {
+        ok: boolean;
+        examined: number;
+        changed: number;
+      };
+      expect(result.ok).toBe(true);
+      expect(result.examined).toBeGreaterThan(0);
+      expect(result.changed).toBe(result.examined);
+      const after = (await services.reviewQueue({ limit: 200, offset: 0 })) as { rows: unknown[] };
+      expect(after.rows.length).toBeLessThan(before.rows.length);
+    });
+
+    it('reports the model error rather than claiming success', async () => {
+      modelDescription = { provider: 'anthropic', model: 'claude-haiku-4-5', localOnly: false, reason: '' };
+      classify = () => Promise.reject(new Error('rate limited'));
+      const result = (await services.recategorizePending()) as { ok: boolean; message: string };
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('rate limited');
+    });
+  });
+
+  describe('syncNow refuses to report a failed run as a success', () => {
+    it('throws when Plaid credentials are missing', async () => {
+      const speaking = new Services({
+        handle,
+        userDataDir: dir,
+        clock: new TestClock(NOW),
+        logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
+        keyring: new Keyring(new TestBackend()),
+        pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
+        buildPipeline: () =>
+          Promise.resolve(
+            new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
+          ),
+        describeModel: () => Promise.resolve(modelDescription),
+        sync: async () => ({ ...EMPTY_SYNC, blocked: 'no_credentials' as const }),
+      });
+      await expect(speaking.syncNow()).rejects.toThrow(/credentials are missing/);
+    });
+
+    it('throws with the institution error when every institution failed', async () => {
+      const failing = new Services({
+        handle,
+        userDataDir: dir,
+        clock: new TestClock(NOW),
+        logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
+        keyring: new Keyring(new TestBackend()),
+        pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
+        buildPipeline: () =>
+          Promise.resolve(
+            new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
+          ),
+        describeModel: () => Promise.resolve(modelDescription),
+        sync: async () => ({ ...EMPTY_SYNC, institutionCount: 1, failures: ['INVALID_API_KEYS'] }),
+      });
+      await expect(failing.syncNow()).rejects.toThrow(/INVALID_API_KEYS/);
+    });
+
+    it('passes the model warning through on an otherwise good run', async () => {
+      const warned = new Services({
+        handle,
+        userDataDir: dir,
+        clock: new TestClock(NOW),
+        logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
+        keyring: new Keyring(new TestBackend()),
+        pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
+        buildPipeline: () =>
+          Promise.resolve(
+            new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
+          ),
+        describeModel: () => Promise.resolve(modelDescription),
+        sync: async () => ({
+          ...EMPTY_SYNC,
+          institutionCount: 1,
+          added: 4,
+          modelFailures: 4,
+          modelError: 'overloaded_error',
+        }),
+      });
+      const result = (await warned.syncNow()) as { message: string; warning: string };
+      expect(result.message).toContain('4 new transactions');
+      expect(result.warning).toContain('overloaded_error');
+    });
+  });
+
 });

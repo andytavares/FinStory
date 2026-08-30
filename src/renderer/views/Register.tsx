@@ -28,10 +28,12 @@ interface CategoryOption {
  */
 export function Register({
   initialCategoryId,
+  initialMerchantKey,
 }: {
   initialCategoryId: string | null;
+  initialMerchantKey?: string | null;
 }): React.JSX.Element {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialMerchantKey ?? '');
   const [direction, setDirection] = useState<'all' | 'in' | 'out'>('all');
   const [categoryId] = useState(initialCategoryId);
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });

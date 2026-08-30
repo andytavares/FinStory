@@ -43,8 +43,9 @@ export interface AppServices {
   renameCategory(input: unknown): Promise<unknown>;
   mergeCategories(input: unknown): Promise<unknown>;
   setCategoryHidden(input: unknown): Promise<unknown>;
-  deleteCategory(id: string): Promise<unknown>;
+  deleteCategory(input: unknown): Promise<unknown>;
 
+  renameMerchant(input: unknown): Promise<unknown>;
   listRecurring(): Promise<unknown>;
   acknowledgeRecurring(id: string): Promise<unknown>;
   markNotRecurring(id: string): Promise<unknown>;
@@ -70,4 +71,6 @@ export interface AppServices {
   listOllamaModels(): Promise<unknown>;
   refreshAnalysis(): Promise<unknown>;
   syncNow(): Promise<unknown>;
+  testModel(): Promise<unknown>;
+  recategorizePending(): Promise<unknown>;
 }

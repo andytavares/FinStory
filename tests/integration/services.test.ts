@@ -1,3 +1,4 @@
+import { EMPTY_SYNC } from '@main/sync/outcome';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -62,7 +63,16 @@ describe('Services against a real encrypted database', () => {
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
       ),
-      sync: async () => {},
+      sync: async () => EMPTY_SYNC,
+      buildPipeline: () =>
+        Promise.resolve(
+          new CategorizationPipeline(
+            { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
+            { confidenceThreshold: 0.8 },
+          ),
+        ),
+      describeModel: () =>
+        Promise.resolve({ provider: 'local_only', model: null, localOnly: true, reason: 'History only in tests' }),
     });
   });
 
@@ -208,7 +218,16 @@ describe('the wired registry answers every channel against real services', () =>
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
       ),
-      sync: async () => {},
+      sync: async () => EMPTY_SYNC,
+      buildPipeline: () =>
+        Promise.resolve(
+          new CategorizationPipeline(
+            { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
+            { confidenceThreshold: 0.8 },
+          ),
+        ),
+      describeModel: () =>
+        Promise.resolve({ provider: 'local_only', model: null, localOnly: true, reason: 'History only in tests' }),
     });
     registry = new IpcRegistry();
     registerHandlers(registry, services);
@@ -277,7 +296,16 @@ describe('Plaid link flow error handling', () => {
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
       ),
-      sync: async () => {},
+      sync: async () => EMPTY_SYNC,
+      buildPipeline: () =>
+        Promise.resolve(
+          new CategorizationPipeline(
+            { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
+            { confidenceThreshold: 0.8 },
+          ),
+        ),
+      describeModel: () =>
+        Promise.resolve({ provider: 'local_only', model: null, localOnly: true, reason: 'History only in tests' }),
     });
   });
 

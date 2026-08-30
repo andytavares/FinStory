@@ -4,7 +4,11 @@ import { EmptyState } from '../components/EmptyState';
 import type { IncomeSourceView } from '@shared/types';
 
 /** FR-071: confirm or override a detected pattern. Detection is the default. */
-export function Income(): React.JSX.Element {
+export function Income({
+  onOpenMerchant,
+}: {
+  onOpenMerchant: (merchantKey: string) => void;
+}): React.JSX.Element {
   const { data, loading, refetch } = useQuery<IncomeSourceView[]>('income:list');
 
   const rescan = (
@@ -49,7 +53,14 @@ export function Income(): React.JSX.Element {
                 {!s.isUserConfirmed && ` · ${Math.round(s.detectionConfidence * 100)}% confidence`}
               </p>
             </div>
-            <Money minor={s.expectedAmountMinor} />
+            <Money minor={s.expectedAmountMinor} direction />
+            <button
+              type="button"
+              onClick={() => onOpenMerchant(s.merchantKey)}
+              className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            >
+              See deposits
+            </button>
             {s.isUserConfirmed ? (
               <button
                 type="button"

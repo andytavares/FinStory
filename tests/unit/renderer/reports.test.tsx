@@ -126,10 +126,46 @@ describe('Report detail', () => {
     expect(screen.getByText('Saved')).toBeDefined();
   });
 
-  it('words the direction of change rather than relying on colour', async () => {
+  it('shows the change with its unit, not a bare number', async () => {
     render(<ReportDetail reportId="rep1" onBack={() => {}} />);
-    await waitFor(() => expect(screen.getByText(/up 140/)).toBeDefined());
+    // Groups are collapsed by default; open the one holding dining.
+    await waitFor(() => screen.getAllByRole('button'));
+    for (const b of screen.getAllByRole('button')) {
+      if (b.getAttribute('aria-expanded') === 'false') fireEvent.click(b);
+    }
+    await waitFor(() => expect(screen.getByText(/up \+\$140\.00/)).toBeDefined());
     expect(screen.getByText('unchanged')).toBeDefined();
+  });
+
+  it('groups the comparison by parent and hides children until expanded', async () => {
+    installMoneyBridge({
+      'reports:get': {
+        ...MONTHLY,
+        content: {
+          ...MONTHLY.content,
+          categoryComparisons: [
+            { categoryId: 'dining', categoryName: 'Dining', parentId: 'food', parentName: 'Food', currentMinor: -64_000, priorMinor: -50_000, changeMinor: -14_000, direction: 'up' as const },
+            { categoryId: 'groceries', categoryName: 'Groceries', parentId: 'food', parentName: 'Food', currentMinor: -38_000, priorMinor: -30_000, changeMinor: -8_000, direction: 'up' as const },
+          ],
+        },
+      },
+    });
+    render(<ReportDetail reportId="rep1" onBack={() => {}} />);
+    await waitFor(() => expect(screen.getAllByText('Food').length).toBeGreaterThan(0));
+    // Children hidden until expanded; the parent still reports the rolled-up
+    // change so a collapsed group is not silent.
+    expect(screen.queryByText('Dining')).toBeNull();
+    expect(screen.getByText(/up \+\$220\.00/)).toBeDefined();
+
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    expect(screen.getByText('Dining')).toBeDefined();
+    expect(screen.getByText(/up \+\$140\.00/)).toBeDefined();
+  });
+
+  it('shows the change as a share of the prior period', async () => {
+    render(<ReportDetail reportId="rep1" onBack={() => {}} />);
+    await waitFor(() => screen.getAllByRole('button'));
+    expect(screen.getByText(/28\.00%/)).toBeDefined();
   });
 
   it('shows human category names, never raw ids', async () => {

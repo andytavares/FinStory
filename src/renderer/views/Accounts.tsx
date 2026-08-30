@@ -13,6 +13,25 @@ export function Accounts(): React.JSX.Element {
   const [state, setState] = useState<LinkState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState<{ text: string; bad: boolean } | null>(null);
+
+  const sync = async (): Promise<void> => {
+    setSyncing(true);
+    setSyncNote(null);
+    try {
+      const result = await call<{ message: string; warning: string | null }>('sync:now');
+      setSyncNote({
+        text: result.warning ? `${result.message} ${result.warning}` : result.message,
+        bad: result.warning !== null,
+      });
+      institutions.refetch();
+    } catch (e) {
+      setSyncNote({ text: (e as { message?: string }).message ?? 'Sync failed', bad: true });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const connect = async (): Promise<void> => {
     setError(null);
@@ -173,13 +192,24 @@ export function Accounts(): React.JSX.Element {
         look bigger than they are.
       </p>
 
-      <button
-        type="button"
-        onClick={() => void call('sync:now')}
-        className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-      >
-        Sync now
-      </button>
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => void sync()}
+          disabled={syncing}
+          className="self-start text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
+        >
+          {syncing ? 'Syncing…' : 'Sync now'}
+        </button>
+        {syncNote && (
+          <p
+            role="status"
+            className={`text-[12px] ${syncNote.bad ? 'text-[var(--color-ink)]' : 'text-[var(--color-ink-faint)]'}`}
+          >
+            {syncNote.text}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

@@ -16,6 +16,8 @@ import {
   alertRuleUpdateSchema,
   alertRuleCreateSchema,
   reportGenerateSchema,
+  merchantRenameSchema,
+  categoryDeleteSchema,
   settingsUpdateSchema,
   pathSchema,
   importSchema,
@@ -119,9 +121,10 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   );
   registry.handle('categories:merge', mergeCategoriesSchema, (p) => services.mergeCategories(p));
   registry.handle('categories:setHidden', setHiddenSchema, (p) => services.setCategoryHidden(p));
-  registry.handle('categories:delete', idSchema, (p) => services.deleteCategory(p.id));
+  registry.handle('categories:delete', categoryDeleteSchema, (p) => services.deleteCategory(p));
 
   // Recurring
+  registry.handle('merchants:rename', merchantRenameSchema, (p) => services.renameMerchant(p));
   registry.handle('recurring:list', empty, () => services.listRecurring());
   registry.handle('recurring:acknowledge', idSchema, (p) => services.acknowledgeRecurring(p.id));
   registry.handle('recurring:markNotRecurring', idSchema, (p) => services.markNotRecurring(p.id));
@@ -151,6 +154,8 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('data:deleteAll', deleteAllSchema, () => services.deleteAllData());
 
   registry.handle('analysis:refresh', empty, () => services.refreshAnalysis());
+  registry.handle('model:test', empty, () => services.testModel());
+  registry.handle('categorization:rerun', empty, () => services.recategorizePending());
 
   // The only caller of /transactions/refresh, and only on user request (R2).
   registry.handle('sync:now', empty, async () => {

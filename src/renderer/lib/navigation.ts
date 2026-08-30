@@ -5,6 +5,7 @@ export interface Route {
   readonly view: string;
   readonly categoryId?: string;
   readonly reportId?: string;
+  readonly merchantKey?: string;
   readonly direction?: 'all' | 'in' | 'out';
 }
 
@@ -25,6 +26,7 @@ function sameRoute(a: Route, b: Route): boolean {
     a.view === b.view &&
     a.categoryId === b.categoryId &&
     a.reportId === b.reportId &&
+    a.merchantKey === b.merchantKey &&
     a.direction === b.direction
   );
 }
