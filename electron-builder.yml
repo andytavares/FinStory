@@ -1,0 +1,13 @@
+appId: com.atavares.money
+productName: Money
+directories:
+  output: dist
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+mac:
+  target: [dmg]
+  category: public.app-category.finance
+win:
+  target: [nsis]

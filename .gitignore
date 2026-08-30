@@ -1,0 +1,20 @@
+node_modules/
+out/
+dist/
+coverage/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# Secrets and local state — never commit
+.env
+.env.*
+*.sqlite
+*.sqlite-*
+*.db
+diagnostics-export-*.json
+docs/plaid-setup.local.md

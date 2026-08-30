@@ -8,6 +8,8 @@ description: "Task list for Automated Spend Tracking & Awareness"
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md, `.specify/memory/constitution.md` (v1.1.0)
 
+**Revision**: Phase 2 rescoped after `/speckit-analyze` — Plaid cost is no longer a gate (research.md R3 corrected). Nine coverage tasks added for SC-002, SC-005, SC-016, FR-017, FR-022, FR-049, FR-050.
+
 **Tests**: **MANDATORY, not optional.** Constitution Principle V (Test-Driven Development) is NON-NEGOTIABLE and supersedes the tasks template's "tests are optional" default. Every implementation task is preceded by a failing test. Coverage gate is 80% on statements, branches, functions, and lines; no new production file ships untested.
 
 **Organization**: Tasks are grouped by user story so each can be implemented, tested, and delivered independently.
@@ -28,29 +30,29 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 **Purpose**: Project initialization. Nothing here touches financial data.
 
-- [ ] T001 Initialize npm project and create the directory structure from plan.md in `src/main/`, `src/preload/`, `src/renderer/`, `src/shared/`, `tests/unit/`, `tests/integration/`, `tests/e2e/`, `docs/adr/`
-- [ ] T002 Install and pin exact dependency versions from plan.md in `package.json`: electron 44.0.0, react 19.2.8, electron-vite 5.0.0, vite 8.2.2, tailwindcss 4.3.3, recharts 3.10.1, better-sqlite3-multiple-ciphers 13.0.3, drizzle-orm 0.45.2, plaid 46.0.0, @anthropic-ai/sdk 0.122.0, zod 4.5.4, cron 4.4.0, date-fns 4.4.0, lucide-react, electron-builder 26.15.3
-- [ ] T003 [P] Configure `electron.vite.config.ts` with the main/preload/renderer three-context split and `contextIsolation: true`, `nodeIntegration: false`
-- [ ] T004 [P] Configure TypeScript strict mode in `tsconfig.json` and path aliases for `src/shared`
-- [ ] T005 [P] Configure ESLint and Prettier in `eslint.config.js`; add `npm run lint` script that must exit 0 (Constitution XII)
-- [ ] T006 [P] Configure Vitest in `vitest.config.ts` with **80% thresholds on statements, branches, functions, and lines** as hard failures (Constitution V)
-- [ ] T007 [P] Configure Playwright in `playwright.config.ts` to drive the packaged Electron app
-- [ ] T008 [P] Configure `electron-builder.yml` for macOS and Windows targets
-- [ ] T009 [P] Add `.gitignore` covering `node_modules/`, `out/`, `dist/`, `coverage/`, and any local database or diagnostic export artifacts
+- [X] T001 Initialize npm project and create the directory structure from plan.md in `src/main/`, `src/preload/`, `src/renderer/`, `src/shared/`, `tests/unit/`, `tests/integration/`, `tests/e2e/`, `docs/adr/`
+- [X] T002 Install and pin exact dependency versions from plan.md in `package.json`: electron 44.0.0, react 19.2.8, electron-vite 5.0.0, vite 8.2.2, tailwindcss 4.3.3, recharts 3.10.1, better-sqlite3-multiple-ciphers 13.0.3, drizzle-orm 0.45.2, plaid 46.0.0, @anthropic-ai/sdk 0.122.0, zod 4.5.4, cron 4.4.0, date-fns 4.4.0, lucide-react, electron-builder 26.15.3
+- [X] T003 [P] Configure `electron.vite.config.ts` with the main/preload/renderer three-context split and `contextIsolation: true`, `nodeIntegration: false`
+- [X] T004 [P] Configure TypeScript strict mode in `tsconfig.json` and path aliases for `src/shared`
+- [X] T005 [P] Configure ESLint and Prettier in `eslint.config.js`; add `npm run lint` script that must exit 0 (Constitution XII)
+- [X] T006 [P] Configure Vitest in `vitest.config.ts` with **80% thresholds on statements, branches, functions, and lines** as hard failures (Constitution V)
+- [X] T007 [P] Configure Playwright in `playwright.config.ts` to drive the packaged Electron app
+- [X] T008 [P] Configure `electron-builder.yml` for macOS and Windows targets
+- [X] T009 [P] Add `.gitignore` covering `node_modules/`, `out/`, `dist/`, `coverage/`, and any local database or diagnostic export artifacts
 
 ---
 
 ## Phase 2: Validation Gates (BLOCKING — external risk first)
 
-**Purpose**: Prove the two assumptions the entire project rests on, before building anything on top of them. Gate A is external and can invalidate the project premise; it runs first.
+**Purpose**: Prove the two assumptions the project rests on. Plaid cost is **no longer a gate** — the free Trial plan covers this scale (research.md R3, corrected). What remains is institution support and the encryption guarantee.
 
-**⚠️ If Gate A fails, stop and reassess. Do not proceed to Phase 3.**
+**⚠️ If T012 shows the user's institutions are unsupported, stop and reassess.**
 
-- [ ] T010 Register a Plaid account and store Sandbox + Limited Production credentials outside the repo; document the setup steps in `docs/plaid-setup.md`
-- [ ] T011 Spike: connect one **real** account under Limited Production and confirm `/transactions/sync` returns usable transactions with merchant names — record findings in `docs/adr/0003-plaid-viability.md` (quickstart V1)
-- [ ] T012 Confirm every financial institution the user actually banks with is supported by Plaid; record the list and any gaps in `docs/adr/0003-plaid-viability.md`
-- [ ] T013 Obtain written per-item Transactions pricing from Plaid and record it in `docs/adr/0003-plaid-viability.md`, closing research.md R3
-- [ ] T014 Budget and log the 200 Limited Production API calls consumed during the spike in `docs/plaid-setup.md` so the remaining quota is known
+- [X] T010 Plaid account access confirmed by the user; free **Trial plan** covers this scale (10 Production Items, Transactions included — research.md R3)
+- [ ] T011 Configure Sandbox credentials for all development and document setup in `docs/plaid-setup.md`. **All development runs against Sandbox** — the 10-Item Trial cap is a lifetime create limit and re-linking permanently burns quota
+- [ ] T012 Verify every institution the user banks with appears in Plaid's supported institution list; record results in `docs/adr/0003-plaid-viability.md`
+- [ ] T013 Confirm Trial plan eligibility (US/Canada teams created on or after 2026-04-15); record in `docs/adr/0003-plaid-viability.md`
+- [ ] T014 Add a Production Item creation log to `docs/plaid-setup.md` so the lifetime 10-Item quota is tracked deliberately
 - [ ] T015 Write failing test asserting `safeStorage.isEncryptionAvailable()` is checked after `app.ready` and that startup aborts when unavailable, in `tests/unit/secrets/availability.test.ts`
 - [ ] T016 Implement the encryption availability gate in `src/main/secrets/availability.ts` — **fail loudly with an explanation; never fall back to an unencrypted database** (FR-054, Constitution VII)
 - [ ] T017 Write failing test for database-key generation and `safeStorage` async round-trip in `tests/unit/secrets/keyring.test.ts`
@@ -65,16 +67,16 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 **⚠️ No user story may begin until this phase is complete.**
 
-- [ ] T020 [P] Write failing tests for integer minor-unit arithmetic, parsing, and formatting — including rounding and negative amounts — in `tests/unit/shared/money.test.ts`
-- [ ] T021 Implement `src/shared/money.ts` with integer minor-unit arithmetic. **Floating-point money arithmetic is forbidden** (Constitution II)
-- [ ] T022 [P] Write failing tests for the injectable clock abstraction in `tests/unit/shared/clock.test.ts`
-- [ ] T023 Implement `src/shared/clock.ts` with a real and a controllable test implementation. **Every time-dependent module takes this as a dependency** (Constitution V)
+- [X] T020 [P] Write failing tests for integer minor-unit arithmetic, parsing, and formatting — including rounding and negative amounts — in `tests/unit/shared/money.test.ts`
+- [X] T021 Implement `src/shared/money.ts` with integer minor-unit arithmetic. **Floating-point money arithmetic is forbidden** (Constitution II)
+- [X] T022 [P] Write failing tests for the injectable clock abstraction in `tests/unit/shared/clock.test.ts`
+- [X] T023 Implement `src/shared/clock.ts` with a real and a controllable test implementation. **Every time-dependent module takes this as a dependency** (Constitution V)
 - [ ] T024 [P] Write failing tests for period-boundary math in the user's local timezone in `tests/unit/shared/periods.test.ts`
 - [ ] T025 Implement `src/shared/periods.ts` for week/month boundary computation using date-fns
-- [ ] T026 Write failing tests asserting the diagnostic logger **cannot** accept merchant names, amounts, balances, or credentials, in `tests/unit/diagnostics/redaction.test.ts` (FR-091)
-- [ ] T027 Implement `src/main/diagnostics/logger.ts` accepting only enumerated event types and opaque identifiers — **redaction enforced at write time, not export time** (research.md R15)
+- [X] T026 Write failing tests asserting the diagnostic logger **cannot** accept merchant names, amounts, balances, or credentials, in `tests/unit/diagnostics/redaction.test.ts` (FR-091)
+- [X] T027 Implement `src/main/diagnostics/logger.ts` accepting only enumerated event types and opaque identifiers — **redaction enforced at write time, not export time** (research.md R15)
 - [ ] T028 Implement log rotation bounded by size and age in `src/main/diagnostics/rotation.ts` (FR-093)
-- [ ] T029 Implement failure isolation in `src/main/diagnostics/logger.ts` so a logging failure is swallowed and counted, never propagated (FR-094)
+- [X] T029 Implement failure isolation in `src/main/diagnostics/logger.ts` so a logging failure is swallowed and counted, never propagated (FR-094)
 - [ ] T030 [P] Define the complete Drizzle schema for all 15 tables from data-model.md in `src/main/db/schema.ts`
 - [ ] T031 Implement the SQLCipher database client in `src/main/db/client.ts` using better-sqlite3-multiple-ciphers keyed from `src/main/secrets/keyring.ts`
 - [ ] T032 Generate and commit the initial migration in `src/main/db/migrations/`; implement the migration runner in `src/main/db/migrate.ts`
@@ -110,6 +112,9 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T051 [P] [US1] Write failing test asserting category totals reconcile exactly to transaction totals for any range, in `tests/unit/analysis/reconciliation.test.ts` (FR-018, SC-004, quickstart V4)
 - [ ] T052 [P] [US1] Write failing tests for the category taxonomy — one-level nesting enforcement, rename by stable id, merge, hide — in `tests/unit/categories/taxonomy.test.ts` (quickstart V19)
 - [ ] T053 [P] [US1] Write failing integration test for the full Sandbox sync path in `tests/integration/plaid-sync.test.ts`
+- [ ] T053a [P] [US1] Build a labeled transaction fixture corpus with known-correct categories in `tests/fixtures/categorization-corpus.ts`, spanning unambiguous merchants, mixed-use merchants, and generic descriptors
+- [ ] T053b [P] [US1] Write failing test asserting hands-off categorization accuracy **meets 94%** against the labeled corpus, in `tests/unit/categorization/accuracy.test.ts` (SC-002) — this is the product's central quality bar and must be measurable, not assumed
+- [ ] T053c [P] [US1] Write failing test asserting the system keeps operating and reporting on best-guess categories when the review queue is never opened, in `tests/unit/categorization/unreviewed.test.ts` (FR-017)
 
 ### Implementation for User Story 1
 
@@ -158,6 +163,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T080 [US2] Implement the shared cadence detector in `src/main/analysis/cadence.ts` as a **pure function over passed-in transactions** (Constitution XIII)
 - [ ] T081 [US2] Implement recurring-charge detection and ledger construction in `src/main/analysis/recurring.ts` (FR-019–FR-021)
 - [ ] T082 [US2] Implement amount-change tracking and inactive marking in `src/main/analysis/recurring.ts` (FR-023, FR-024)
+- [ ] T082a [US2] Write failing test asserting a newly detected recurring charge notifies the user exactly once and respects `user_acknowledged`, in `tests/unit/analysis/recurring-notify.test.ts` (FR-022)
+- [ ] T082b [US2] Implement new-recurring-charge notification in `src/main/analysis/recurring.ts`, delivered via `src/main/notifications/deliver.ts` (FR-022)
 - [ ] T083 [US2] Implement IPC handlers for `recurring:list`, `recurring:acknowledge`, `recurring:markNotRecurring` in `src/main/ipc/handlers/recurring.ts`
 - [ ] T084 [US2] Build the recurring-charge ledger view in `src/renderer/views/Recurring.tsx` with cumulative totals and amount history
 
@@ -296,12 +303,17 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T138 Implement institution status detection, `ITEM_LOGIN_REQUIRED` handling, and re-auth without history loss in `src/main/plaid/health.ts` (FR-009)
 - [ ] T139 [P] Write failing test for backup export/restore round-trip onto a clean install in `tests/integration/backup.test.ts` (SC-017, quickstart V14)
 - [ ] T140 Implement data export, import, and delete-all in `src/main/data/backup.ts` (FR-048, FR-060)
+- [ ] T140a [P] Write failing test asserting transaction history is retained for at least 24 months and that no pruning removes data inside that window, in `tests/unit/data/retention.test.ts` (FR-050)
+- [ ] T140b Implement the retention policy in `src/main/data/retention.ts` (FR-050)
 - [ ] T141 Implement settings management including confidence threshold, poll interval, categorization mode, and schedules in `src/main/settings/index.ts`
 - [ ] T142 [P] Build the settings view in `src/renderer/views/Settings.tsx`, including the FR-061 disclosure of exactly what is transmitted for categorization
-- [ ] T143 [P] Write E2E test for first-run setup through first successful sync in `tests/e2e/setup.spec.ts`
+- [ ] T143 [P] Write E2E test for first-run setup through first successful sync in `tests/e2e/setup.spec.ts`, asserting completion within the 30-minute target (SC-009)
 - [ ] T144 [P] Write E2E test for dashboard drill-down in ≤2 interactions in `tests/e2e/drilldown.spec.ts` (SC-018)
 - [ ] T145 [P] Write E2E test for the review queue and retroactive correction flow in `tests/e2e/review.spec.ts`
 - [ ] T146 Write performance test asserting navigation and filtering across a 24-month, ~10k-transaction fixture stays responsive in `tests/integration/performance.test.ts` (SC-020)
+- [ ] T146a Write an egress audit asserting the **only** outbound payload fields are those disclosed under FR-061, and that no transaction data reaches any third-party server beyond that, in `tests/integration/egress-audit.test.ts` (SC-016, Constitution VII)
+- [ ] T146b Write a static assertion that no money-movement Plaid endpoint (transfer, payment_initiation, or any write operation) is referenced anywhere in `src/`, in `tests/unit/plaid/read-only.test.ts` (FR-049)
+- [ ] T146c Write a test asserting recurring-charge detection meets 95% recall with under 10% false positives against a labeled fixture, in `tests/unit/analysis/recurring-rates.test.ts` (SC-005)
 - [ ] T147 Audit the renderer bundle for secrets and confirm zero hits in `tests/e2e/secret-audit.spec.ts` (FR-047, quickstart V15)
 - [ ] T148 Write an assertion sweep over `src/renderer/views/` confirming no manual-entry, reconciliation, or budget-allocation workflow exists, in `tests/e2e/zero-input-doctrine.spec.ts` (SC-021, Constitution VIII)
 - [ ] T149 Run `npx vitest run --coverage` and confirm all four metrics ≥ 80% with no file at 0% (Constitution V)
@@ -367,7 +379,7 @@ Diagnostics (Phase 10) can slot in at any point after Foundation; do it early if
 
 ### Risk Ordering
 
-The single largest risk is external and sits in Phase 2. **Gate A must complete before any code is written that assumes Plaid works.** The 200-call Limited Production budget is the constraint; spend it deliberately.
+The cost risk is closed: the free Trial plan covers this scale. The surviving external risk is **institution support** (T012) — verify before building on the sync path. The operational constraint is the **lifetime 10-Item cap**: all development runs against Sandbox, and each Production Item is created deliberately and logged.
 
 ---
 

@@ -30,15 +30,13 @@ First launch opens setup: enter Plaid credentials, choose environment (Sandbox t
 
 **Fail loudly.** If encryption is unavailable the app must refuse to start with an explanation — never silently write an unencrypted financial database. *(FR-054)*
 
-### V1. Plaid viability spike — do this first
-**This gates the entire project (R3).** Under Limited Production (200 live API calls):
+### V1. Plaid institution check
+The free **Trial plan** covers this project (10 Production Items, Transactions included — research.md R3), so cost is not a gate. One question remains:
 
-1. Connect one real account the user actually banks with.
-2. Confirm `/transactions/sync` returns real transactions with usable merchant names.
-3. Confirm every institution the user cares about is supported.
-4. Get written per-item Transactions pricing from Plaid.
+1. Confirm every institution the user actually banks with appears in Plaid's supported institution list.
+2. Confirm Trial eligibility (US/Canada teams created on or after 2026-04-15).
 
-**If institutions are unsupported or pricing is unacceptable, stop here.** Everything downstream assumes this works. Budget the 200 calls deliberately — hourly polling would exhaust them in nine days.
+**Guard the Item quota.** The 10-Item cap is a *lifetime create* limit — removing an Item does not return the slot. **All development runs against Sandbox.** Create a Production Item only deliberately, and log it.
 
 ---
 

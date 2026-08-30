@@ -49,15 +49,22 @@ The cursor is the deduplication and catch-up mechanism at once: persist it, and 
 
 ---
 
-## R3. What does Plaid actually cost, and what is required for production access?
+## R3. What does Plaid cost, and what is required for production access?
 
-**Decision**: **Unresolved by research — must be confirmed with Plaid directly before implementation.** Validate against the free tier first.
+**Decision**: The **Trial plan** (free) covers this use case. Confirmed the user already holds Plaid access.
 
-**Findings**: Plaid's pricing page describes three plans (Pay as You Go month-to-month, Growth on a 12-month commitment, Custom) and three billing models (one-time fee, subscription, per-request), but **does not publish the per-item price for Transactions**. It directs readers to sales for specifics. The article's claimed "$0–29/month" could not be verified and should not be relied on.
+**Findings** (Plaid billing docs, verified 2026-08-29): the free tier is the **Trial plan**, which includes Transactions and is capped at **10 Production Items** — not at API call volume. An Item is one login at one institution. The scenario this product is built for (two checking accounts, three credit cards, and several payment apps) sits comfortably under that ceiling.
 
-One figure is published and useful: **Limited Production allows up to 200 API calls per product against live data.** That is enough to connect a real account and prove the whole ingestion path end to end, but it is not enough to run on — hourly polling alone would exhaust it in nine days.
+**This corrects an earlier error in this document.** A prior revision claimed "Limited Production allows up to 200 API calls per product" and framed the entire project gate around exhausting that budget through polling. That figure came from the pricing page and does not describe the current free tier. Polling volume is **not** a constraint on the Trial plan. Recorded rather than quietly deleted, because it drove the original phase ordering.
 
-**Action**: This is the single largest project risk and it is external. Task T001 is a spike: register, connect one real account under Limited Production, confirm the sync path works against the user's actual institutions, and get written pricing from Plaid. Do this **before** building anything downstream of ingestion. If the institutions the user cares about are unsupported, or pricing is unacceptable, the project premise fails and it should fail in week one, not month two.
+**Two constraints that do apply**:
+
+1. **The 10-Item cap is a lifetime create limit, not a concurrent one.** Plaid's docs are explicit: "Removing Items created on a Trial plan will *not* allow you to create more Items." Every re-link during development permanently consumes quota. **All development therefore runs against Sandbox**, which is free and unlimited; Production Item creation is a deliberate, logged action.
+2. **Trial eligibility is date-gated** to US/Canada teams created on or after 2026-04-15. An account predating that may not qualify.
+
+**Remaining open item**: whether the specific institutions the user banks with are supported by Plaid. No plan tier answers this — it must be checked against the live institution list. This is the only surviving element of the original Gate A.
+
+**Alternatives considered**: paid Pay-as-you-go from the start (rejected — unnecessary at this scale); avoiding Plaid via direct bank integrations or file import (rejected — direct integrations are not available to individuals, and file import violates FR-002's no-manual-import requirement).
 
 ---
 
@@ -272,7 +279,7 @@ The rule would have rejected a package with 69 contributors and 10.4M weekly dow
 |---|---|---|
 | R1 | Bank connection without a server | Resolved — Hosted Link + `/link/token/get` |
 | R2 | Keeping transactions current | Resolved — `/transactions/sync` cursor polling |
-| R3 | Plaid cost and production access | **Open — external. Spike T001 before all other work.** |
+| R3 | Plaid cost and production access | Resolved — free Trial plan covers this scale; institution support still to verify |
 | R4 | Categorization privacy (spec open decision) | Resolved — local-first, hosted fallback, offline mode available |
 | R5 | Encryption at rest | Resolved — SQLCipher + `safeStorage` async API |
 | R6 | Operation while closed | Resolved — tray + launch-at-login + catch-up on wake |
