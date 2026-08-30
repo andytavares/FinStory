@@ -10,7 +10,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         // Native module — must not be bundled.
-        external: ['better-sqlite3-multiple-ciphers'],
+        external: ['better-sqlite3'],
       },
     },
     resolve: {

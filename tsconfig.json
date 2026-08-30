@@ -24,6 +24,6 @@
       "@renderer/*": ["./src/renderer/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*", "*.config.ts"],
+  "include": ["src/**/*", "src/types/**/*.d.ts", "tests/**/*", "*.config.ts"],
   "exclude": ["node_modules", "out", "dist"]
 }

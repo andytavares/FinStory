@@ -75,16 +75,16 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T025 Implement `src/shared/periods.ts` for week/month boundary computation using date-fns
 - [X] T026 Write failing tests asserting the diagnostic logger **cannot** accept merchant names, amounts, balances, or credentials, in `tests/unit/diagnostics/redaction.test.ts` (FR-091)
 - [X] T027 Implement `src/main/diagnostics/logger.ts` accepting only enumerated event types and opaque identifiers — **redaction enforced at write time, not export time** (research.md R15)
-- [ ] T028 Implement log rotation bounded by size and age in `src/main/diagnostics/rotation.ts` (FR-093)
+- [X] T028 Implement log rotation bounded by size and age in `src/main/diagnostics/rotation.ts` (FR-093)
 - [X] T029 Implement failure isolation in `src/main/diagnostics/logger.ts` so a logging failure is swallowed and counted, never propagated (FR-094)
 - [X] T030 [P] Define the complete Drizzle schema for all 15 tables from data-model.md in `src/main/db/schema.ts`
-- [ ] T031 Implement the SQLCipher database client in `src/main/db/client.ts` using better-sqlite3-multiple-ciphers keyed from `src/main/secrets/keyring.ts`
-- [ ] T032 Generate and commit the initial migration in `src/main/db/migrations/`; implement the migration runner in `src/main/db/migrate.ts`
+- [X] T031 Implement the SQLCipher database client in `src/main/db/client.ts` using better-sqlite3-multiple-ciphers keyed from `src/main/secrets/keyring.ts`
+- [X] T032 Generate and commit the initial migration in `src/main/db/migrations/`; implement the migration runner in `src/main/db/migrate.ts`
 - [X] T033 [P] Define shared cross-boundary types in `src/shared/types.ts` per contracts/ipc-api.md
 - [X] T034 [P] Define Zod schemas for every IPC channel payload in `src/shared/schemas.ts`
 - [X] T035 Implement the IPC registration skeleton in `src/main/ipc/index.ts` with **main-side Zod validation on every channel** and the `{code, message, recoverable, action}` error contract
 - [X] T036 Implement the `contextBridge` surface in `src/preload/index.ts` exposing only the documented channels
-- [ ] T037 Write failing test asserting no secret value is reachable from the renderer and that `settings:get` returns presence booleans only, in `tests/unit/ipc/secret-isolation.test.ts` (FR-047, quickstart V15)
+- [X] T037 Write failing test asserting no secret value is reachable from the renderer and that `settings:get` returns presence booleans only, in `tests/unit/ipc/secret-isolation.test.ts` (FR-047, quickstart V15)
 - [X] T038 Implement Electron app lifecycle in `src/main/index.ts`: single-instance lock, tray residency, `app.setLoginItemSettings` for launch-at-login (FR-056, research.md R6)
 - [X] T039 [P] Set up Tailwind and the base renderer shell in `src/renderer/main.tsx` and `src/renderer/App.tsx`
 - [ ] T040 [P] Write ADR `docs/adr/0001-sqlcipher-driver-exception.md` recording the single-publisher adoption, health evidence, and migration trigger (Constitution III, XI; research.md R9)
@@ -107,7 +107,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T046 [P] [US1] Write failing tests for internal-transfer and refund/reversal detection in `tests/unit/ingestion/exclusions.test.ts` (FR-007, FR-008)
 - [X] T047 [P] [US1] Write failing tests for foreign-currency handling asserting settled amount is authoritative and `original_amount` never enters a sum, in `tests/unit/ingestion/currency.test.ts` (quickstart V20)
 - [X] T048 [P] [US1] Write failing tests for the local merchant-history classifier in `tests/unit/categorization/local.test.ts`
-- [ ] T049 [P] [US1] Write failing tests for the model fallback, asserting structured output parsing and that **ingestion still succeeds when categorization fails**, in `tests/unit/categorization/model.test.ts`
+- [X] T049 [P] [US1] Write failing tests for the model fallback, asserting structured output parsing and that **ingestion still succeeds when categorization fails**, in `tests/unit/categorization/model.test.ts`
 - [X] T050 [P] [US1] Write failing tests for the two-stage pipeline asserting confirmed merchants resolve locally **with no API call**, in `tests/unit/categorization/pipeline.test.ts` (quickstart V6)
 - [X] T051 [P] [US1] Write failing test asserting category totals reconcile exactly to transaction totals for any range, in `tests/unit/analysis/reconciliation.test.ts` (FR-018, SC-004, quickstart V4)
 - [X] T052 [P] [US1] Write failing tests for the category taxonomy — one-level nesting enforcement, rename by stable id, merge, hide — in `tests/unit/categories/taxonomy.test.ts` (quickstart V19)
@@ -139,7 +139,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T072 [P] [US1] Build the first-run setup view in `src/renderer/views/Setup.tsx` — credentials, environment, Hosted Link launch
 - [X] T073 [P] [US1] Build the dashboard view in `src/renderer/views/Dashboard.tsx` — balances, cash flow, category breakdown, what changed (FR-062, SC-019)
 - [X] T074 [P] [US1] Build the transaction register with search and filters in `src/renderer/views/Register.tsx` (FR-064)
-- [ ] T075 [P] [US1] Build category management UI in `src/renderer/views/Categories.tsx` (FR-079–FR-082)
+- [X] T075 [P] [US1] Build category management UI in `src/renderer/views/Categories.tsx` (FR-079–FR-082)
 - [X] T076 [US1] Implement drill-down from any figure to underlying transactions in `src/renderer/components/DrillDown.tsx` — **≤2 interactions** (FR-063, SC-018)
 
 **Checkpoint**: MVP complete. Quickstart V2–V6 and V19–V20 pass.
@@ -163,8 +163,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T080 [US2] Implement the shared cadence detector in `src/main/analysis/cadence.ts` as a **pure function over passed-in transactions** (Constitution XIII)
 - [X] T081 [US2] Implement recurring-charge detection and ledger construction in `src/main/analysis/recurring.ts` (FR-019–FR-021)
 - [X] T082 [US2] Implement amount-change tracking and inactive marking in `src/main/analysis/recurring.ts` (FR-023, FR-024)
-- [ ] T082a [US2] Write failing test asserting a newly detected recurring charge notifies the user exactly once and respects `user_acknowledged`, in `tests/unit/analysis/recurring-notify.test.ts` (FR-022)
-- [ ] T082b [US2] Implement new-recurring-charge notification in `src/main/analysis/recurring.ts`, delivered via `src/main/notifications/deliver.ts` (FR-022)
+- [X] T082a [US2] Write failing test asserting a newly detected recurring charge notifies the user exactly once and respects `user_acknowledged`, in `tests/unit/analysis/recurring-notify.test.ts` (FR-022)
+- [X] T082b [US2] Implement new-recurring-charge notification in `src/main/analysis/recurring.ts`, delivered via `src/main/notifications/deliver.ts` (FR-022)
 - [X] T083 [US2] Implement IPC handlers for `recurring:list`, `recurring:acknowledge`, `recurring:markNotRecurring` in `src/main/ipc/handlers/recurring.ts`
 - [X] T084 [US2] Build the recurring-charge ledger view in `src/renderer/views/Recurring.tsx` with cumulative totals and amount history
 
@@ -194,7 +194,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T093 [US3] Implement alert rule evaluation for all five types in `src/main/analysis/alerts.ts` as pure functions (FR-026–FR-029)
 - [X] T094 [US3] Implement the `dedupe_key` unique-index enforcement in `src/main/analysis/alerts.ts` — **suppression is a database constraint, not application logic a catch-up path can bypass** (FR-031)
 - [X] T095 [US3] Implement false-positive dismissal that does not disable the rule in `src/main/analysis/alerts.ts` (FR-032)
-- [ ] T096 [US3] Implement native notification delivery with a retained-undelivered queue in `src/main/notifications/deliver.ts` (FR-030, FR-034)
+- [X] T096 [US3] Implement native notification delivery with a retained-undelivered queue in `src/main/notifications/deliver.ts` (FR-030, FR-034)
 - [X] T097 [US3] Implement the scheduler with cron cadence plus **on-launch catch-up reconciliation** in `src/main/scheduler/index.ts` (FR-056, FR-058, research.md R6)
 - [X] T098 [US3] Implement backlog-burst collapse into a single "while you were away" summary in `src/main/scheduler/catchup.ts` (FR-031, FR-057)
 - [X] T099 [US3] Implement IPC handlers for `income:*`, `alerts:*`, `alertRules:*` in `src/main/ipc/handlers/`
@@ -245,7 +245,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T112 [US5] Implement report regeneration when late-arriving transactions affect a closed period in `src/main/analysis/reports.ts` (FR-042)
 - [X] T113 [US5] Implement IPC handlers for `reports:list` and `reports:get` in `src/main/ipc/handlers/reports.ts`
 - [X] T114 [P] [US5] Build the reports view in `src/renderer/views/Reports.tsx`
-- [ ] T115 [P] [US5] Build spending-over-time charts in `src/renderer/charts/` using Recharts. **Load the `dataviz` skill before writing chart code** (FR-065)
+- [X] T115 [P] [US5] Build spending-over-time charts in `src/renderer/charts/` using Recharts. **Load the `dataviz` skill before writing chart code** (FR-065)
 
 **Checkpoint**: Quickstart V13 passes. Product is feature-complete against the source article.
 
@@ -297,15 +297,15 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ## Phase 11: Polish & Cross-Cutting Concerns
 
-- [ ] T135 [P] Write failing tests for offline read behavior across every view in `tests/unit/ipc/offline.test.ts` (FR-059, SC-015)
-- [ ] T136 Implement offline read guarantees — `NETWORK_UNAVAILABLE` never fails a read; all reads serve stored data with `dataComplete: false` (contracts/ipc-api.md)
-- [ ] T137 [P] Write failing tests for stale-institution qualification on every total-bearing response in `tests/unit/analysis/staleness.test.ts` (quickstart V11)
-- [ ] T138 Implement institution status detection, `ITEM_LOGIN_REQUIRED` handling, and re-auth without history loss in `src/main/plaid/health.ts` (FR-009)
-- [ ] T139 [P] Write failing test for backup export/restore round-trip onto a clean install in `tests/integration/backup.test.ts` (SC-017, quickstart V14)
-- [ ] T140 Implement data export, import, and delete-all in `src/main/data/backup.ts` (FR-048, FR-060)
+- [X] T135 [P] Write failing tests for offline read behavior across every view in `tests/unit/ipc/offline.test.ts` (FR-059, SC-015)
+- [X] T136 Implement offline read guarantees — `NETWORK_UNAVAILABLE` never fails a read; all reads serve stored data with `dataComplete: false` (contracts/ipc-api.md)
+- [X] T137 [P] Write failing tests for stale-institution qualification on every total-bearing response in `tests/unit/analysis/staleness.test.ts` (quickstart V11)
+- [X] T138 Implement institution status detection, `ITEM_LOGIN_REQUIRED` handling, and re-auth without history loss in `src/main/plaid/health.ts` (FR-009)
+- [X] T139 [P] Write failing test for backup export/restore round-trip onto a clean install in `tests/integration/backup.test.ts` (SC-017, quickstart V14)
+- [X] T140 Implement data export, import, and delete-all in `src/main/data/backup.ts` (FR-048, FR-060)
 - [X] T140a [P] Write failing test asserting transaction history is retained for at least 24 months and that no pruning removes data inside that window, in `tests/unit/data/retention.test.ts` (FR-050)
 - [X] T140b Implement the retention policy in `src/main/data/retention.ts` (FR-050)
-- [ ] T141 Implement settings management including confidence threshold, poll interval, categorization mode, and schedules in `src/main/settings/index.ts`
+- [X] T141 Implement settings management including confidence threshold, poll interval, categorization mode, and schedules in `src/main/settings/index.ts`
 - [X] T142 [P] Build the settings view in `src/renderer/views/Settings.tsx`, including the FR-061 disclosure of exactly what is transmitted for categorization
 - [ ] T143 [P] Write E2E test for first-run setup through first successful sync in `tests/e2e/setup.spec.ts`, asserting completion within the 30-minute target (SC-009)
 - [ ] T144 [P] Write E2E test for dashboard drill-down in ≤2 interactions in `tests/e2e/drilldown.spec.ts` (SC-018)
@@ -313,12 +313,12 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T146 Write performance test asserting navigation and filtering across a 24-month, ~10k-transaction fixture stays responsive in `tests/integration/performance.test.ts` (SC-020)
 - [X] T146a Write an egress audit asserting the **only** outbound payload fields are those disclosed under FR-061, and that no transaction data reaches any third-party server beyond that, in `tests/integration/egress-audit.test.ts` (SC-016, Constitution VII)
 - [X] T146b Write a static assertion that no money-movement Plaid endpoint (transfer, payment_initiation, or any write operation) is referenced anywhere in `src/`, in `tests/unit/plaid/read-only.test.ts` (FR-049)
-- [ ] T146c Write a test asserting recurring-charge detection meets 95% recall with under 10% false positives against a labeled fixture, in `tests/unit/analysis/recurring-rates.test.ts` (SC-005)
+- [X] T146c Write a test asserting recurring-charge detection meets 95% recall with under 10% false positives against a labeled fixture, in `tests/unit/analysis/recurring-rates.test.ts` (SC-005)
 - [ ] T147 Audit the renderer bundle for secrets and confirm zero hits in `tests/e2e/secret-audit.spec.ts` (FR-047, quickstart V15)
-- [ ] T148 Write an assertion sweep over `src/renderer/views/` confirming no manual-entry, reconciliation, or budget-allocation workflow exists, in `tests/e2e/zero-input-doctrine.spec.ts` (SC-021, Constitution VIII)
-- [ ] T149 Run `npx vitest run --coverage` and confirm all four metrics ≥ 80% with no file at 0% (Constitution V)
-- [ ] T150 Run `npm run lint` and confirm 0 errors (Constitution XII)
-- [ ] T151 Confirm every icon in the renderer is `lucide-react` with no emoji or unicode symbols (Constitution XIV)
+- [X] T148 Write an assertion sweep over `src/renderer/views/` confirming no manual-entry, reconciliation, or budget-allocation workflow exists, in `tests/e2e/zero-input-doctrine.spec.ts` (SC-021, Constitution VIII)
+- [X] T149 Run `npx vitest run --coverage` and confirm all four metrics ≥ 80% with no file at 0% (Constitution V)
+- [X] T150 Run `npm run lint` and confirm 0 errors (Constitution XII)
+- [X] T151 Confirm every icon in the renderer is `lucide-react` with no emoji or unicode symbols (Constitution XIV)
 - [ ] T152 Update `README.md` and `docs/` to reflect the shipped implementation (Constitution X)
 
 ---

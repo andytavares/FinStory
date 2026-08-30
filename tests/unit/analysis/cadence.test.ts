@@ -73,3 +73,44 @@ describe('cadence detection: rejects non-recurring (FR-025)', () => {
     expect(detectCadence(s)).toBeNull();
   });
 });
+
+describe('cadence edge cases', () => {
+  it('rejects a single occurrence', () => {
+    expect(detectCadence([{ occurredAt: new Date('2026-01-01'), amountMinor: 1000 }])).toBeNull();
+  });
+
+  it('rejects a series whose median amount is zero', () => {
+    const zeros = Array.from({ length: 6 }, (_, i) => ({
+      occurredAt: new Date(2026, 0, 1 + i * 30),
+      amountMinor: 0,
+    }));
+    expect(detectCadence(zeros)).toBeNull();
+  });
+
+  it('rejects gaps that match no known cadence', () => {
+    const odd = Array.from({ length: 6 }, (_, i) => ({
+      occurredAt: new Date(2026, 0, 1 + i * 200),
+      amountMinor: 1000,
+    }));
+    expect(detectCadence(odd)).toBeNull();
+  });
+
+  it('rejects when one gap falls outside tolerance even if the median fits', () => {
+    const mostlyMonthly = [0, 30, 60, 90, 200].map((d) => ({
+      occurredAt: new Date(2026, 0, 1 + d),
+      amountMinor: 1599,
+    }));
+    expect(detectCadence(mostlyMonthly)).toBeNull();
+  });
+
+  it('reports occurrence count and interval', () => {
+    const r = detectCadence(
+      Array.from({ length: 6 }, (_, i) => ({
+        occurredAt: new Date(2026, 0, 1 + i * 7),
+        amountMinor: 1200,
+      })),
+    );
+    expect(r?.occurrences).toBe(6);
+    expect(r?.intervalDays).toBeCloseTo(7, 1);
+  });
+});

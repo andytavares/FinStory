@@ -13,7 +13,11 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
+    include: [
+      'tests/unit/**/*.test.ts',
+      'tests/unit/**/*.test.tsx',
+      'tests/integration/**/*.test.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
@@ -22,7 +26,20 @@ export default defineConfig({
       // untested one reports at 0% rather than being absent from the report.
       // (Verified via coverage-summary.json — Vitest 4 has no `all` option.)
       include: ['src/**/*.ts', 'src/**/*.tsx'],
-      exclude: ['src/**/*.d.ts', 'src/main/db/migrations/**'],
+      exclude: [
+        'src/**/*.d.ts',
+        'src/main/db/migrations/**',
+        // Thin adapters over Electron APIs that cannot execute outside a running
+        // Electron process (app lifecycle, contextBridge, safeStorage, native
+        // notifications). They contain no branching logic of their own and are
+        // exercised by the Playwright E2E suite instead. Excluded deliberately
+        // rather than covered by tests that would only assert a mock.
+        'src/main/index.ts',
+        'src/preload/index.ts',
+        'src/main/secrets/electron-backend.ts',
+        'src/main/notifications/deliver.ts',
+        'src/renderer/main.tsx',
+      ],
       thresholds: {
         statements: 80,
         branches: 80,

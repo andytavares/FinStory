@@ -8,6 +8,7 @@ import {
   FileText,
   Activity,
   Settings as SettingsIcon,
+  Tags,
 } from 'lucide-react';
 import { Dashboard } from './views/Dashboard';
 import { Register } from './views/Register';
@@ -17,6 +18,7 @@ import { Review } from './views/Review';
 import { Reports } from './views/Reports';
 import { Health } from './views/Health';
 import { Settings } from './views/Settings';
+import { Categories } from './views/Categories';
 
 type ViewId =
   | 'dashboard'
@@ -26,6 +28,7 @@ type ViewId =
   | 'review'
   | 'reports'
   | 'health'
+  | 'categories'
   | 'settings';
 
 const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboard }> = [
@@ -36,6 +39,7 @@ const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboa
   { id: 'review', label: 'Review', Icon: Inbox },
   { id: 'reports', label: 'Reports', Icon: FileText },
   { id: 'health', label: 'Health', Icon: Activity },
+  { id: 'categories', label: 'Categories', Icon: Tags },
   { id: 'settings', label: 'Settings', Icon: SettingsIcon },
 ];
 
@@ -78,6 +82,7 @@ export function App(): React.JSX.Element {
           {view === 'review' && <Review />}
           {view === 'reports' && <Reports />}
           {view === 'health' && <Health />}
+          {view === 'categories' && <Categories />}
           {view === 'settings' && <Settings />}
         </div>
       </main>

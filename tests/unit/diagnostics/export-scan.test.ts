@@ -93,3 +93,27 @@ describe('health summary (FR-088, FR-092)', () => {
     expect(summarizeHealth(events, { degradedAfterFailures: 3 }).degradedSubjects).toHaveLength(0);
   });
 });
+
+describe('log rotation is bounded (FR-093)', () => {
+  it('drops events older than the age limit', async () => {
+    const { rotate, MAX_AGE_DAYS } = await import('@main/diagnostics/rotation');
+    const old = {
+      occurredAt: new Date(Date.UTC(2020, 0, 1)).toISOString(),
+      type: DiagnosticEventType.SyncAttempt,
+      outcome: Outcome.Success,
+      subjectId: 'inst_old',
+      durationMs: 1,
+      errorCode: undefined,
+    };
+    const r = rotate([old, ...events], new Date('2026-08-29T12:00:00Z'));
+    expect(r.retained).toHaveLength(2);
+    expect(r.dropped).toBe(1);
+    expect(MAX_AGE_DAYS).toBeGreaterThan(0);
+  });
+
+  it('caps total event count', async () => {
+    const { rotate, MAX_EVENTS } = await import('@main/diagnostics/rotation');
+    const many = Array.from({ length: MAX_EVENTS + 500 }, () => events[0]!);
+    expect(rotate(many, new Date('2026-08-29T12:00:00Z')).retained).toHaveLength(MAX_EVENTS);
+  });
+});
