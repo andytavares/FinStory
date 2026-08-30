@@ -1,0 +1,39 @@
+src/main/analysis/spending.ts
+  s_f1d20e583de5c0::t_c9bae8647f0e1b 1-104
+tests/unit/analysis/baselines.test.ts
+  s_f1d20e583de5c0::t_55f8f875bfe48c 1-67
+tests/unit/analysis/cadence.test.ts
+  s_f1d20e583de5c0::t_f5e391c1b4f46e 1-75
+src/main/analysis/baselines.ts
+  s_f1d20e583de5c0::t_55f8f875bfe48c 1-76
+tests/unit/analysis/alerts.test.ts
+  s_f1d20e583de5c0::t_a62c7d2b162c86 1-50,54-60,63-139
+  s_f1d20e583de5c0::t_a6cd113c99ff73 51-53,61-62
+src/main/analysis/alerts.ts
+  s_f1d20e583de5c0::t_48d540521eaac3 1-83,88-150,156-171
+  s_f1d20e583de5c0::t_a6cd113c99ff73 84-87,151-155
+tests/fixtures/builders.ts
+  s_f1d20e583de5c0::t_f5e391c1b4f46e 1-37
+src/main/analysis/cadence.ts
+  s_f1d20e583de5c0::t_45416388ea3b4c 1-113
+tests/unit/analysis/spending.test.ts
+  s_f1d20e583de5c0::t_c9bae8647f0e1b 1-96
+specs/001-automated-spend-tracking/tasks.md
+  s_f1d20e583de5c0::t_b65126d7d8e0c7 112,136-137,157-159,163,185-186,194-196,216-217,222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "09a49ac23a3b0829ad45826ecc34d70566f3226b",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
