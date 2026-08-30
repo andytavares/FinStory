@@ -221,7 +221,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 - [X] T105 [US4] Implement personal baseline computation with the sufficiency gate in `src/main/analysis/baselines.ts` (FR-036, FR-039, FR-040)
 - [X] T106 [US4] Implement weekly digest generation in `src/main/analysis/digest.ts`, stating each projection's assumption (FR-035–FR-037, FR-041)
-- [ ] T107 [US4] Wire digest generation into the scheduler with missed-run generation on launch in `src/main/scheduler/index.ts` (FR-058)
+- [X] T107 [US4] Wire digest generation into the scheduler with missed-run generation on launch in `src/main/scheduler/index.ts` (FR-058)
 - [X] T108 [US4] Implement `data_complete` qualification on digests when any institution was stale during the period in `src/main/analysis/digest.ts` (FR-009, SC-014)
 
 **Checkpoint**: Quickstart V12 passes.
@@ -242,7 +242,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 ### Implementation for User Story 5
 
 - [X] T111 [US5] Implement monthly report generation in `src/main/analysis/reports.ts` covering income, spending, category comparison, trend, largest purchases, recurring audit, savings rate, annual projection (FR-038)
-- [ ] T112 [US5] Implement report regeneration when late-arriving transactions affect a closed period in `src/main/analysis/reports.ts` (FR-042)
+- [X] T112 [US5] Implement report regeneration when late-arriving transactions affect a closed period in `src/main/analysis/reports.ts` (FR-042)
 - [ ] T113 [US5] Implement IPC handlers for `reports:list` and `reports:get` in `src/main/ipc/handlers/reports.ts`
 - [ ] T114 [P] [US5] Build the reports view in `src/renderer/views/Reports.tsx`
 - [ ] T115 [P] [US5] Build spending-over-time charts in `src/renderer/charts/` using Recharts. **Load the `dataviz` skill before writing chart code** (FR-065)
@@ -269,7 +269,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T120 [US6] Implement the review queue query in `src/main/categorization/review.ts`, returning guess, confidence, and reasoning (FR-013, US6 AS1)
 - [X] T121 [US6] Implement bulk recategorization in `src/main/categorization/corrections.ts` (FR-014, FR-067)
 - [X] T122 [US6] Implement retroactive-candidate counting and the separate confirmed apply path in `src/main/categorization/retroactive.ts` (FR-074–FR-076)
-- [ ] T123 [US6] Implement full restatement of derived data after any correction in `src/main/analysis/restate.ts` (FR-015, FR-077)
+- [X] T123 [US6] Implement full restatement of derived data after any correction in `src/main/analysis/restate.ts` (FR-015, FR-077)
 - [X] T124 [US6] Implement merchant-profile updating so corrections deterministically drive future categorization in `src/main/categorization/local.ts` (FR-016)
 - [ ] T125 [US6] Implement IPC handlers for `review:*` in `src/main/ipc/handlers/review.ts`
 - [ ] T126 [US6] Build the review queue view with bulk selection and the retroactive confirmation prompt in `src/renderer/views/Review.tsx` (FR-067, FR-074)
@@ -282,12 +282,12 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 **Purpose**: FR-087–FR-094. Depends on the Foundation logger; independent of all user stories.
 
-- [ ] T127 [P] Write failing test asserting a generated export contains **zero** known fixture merchant names, amounts, balances, or credentials, in `tests/unit/diagnostics/export-scan.test.ts` (SC-023, quickstart V21)
-- [ ] T128 [P] Write failing tests for persistent-failure threshold notification in `tests/unit/diagnostics/health.test.ts` (FR-092, SC-022)
-- [ ] T129 Implement operational metrics collection — sync duration, categorization latency, local-vs-model resolution rate, job outcomes — in `src/main/diagnostics/metrics.ts` (FR-089)
-- [ ] T130 Implement the health aggregation query in `src/main/diagnostics/health.ts` (FR-088)
-- [ ] T131 Implement persistent-failure detection and notification in `src/main/diagnostics/health.ts` (FR-092)
-- [ ] T132 Implement diagnostic export in `src/main/diagnostics/export.ts` (FR-090)
+- [X] T127 [P] Write failing test asserting a generated export contains **zero** known fixture merchant names, amounts, balances, or credentials, in `tests/unit/diagnostics/export-scan.test.ts` (SC-023, quickstart V21)
+- [X] T128 [P] Write failing tests for persistent-failure threshold notification in `tests/unit/diagnostics/health.test.ts` (FR-092, SC-022)
+- [X] T129 Implement operational metrics collection — sync duration, categorization latency, local-vs-model resolution rate, job outcomes — in `src/main/diagnostics/metrics.ts` (FR-089)
+- [X] T130 Implement the health aggregation query in `src/main/diagnostics/health.ts` (FR-088)
+- [X] T131 Implement persistent-failure detection and notification in `src/main/diagnostics/health.ts` (FR-092)
+- [X] T132 Implement diagnostic export in `src/main/diagnostics/export.ts` (FR-090)
 - [ ] T133 Implement IPC handlers for `health:get` and `diagnostics:export` in `src/main/ipc/handlers/diagnostics.ts`
 - [ ] T134 Build the system health view in `src/renderer/views/Health.tsx` showing per-account status, last successful sync, and recent failures
 
@@ -303,15 +303,15 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T138 Implement institution status detection, `ITEM_LOGIN_REQUIRED` handling, and re-auth without history loss in `src/main/plaid/health.ts` (FR-009)
 - [ ] T139 [P] Write failing test for backup export/restore round-trip onto a clean install in `tests/integration/backup.test.ts` (SC-017, quickstart V14)
 - [ ] T140 Implement data export, import, and delete-all in `src/main/data/backup.ts` (FR-048, FR-060)
-- [ ] T140a [P] Write failing test asserting transaction history is retained for at least 24 months and that no pruning removes data inside that window, in `tests/unit/data/retention.test.ts` (FR-050)
-- [ ] T140b Implement the retention policy in `src/main/data/retention.ts` (FR-050)
+- [X] T140a [P] Write failing test asserting transaction history is retained for at least 24 months and that no pruning removes data inside that window, in `tests/unit/data/retention.test.ts` (FR-050)
+- [X] T140b Implement the retention policy in `src/main/data/retention.ts` (FR-050)
 - [ ] T141 Implement settings management including confidence threshold, poll interval, categorization mode, and schedules in `src/main/settings/index.ts`
 - [ ] T142 [P] Build the settings view in `src/renderer/views/Settings.tsx`, including the FR-061 disclosure of exactly what is transmitted for categorization
 - [ ] T143 [P] Write E2E test for first-run setup through first successful sync in `tests/e2e/setup.spec.ts`, asserting completion within the 30-minute target (SC-009)
 - [ ] T144 [P] Write E2E test for dashboard drill-down in ≤2 interactions in `tests/e2e/drilldown.spec.ts` (SC-018)
 - [ ] T145 [P] Write E2E test for the review queue and retroactive correction flow in `tests/e2e/review.spec.ts`
 - [ ] T146 Write performance test asserting navigation and filtering across a 24-month, ~10k-transaction fixture stays responsive in `tests/integration/performance.test.ts` (SC-020)
-- [ ] T146a Write an egress audit asserting the **only** outbound payload fields are those disclosed under FR-061, and that no transaction data reaches any third-party server beyond that, in `tests/integration/egress-audit.test.ts` (SC-016, Constitution VII)
+- [X] T146a Write an egress audit asserting the **only** outbound payload fields are those disclosed under FR-061, and that no transaction data reaches any third-party server beyond that, in `tests/integration/egress-audit.test.ts` (SC-016, Constitution VII)
 - [X] T146b Write a static assertion that no money-movement Plaid endpoint (transfer, payment_initiation, or any write operation) is referenced anywhere in `src/`, in `tests/unit/plaid/read-only.test.ts` (FR-049)
 - [ ] T146c Write a test asserting recurring-charge detection meets 95% recall with under 10% false positives against a labeled fixture, in `tests/unit/analysis/recurring-rates.test.ts` (SC-005)
 - [ ] T147 Audit the renderer bundle for secrets and confirm zero hits in `tests/e2e/secret-audit.spec.ts` (FR-047, quickstart V15)

@@ -39,6 +39,29 @@ export interface ClaudeClassifierOptions {
   readonly taxonomy: string;
 }
 
+/**
+ * The COMPLETE outbound payload — this function is the FR-061 disclosure.
+ *
+ * Exported so the egress audit can assert against the real code path rather
+ * than a copy of it. If anything is ever added here, the in-app disclosure and
+ * the audit must change with it.
+ */
+export function renderOutboundPayload(input: ModelInput): string {
+  const priors = Object.entries(input.priorDistribution);
+  const total = priors.reduce((a, [, n]) => a + n, 0);
+  const history =
+    total === 0
+      ? 'No prior purchases at this merchant.'
+      : priors.map(([category, n]) => `${category}: ${Math.round((n / total) * 100)}%`).join(', ');
+
+  return [
+    `Merchant: ${input.descriptor}`,
+    `Amount: ${(Math.abs(input.amountMinor) / 100).toFixed(2)}`,
+    `When: ${input.occurredAt.toUTCString()}`,
+    `Your history at this merchant: ${history}`,
+  ].join('\n');
+}
+
 export class ClaudeClassifier implements ModelClassifier {
   readonly #client: Anthropic;
   readonly #model: string;
@@ -69,29 +92,10 @@ export class ClaudeClassifier implements ModelClassifier {
           cache_control: { type: 'ephemeral' },
         },
       ],
-      messages: [{ role: 'user', content: this.#renderTransaction(input) }],
+      messages: [{ role: 'user', content: renderOutboundPayload(input) }],
     } as Anthropic.MessageCreateParamsNonStreaming);
 
     return this.#parse(response);
-  }
-
-  /** The complete outbound payload. This list is the FR-061 disclosure. */
-  #renderTransaction(input: ModelInput): string {
-    const priors = Object.entries(input.priorDistribution);
-    const total = priors.reduce((a, [, n]) => a + n, 0);
-    const history =
-      total === 0
-        ? 'No prior purchases at this merchant.'
-        : priors
-            .map(([category, n]) => `${category}: ${Math.round((n / total) * 100)}%`)
-            .join(', ');
-
-    return [
-      `Merchant: ${input.descriptor}`,
-      `Amount: ${(Math.abs(input.amountMinor) / 100).toFixed(2)}`,
-      `When: ${input.occurredAt.toUTCString()}`,
-      `Your history at this merchant: ${history}`,
-    ].join('\n');
   }
 
   #parse(response: Anthropic.Message): ModelResult {
