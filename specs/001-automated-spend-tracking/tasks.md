@@ -103,9 +103,9 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 - [ ] T043 [P] [US1] Write failing tests for Hosted Link token creation and `/link/token/get` polling in `tests/unit/plaid/link.test.ts`
 - [ ] T044 [P] [US1] Write failing tests for the `/transactions/sync` cursor loop — pagination, cursor persistence, and crash-mid-sync resumption — in `tests/unit/plaid/sync.test.ts`
-- [ ] T045 [P] [US1] Write failing tests for `added`/`modified`/`removed` application, asserting exactly-once ingestion and in-place update, in `tests/unit/ingestion/apply.test.ts` (quickstart V3)
-- [ ] T046 [P] [US1] Write failing tests for internal-transfer and refund/reversal detection in `tests/unit/ingestion/exclusions.test.ts` (FR-007, FR-008)
-- [ ] T047 [P] [US1] Write failing tests for foreign-currency handling asserting settled amount is authoritative and `original_amount` never enters a sum, in `tests/unit/ingestion/currency.test.ts` (quickstart V20)
+- [X] T045 [P] [US1] Write failing tests for `added`/`modified`/`removed` application, asserting exactly-once ingestion and in-place update, in `tests/unit/ingestion/apply.test.ts` (quickstart V3)
+- [X] T046 [P] [US1] Write failing tests for internal-transfer and refund/reversal detection in `tests/unit/ingestion/exclusions.test.ts` (FR-007, FR-008)
+- [X] T047 [P] [US1] Write failing tests for foreign-currency handling asserting settled amount is authoritative and `original_amount` never enters a sum, in `tests/unit/ingestion/currency.test.ts` (quickstart V20)
 - [X] T048 [P] [US1] Write failing tests for the local merchant-history classifier in `tests/unit/categorization/local.test.ts`
 - [ ] T049 [P] [US1] Write failing tests for the model fallback, asserting structured output parsing and that **ingestion still succeeds when categorization fails**, in `tests/unit/categorization/model.test.ts`
 - [X] T050 [P] [US1] Write failing tests for the two-stage pipeline asserting confirmed merchants resolve locally **with no API call**, in `tests/unit/categorization/pipeline.test.ts` (quickstart V6)
@@ -122,10 +122,10 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T055 [US1] Implement Hosted Link flow — `/link/token/create` without `redirect_uri`, then `/link/token/get` polling — in `src/main/plaid/link.ts` (research.md R1)
 - [ ] T056 [US1] Implement `/item/public_token/exchange` and encrypted `access_token` persistence in `src/main/plaid/link.ts`
 - [ ] T057 [US1] Implement the `/transactions/sync` cursor loop in `src/main/plaid/sync.ts`, persisting the cursor **in the same database transaction as the data it describes**
-- [ ] T058 [US1] Implement `added`/`modified`/`removed` application in `src/main/ingestion/apply.ts` — insert keyed on `plaid_transaction_id`, update in place, mark removed without deleting
-- [ ] T059 [US1] Implement internal-transfer detection in `src/main/ingestion/transfers.ts` (FR-007)
-- [ ] T060 [US1] Implement refund and reversal linkage in `src/main/ingestion/reversals.ts` (FR-008)
-- [ ] T061 [US1] Implement foreign-currency metadata capture in `src/main/ingestion/currency.ts` — settled amount authoritative, original display-only (FR-084–FR-086)
+- [X] T058 [US1] Implement `added`/`modified`/`removed` application in `src/main/ingestion/apply.ts` — insert keyed on `plaid_transaction_id`, update in place, mark removed without deleting
+- [X] T059 [US1] Implement internal-transfer detection in `src/main/ingestion/transfers.ts` (FR-007)
+- [X] T060 [US1] Implement refund and reversal linkage in `src/main/ingestion/reversals.ts` (FR-008)
+- [X] T061 [US1] Implement foreign-currency metadata capture in `src/main/ingestion/currency.ts` — settled amount authoritative, original display-only (FR-084–FR-086)
 - [ ] T062 [US1] Implement historical backfill on first connection in `src/main/plaid/backfill.ts` (FR-004)
 - [ ] T063 [US1] Seed the curated default category taxonomy in `src/main/db/seed-categories.ts` (FR-078)
 - [ ] T064 [US1] Implement category management — create with nesting check, rename, merge with restatement, hide — in `src/main/categories/manage.ts` (FR-079–FR-083)
@@ -161,8 +161,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 ### Implementation for User Story 2
 
 - [X] T080 [US2] Implement the shared cadence detector in `src/main/analysis/cadence.ts` as a **pure function over passed-in transactions** (Constitution XIII)
-- [ ] T081 [US2] Implement recurring-charge detection and ledger construction in `src/main/analysis/recurring.ts` (FR-019–FR-021)
-- [ ] T082 [US2] Implement amount-change tracking and inactive marking in `src/main/analysis/recurring.ts` (FR-023, FR-024)
+- [X] T081 [US2] Implement recurring-charge detection and ledger construction in `src/main/analysis/recurring.ts` (FR-019–FR-021)
+- [X] T082 [US2] Implement amount-change tracking and inactive marking in `src/main/analysis/recurring.ts` (FR-023, FR-024)
 - [ ] T082a [US2] Write failing test asserting a newly detected recurring charge notifies the user exactly once and respects `user_acknowledged`, in `tests/unit/analysis/recurring-notify.test.ts` (FR-022)
 - [ ] T082b [US2] Implement new-recurring-charge notification in `src/main/analysis/recurring.ts`, delivered via `src/main/notifications/deliver.ts` (FR-022)
 - [ ] T083 [US2] Implement IPC handlers for `recurring:list`, `recurring:acknowledge`, `recurring:markNotRecurring` in `src/main/ipc/handlers/recurring.ts`
@@ -180,17 +180,17 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 ### Tests for User Story 3 (MANDATORY — write first, must fail)
 
-- [ ] T085 [P] [US3] Write failing tests for income detection against credit-direction transactions, including decoy irregular credits, in `tests/unit/analysis/income.test.ts`
-- [ ] T086 [P] [US3] Write failing test asserting the balance projection is **withheld** when no income is detected or confidence is low, in `tests/unit/analysis/projection.test.ts` (FR-073)
+- [X] T085 [P] [US3] Write failing tests for income detection against credit-direction transactions, including decoy irregular credits, in `tests/unit/analysis/income.test.ts`
+- [X] T086 [P] [US3] Write failing test asserting the balance projection is **withheld** when no income is detected or confidence is low, in `tests/unit/analysis/projection.test.ts` (FR-073)
 - [X] T087 [P] [US3] Write failing tests for each alert rule with near-miss boundary cases in `tests/unit/analysis/alerts.test.ts`
 - [X] T088 [P] [US3] Write failing test asserting `dedupe_key` prevents duplicate alerts on re-ingestion and when one event satisfies multiple triggers, in `tests/unit/analysis/alert-dedupe.test.ts` (FR-031)
 - [ ] T089 [P] [US3] Write failing tests for downtime catch-up — backlog alerts carry true event time and collapse above threshold — in `tests/unit/scheduler/catchup.test.ts` (quickstart V9)
 
 ### Implementation for User Story 3
 
-- [ ] T090 [US3] Implement income detection reusing `src/main/analysis/cadence.ts` against credit-direction transactions in `src/main/analysis/income.ts` (FR-069, FR-070)
-- [ ] T091 [US3] Implement income confirmation and override with re-derivation suppression in `src/main/analysis/income.ts` (FR-071, FR-072)
-- [ ] T092 [US3] Implement balance-forward projection with confidence-gated withholding in `src/main/analysis/projection.ts` (FR-029, FR-073)
+- [X] T090 [US3] Implement income detection reusing `src/main/analysis/cadence.ts` against credit-direction transactions in `src/main/analysis/income.ts` (FR-069, FR-070)
+- [X] T091 [US3] Implement income confirmation and override with re-derivation suppression in `src/main/analysis/income.ts` (FR-071, FR-072)
+- [X] T092 [US3] Implement balance-forward projection with confidence-gated withholding in `src/main/analysis/projection.ts` (FR-029, FR-073)
 - [X] T093 [US3] Implement alert rule evaluation for all five types in `src/main/analysis/alerts.ts` as pure functions (FR-026–FR-029)
 - [X] T094 [US3] Implement the `dedupe_key` unique-index enforcement in `src/main/analysis/alerts.ts` — **suppression is a database constraint, not application logic a catch-up path can bypass** (FR-031)
 - [X] T095 [US3] Implement false-positive dismissal that does not disable the rule in `src/main/analysis/alerts.ts` (FR-032)
@@ -215,7 +215,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 - [X] T102 [P] [US4] Write failing tests for baseline computation and the `is_sufficient` gate in `tests/unit/analysis/baselines.test.ts`
 - [X] T103 [P] [US4] Write failing test asserting **no deviation claim is made** when history is insufficient, in `tests/unit/analysis/baselines-insufficient.test.ts` (FR-040, Constitution IX)
-- [ ] T104 [P] [US4] Write failing tests for digest generation including the empty-week case in `tests/unit/analysis/digest.test.ts`
+- [X] T104 [P] [US4] Write failing tests for digest generation including the empty-week case in `tests/unit/analysis/digest.test.ts`
 
 ### Implementation for User Story 4
 
