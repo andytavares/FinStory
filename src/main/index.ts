@@ -263,11 +263,21 @@ if (!app.requestSingleInstanceLock()) {
     try {
       await bootstrap();
     } catch (error) {
-      dialog.showErrorBox(
-        'Money could not start',
-        error instanceof Error ? error.message : 'The local database could not be opened.',
+      const message =
+        error instanceof Error ? error.message : 'The local database could not be opened.';
+      // A native dialog can be missed or dismissed; show the reason in a window
+      // too, so the failure is never a silent blank screen.
+      dialog.showErrorBox('Money could not start', message);
+      const failureWindow = new BrowserWindow({ width: 620, height: 320, show: true });
+      void failureWindow.loadURL(
+        `data:text/html;charset=utf-8,${encodeURIComponent(
+          `<body style="background:#0d151c;color:#e8eaed;font:13px system-ui;padding:32px">
+             <h1 style="font-size:16px;margin:0 0 12px">Money could not start</h1>
+             <p style="color:#8b95a1;margin:0 0 16px">Your data has not been changed.</p>
+             <pre style="white-space:pre-wrap;background:#161e26;padding:12px;border:1px solid #2a3441">${message.replace(/[<>&]/g, '')}</pre>
+           </body>`,
+        )}`,
       );
-      app.quit();
       return;
     }
 

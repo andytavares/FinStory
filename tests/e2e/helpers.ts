@@ -32,8 +32,8 @@ export async function dismissSetup(page: Page): Promise<void> {
   }
 }
 
-export async function launch(): Promise<Harness> {
-  const userDataDir = mkdtempSync(join(tmpdir(), 'money-e2e-'));
+export async function launch(seededDir?: string): Promise<Harness> {
+  const userDataDir = seededDir ?? mkdtempSync(join(tmpdir(), 'money-e2e-'));
   const app = await electron.launch({
     args: ['./out/main/index.js', `--user-data-dir=${userDataDir}`],
     env: { ...process.env, MONEY_E2E: '1' },

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('electron', () => ({ app: { isPackaged: false } }));
 vi.mock('drizzle-orm/better-sqlite3/migrator', () => ({ migrate: vi.fn() }));
 
 const { runMigrations } = await import('@main/db/migrate');

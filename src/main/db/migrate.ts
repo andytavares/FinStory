@@ -1,5 +1,4 @@
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { app } from 'electron';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DatabaseHandle } from './client';
@@ -19,8 +18,12 @@ function resolveMigrationsFolder(): string {
     join(__dirname, '../../src/main/db/migrations'),
     join(process.cwd(), 'src/main/db/migrations'),
   ];
-  if (app?.isPackaged) {
-    candidates.unshift(join(process.resourcesPath, 'app.asar', 'out/main/migrations'));
+  // Read Electron's packaged flag without importing it: this module is also
+  // used by tooling and tests that run outside an Electron process.
+  const electronApp = (globalThis as { process?: { resourcesPath?: string } }).process;
+  const isPackaged = Boolean(electronApp?.resourcesPath) && !__dirname.includes('/src/');
+  if (isPackaged && electronApp?.resourcesPath) {
+    candidates.unshift(join(electronApp.resourcesPath, 'app.asar', 'out/main/migrations'));
   }
 
   for (const candidate of candidates) {
