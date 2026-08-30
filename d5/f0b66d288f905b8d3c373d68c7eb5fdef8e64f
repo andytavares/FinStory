@@ -1,0 +1,48 @@
+package.json
+  s_f1d20e583de5c0::t_4d8b64772511fc 24
+tests/unit/shared/periods.test.ts
+  s_f1d20e583de5c0::t_f4efed1a57d44c 1-54
+tests/unit/secrets/keyring.test.ts
+  s_f1d20e583de5c0::t_2f386bf2f05f89 10-11,13
+  s_f1d20e583de5c0::t_64def3fe917771 1-2,4-9,12,14,18-38,40-43,54-59
+  s_f1d20e583de5c0::t_14be06d4d3afb2 3,15-17,39,44-53
+src/main/secrets/keyring.ts
+  s_f1d20e583de5c0::t_1c6451ed2402b5 1,3-25,31-33
+  s_f1d20e583de5c0::t_14be06d4d3afb2 2,26-30
+src/main/secrets/backend.ts
+  s_f1d20e583de5c0::t_1c6451ed2402b5 1-8,12,26,28
+  s_f1d20e583de5c0::t_14be06d4d3afb2 9-11,13-25,27
+src/main/secrets/availability.ts
+  s_f1d20e583de5c0::t_14be06d4d3afb2 1,22
+  s_f1d20e583de5c0::t_1c6451ed2402b5 2-21,23-33
+src/shared/periods.ts
+  s_f1d20e583de5c0::t_4d8b64772511fc 1-86
+tests/unit/secrets/availability.test.ts
+  s_f1d20e583de5c0::t_64def3fe917771 1-17,27-38
+  s_f1d20e583de5c0::t_d9aff10e19a8ab 18-26
+src/main/db/schema.ts
+  s_f1d20e583de5c0::t_0c160f08b3bb99 1-250
+src/main/secrets/electron-backend.ts
+  s_f1d20e583de5c0::t_14be06d4d3afb2 2,14-16
+  s_f1d20e583de5c0::t_1c6451ed2402b5 1,3-13,17-18
+package-lock.json
+  s_f1d20e583de5c0::t_add55a660ef577 13,411-416
+specs/001-automated-spend-tracking/tasks.md
+  s_f1d20e583de5c0::t_a19e7858b5059f 56-60,74-75,80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d5f0b66d288f905b8d3c373d68c7eb5fdef8e64f",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
