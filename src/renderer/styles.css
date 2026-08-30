@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+/*
+ * Design direction: "quiet instrument".
+ *
+ * This app reads your finances and reports; it never asks for input. So the
+ * interface behaves like a well-made gauge — dense, calm, legible at a glance,
+ * with colour reserved almost entirely for things that actually need attention.
+ *
+ * Money is set in tabular figures so columns align and can be scanned
+ * vertically. That is the one typographic decision that matters most here:
+ * these are numbers to be compared, not read.
+ *
+ * No webfonts: this is an offline-capable local app and must render identically
+ * with no network.
+ */
+
+@theme {
+  --color-ground: oklch(0.19 0.02 250);
+  --color-surface: oklch(0.23 0.02 250);
+  --color-surface-raised: oklch(0.27 0.02 250);
+  --color-line: oklch(0.34 0.02 250);
+  --color-ink: oklch(0.94 0.01 250);
+  --color-ink-muted: oklch(0.72 0.02 250);
+  --color-ink-faint: oklch(0.56 0.02 250);
+
+  /* Reserved. Signal, never decoration. */
+  --color-attention: oklch(0.78 0.16 68);
+  --color-positive: oklch(0.76 0.13 165);
+  --color-negative: oklch(0.70 0.17 22);
+
+  --font-display: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-numeric: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Money and any figure meant to be compared down a column. */
+.numeric {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+/* Constitution XIV: icons are flat, inherit currentColor, sized via CSS. */
+.icon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.75;
+}
+.icon-lg svg {
+  width: 20px;
+  height: 20px;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

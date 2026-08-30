@@ -86,7 +86,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T036 Implement the `contextBridge` surface in `src/preload/index.ts` exposing only the documented channels
 - [ ] T037 Write failing test asserting no secret value is reachable from the renderer and that `settings:get` returns presence booleans only, in `tests/unit/ipc/secret-isolation.test.ts` (FR-047, quickstart V15)
 - [X] T038 Implement Electron app lifecycle in `src/main/index.ts`: single-instance lock, tray residency, `app.setLoginItemSettings` for launch-at-login (FR-056, research.md R6)
-- [ ] T039 [P] Set up Tailwind and the base renderer shell in `src/renderer/main.tsx` and `src/renderer/App.tsx`
+- [X] T039 [P] Set up Tailwind and the base renderer shell in `src/renderer/main.tsx` and `src/renderer/App.tsx`
 - [ ] T040 [P] Write ADR `docs/adr/0001-sqlcipher-driver-exception.md` recording the single-publisher adoption, health evidence, and migration trigger (Constitution III, XI; research.md R9)
 - [ ] T041 [P] Write ADR `docs/adr/0002-plaid-client-secret-on-device.md` recording the accepted deviation, blast radius, and what it forecloses (research.md R10)
 - [ ] T042 [P] Write ADR `docs/adr/0004-polling-over-webhooks.md` recording the trade and its consequences for alert latency (research.md R2, R6)
@@ -136,11 +136,11 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T069 [US1] Implement the single canonical spending predicate (excludes removed, excludes transfers, nets reversals) in `src/main/analysis/spending.ts` — **this must live in exactly one place** (Constitution II)
 - [X] T070 [US1] Implement category and merchant breakdown queries in `src/main/analysis/breakdown.ts` (FR-043)
 - [ ] T071 [US1] Implement IPC handlers for `setup:*`, `link:*`, `institutions:*`, `dashboard:get`, `breakdown:*`, `transactions:query`, `categories:*`, `sync:now` in `src/main/ipc/handlers/`
-- [ ] T072 [P] [US1] Build the first-run setup view in `src/renderer/views/Setup.tsx` — credentials, environment, Hosted Link launch
-- [ ] T073 [P] [US1] Build the dashboard view in `src/renderer/views/Dashboard.tsx` — balances, cash flow, category breakdown, what changed (FR-062, SC-019)
-- [ ] T074 [P] [US1] Build the transaction register with search and filters in `src/renderer/views/Register.tsx` (FR-064)
+- [X] T072 [P] [US1] Build the first-run setup view in `src/renderer/views/Setup.tsx` — credentials, environment, Hosted Link launch
+- [X] T073 [P] [US1] Build the dashboard view in `src/renderer/views/Dashboard.tsx` — balances, cash flow, category breakdown, what changed (FR-062, SC-019)
+- [X] T074 [P] [US1] Build the transaction register with search and filters in `src/renderer/views/Register.tsx` (FR-064)
 - [ ] T075 [P] [US1] Build category management UI in `src/renderer/views/Categories.tsx` (FR-079–FR-082)
-- [ ] T076 [US1] Implement drill-down from any figure to underlying transactions in `src/renderer/components/DrillDown.tsx` — **≤2 interactions** (FR-063, SC-018)
+- [X] T076 [US1] Implement drill-down from any figure to underlying transactions in `src/renderer/components/DrillDown.tsx` — **≤2 interactions** (FR-063, SC-018)
 
 **Checkpoint**: MVP complete. Quickstart V2–V6 and V19–V20 pass.
 
@@ -165,8 +165,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T082 [US2] Implement amount-change tracking and inactive marking in `src/main/analysis/recurring.ts` (FR-023, FR-024)
 - [ ] T082a [US2] Write failing test asserting a newly detected recurring charge notifies the user exactly once and respects `user_acknowledged`, in `tests/unit/analysis/recurring-notify.test.ts` (FR-022)
 - [ ] T082b [US2] Implement new-recurring-charge notification in `src/main/analysis/recurring.ts`, delivered via `src/main/notifications/deliver.ts` (FR-022)
-- [ ] T083 [US2] Implement IPC handlers for `recurring:list`, `recurring:acknowledge`, `recurring:markNotRecurring` in `src/main/ipc/handlers/recurring.ts`
-- [ ] T084 [US2] Build the recurring-charge ledger view in `src/renderer/views/Recurring.tsx` with cumulative totals and amount history
+- [X] T083 [US2] Implement IPC handlers for `recurring:list`, `recurring:acknowledge`, `recurring:markNotRecurring` in `src/main/ipc/handlers/recurring.ts`
+- [X] T084 [US2] Build the recurring-charge ledger view in `src/renderer/views/Recurring.tsx` with cumulative totals and amount history
 
 **Checkpoint**: Quickstart V7 passes. The highest value-per-effort insight is now live.
 
@@ -197,9 +197,9 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T096 [US3] Implement native notification delivery with a retained-undelivered queue in `src/main/notifications/deliver.ts` (FR-030, FR-034)
 - [X] T097 [US3] Implement the scheduler with cron cadence plus **on-launch catch-up reconciliation** in `src/main/scheduler/index.ts` (FR-056, FR-058, research.md R6)
 - [X] T098 [US3] Implement backlog-burst collapse into a single "while you were away" summary in `src/main/scheduler/catchup.ts` (FR-031, FR-057)
-- [ ] T099 [US3] Implement IPC handlers for `income:*`, `alerts:*`, `alertRules:*` in `src/main/ipc/handlers/`
-- [ ] T100 [P] [US3] Build the income view with confirm and override in `src/renderer/views/Income.tsx`
-- [ ] T101 [P] [US3] Build alert history and rule configuration in `src/renderer/views/Alerts.tsx` (FR-033)
+- [X] T099 [US3] Implement IPC handlers for `income:*`, `alerts:*`, `alertRules:*` in `src/main/ipc/handlers/`
+- [X] T100 [P] [US3] Build the income view with confirm and override in `src/renderer/views/Income.tsx`
+- [X] T101 [P] [US3] Build alert history and rule configuration in `src/renderer/views/Alerts.tsx` (FR-033)
 
 **Checkpoint**: Quickstart V8, V9, V17 pass. Downtime no longer loses alerts.
 
@@ -243,8 +243,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 
 - [X] T111 [US5] Implement monthly report generation in `src/main/analysis/reports.ts` covering income, spending, category comparison, trend, largest purchases, recurring audit, savings rate, annual projection (FR-038)
 - [X] T112 [US5] Implement report regeneration when late-arriving transactions affect a closed period in `src/main/analysis/reports.ts` (FR-042)
-- [ ] T113 [US5] Implement IPC handlers for `reports:list` and `reports:get` in `src/main/ipc/handlers/reports.ts`
-- [ ] T114 [P] [US5] Build the reports view in `src/renderer/views/Reports.tsx`
+- [X] T113 [US5] Implement IPC handlers for `reports:list` and `reports:get` in `src/main/ipc/handlers/reports.ts`
+- [X] T114 [P] [US5] Build the reports view in `src/renderer/views/Reports.tsx`
 - [ ] T115 [P] [US5] Build spending-over-time charts in `src/renderer/charts/` using Recharts. **Load the `dataviz` skill before writing chart code** (FR-065)
 
 **Checkpoint**: Quickstart V13 passes. Product is feature-complete against the source article.
@@ -271,8 +271,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T122 [US6] Implement retroactive-candidate counting and the separate confirmed apply path in `src/main/categorization/retroactive.ts` (FR-074–FR-076)
 - [X] T123 [US6] Implement full restatement of derived data after any correction in `src/main/analysis/restate.ts` (FR-015, FR-077)
 - [X] T124 [US6] Implement merchant-profile updating so corrections deterministically drive future categorization in `src/main/categorization/local.ts` (FR-016)
-- [ ] T125 [US6] Implement IPC handlers for `review:*` in `src/main/ipc/handlers/review.ts`
-- [ ] T126 [US6] Build the review queue view with bulk selection and the retroactive confirmation prompt in `src/renderer/views/Review.tsx` (FR-067, FR-074)
+- [X] T125 [US6] Implement IPC handlers for `review:*` in `src/main/ipc/handlers/review.ts`
+- [X] T126 [US6] Build the review queue view with bulk selection and the retroactive confirmation prompt in `src/renderer/views/Review.tsx` (FR-067, FR-074)
 
 **Checkpoint**: All six user stories complete. Quickstart V18 passes.
 
@@ -288,8 +288,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T130 Implement the health aggregation query in `src/main/diagnostics/health.ts` (FR-088)
 - [X] T131 Implement persistent-failure detection and notification in `src/main/diagnostics/health.ts` (FR-092)
 - [X] T132 Implement diagnostic export in `src/main/diagnostics/export.ts` (FR-090)
-- [ ] T133 Implement IPC handlers for `health:get` and `diagnostics:export` in `src/main/ipc/handlers/diagnostics.ts`
-- [ ] T134 Build the system health view in `src/renderer/views/Health.tsx` showing per-account status, last successful sync, and recent failures
+- [X] T133 Implement IPC handlers for `health:get` and `diagnostics:export` in `src/main/ipc/handlers/diagnostics.ts`
+- [X] T134 Build the system health view in `src/renderer/views/Health.tsx` showing per-account status, last successful sync, and recent failures
 
 **Checkpoint**: Quickstart V21, V22 pass.
 
@@ -306,7 +306,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T140a [P] Write failing test asserting transaction history is retained for at least 24 months and that no pruning removes data inside that window, in `tests/unit/data/retention.test.ts` (FR-050)
 - [X] T140b Implement the retention policy in `src/main/data/retention.ts` (FR-050)
 - [ ] T141 Implement settings management including confidence threshold, poll interval, categorization mode, and schedules in `src/main/settings/index.ts`
-- [ ] T142 [P] Build the settings view in `src/renderer/views/Settings.tsx`, including the FR-061 disclosure of exactly what is transmitted for categorization
+- [X] T142 [P] Build the settings view in `src/renderer/views/Settings.tsx`, including the FR-061 disclosure of exactly what is transmitted for categorization
 - [ ] T143 [P] Write E2E test for first-run setup through first successful sync in `tests/e2e/setup.spec.ts`, asserting completion within the 30-minute target (SC-009)
 - [ ] T144 [P] Write E2E test for dashboard drill-down in ≤2 interactions in `tests/e2e/drilldown.spec.ts` (SC-018)
 - [ ] T145 [P] Write E2E test for the review queue and retroactive correction flow in `tests/e2e/review.spec.ts`
