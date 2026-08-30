@@ -16,11 +16,11 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      // Principle V: "a file at 0% coverage is a defect, regardless of the
-      // project-wide aggregate." Without `all`, an untested file is simply
-      // absent from the report rather than visibly at zero.
-      all: true,
       reporter: ['text', 'html'],
+      // Principle V: "a file at 0% coverage is a defect, regardless of the
+      // project-wide aggregate." This glob measures every source file, so an
+      // untested one reports at 0% rather than being absent from the report.
+      // (Verified via coverage-summary.json — Vitest 4 has no `all` option.)
       include: ['src/**/*.ts', 'src/**/*.tsx'],
       exclude: ['src/**/*.d.ts', 'src/main/db/migrations/**'],
       thresholds: {
