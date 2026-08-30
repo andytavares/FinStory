@@ -34,6 +34,7 @@ import { fetchItemAccounts } from '@main/plaid/accounts';
 import { isEverydayAccount } from '@main/accounts/everyday';
 import { summarizeSync, type SyncOutcome } from '@main/sync/outcome';
 import { resolveMerchantName } from '@shared/merchant-name';
+import { humanizeCategoryIds } from '@shared/category-names';
 import type { OverrideKind, OverrideRecord } from '@shared/types';
 
 export interface ModelDescription {
@@ -76,12 +77,17 @@ export interface ServiceDeps {
   readonly buildPipeline: () => Promise<CategorizationPipeline>;
   readonly describeModel: () => Promise<ModelDescription>;
   readonly sync: () => Promise<SyncOutcome>;
+  /** Push an event to the renderer. Progress on long jobs, nothing else. */
+  readonly emit: (channel: string, payload: unknown) => void;
 }
 
 type TransactionRow = typeof t.transactions.$inferSelect;
 
 export class Services implements AppServices {
   private pendingLinkToken: string | null = null;
+  /** Set by cancelRecategorize; read by the loop between transactions. */
+  private recategorizeCancelled = false;
+  private recategorizeRunning = false;
 
   constructor(private readonly deps: ServiceDeps) {}
 
@@ -623,10 +629,11 @@ export class Services implements AppServices {
 
   async reviewQueue(page: unknown): Promise<unknown> {
     const { limit, offset } = page as { limit: number; offset: number };
-    const [live, txs, aliases] = await Promise.all([
+    const [live, txs, aliases, categoryNames] = await Promise.all([
       this.liveCategorizations(),
       this.db.select().from(t.transactions),
       this.merchantAliases(),
+      this.categoryNames(),
     ]);
     const byId = new Map(txs.map((x) => [x.id, x]));
     const flagged = [...live.values()].filter((c) => c.needsReview && !c.isConfirmed);
@@ -656,8 +663,11 @@ export class Services implements AppServices {
               originalAmountMinor: tx.originalAmountMinor,
             },
             guessCategoryId: c.categoryId,
+            // The name, because an identifier is not a name. The model quotes
+            // taxonomy ids back in its reasoning, so that text is cleaned too.
+            guessCategoryName: categoryNames.get(c.categoryId) ?? c.categoryId,
             confidence: c.confidence,
-            reasoning: c.reasoning ?? null,
+            reasoning: c.reasoning ? humanizeCategoryIds(c.reasoning, categoryNames) : null,
           },
         ];
       }),
@@ -1620,6 +1630,14 @@ export class Services implements AppServices {
     if (description.localOnly) {
       return { ok: false, examined: 0, changed: 0, message: description.reason };
     }
+    if (this.recategorizeRunning) {
+      throw new IpcFailure(
+        'VALIDATION_FAILED',
+        'A recategorization is already running.',
+        true,
+        'Wait for it to finish',
+      );
+    }
 
     const [rows, live] = await Promise.all([
       this.db.select().from(t.transactions),
@@ -1638,47 +1656,98 @@ export class Services implements AppServices {
     const pipeline = await this.deps.buildPipeline();
     const at = this.deps.clock.now().toISOString();
     let changed = 0;
+    let processed = 0;
     let stoppedEarly = false;
 
-    for (const row of targets) {
-      const result = await pipeline.categorize({
-        transactionId: row.id,
-        descriptor: row.merchantName ?? row.description,
-        amountMinor: row.amountMinor,
-        occurredAt: new Date(row.datetime ?? `${row.postedDate}T12:00:00Z`),
-      });
+    this.recategorizeRunning = true;
+    this.recategorizeCancelled = false;
+    this.deps.emit('categorization:progress', {
+      processed: 0,
+      total: targets.length,
+      changed: 0,
+      done: false,
+    });
 
-      // Accept a learned answer too, not only a fresh model call: once this run
-      // has seen a merchant enough times the pipeline resolves it from that
-      // history, and skipping those would leave repeat merchants untouched.
-      if (result.categoryId !== UNCATEGORIZABLE) {
-        await this.replaceCategorization(row.id, result, at);
-        changed += 1;
-      }
+    try {
+      for (const row of targets) {
+        if (this.recategorizeCancelled) break;
 
-      // A bad key or a down endpoint should not mean one failed request per
-      // transaction. Stop and say so.
-      if (pipeline.modelFailures >= MODEL_FAILURE_LIMIT) {
-        stoppedEarly = true;
-        break;
+        const result = await pipeline.categorize({
+          transactionId: row.id,
+          descriptor: row.merchantName ?? row.description,
+          amountMinor: row.amountMinor,
+          occurredAt: new Date(row.datetime ?? `${row.postedDate}T12:00:00Z`),
+        });
+
+        // Accept a learned answer too, not only a fresh model call: once this
+        // run has seen a merchant enough times the pipeline resolves it from
+        // that history, and skipping those would leave repeat merchants alone.
+        if (result.categoryId !== UNCATEGORIZABLE) {
+          await this.replaceCategorization(row.id, result, at);
+          changed += 1;
+        }
+        processed += 1;
+        this.deps.emit('categorization:progress', {
+          processed,
+          total: targets.length,
+          changed,
+          done: false,
+        });
+
+        // A bad key or a down endpoint should not mean one failed request per
+        // transaction. Stop and say so.
+        if (pipeline.modelFailures >= MODEL_FAILURE_LIMIT) {
+          stoppedEarly = true;
+          break;
+        }
       }
+    } finally {
+      this.recategorizeRunning = false;
     }
 
+    const cancelled = this.recategorizeCancelled;
+    this.recategorizeCancelled = false;
+
     const scopeLabel = scope === 'all' ? 'transactions' : 'unresolved transactions';
-    const message = stoppedEarly
-      ? `Stopped after ${pipeline.modelFailures} model failures. Recategorized ${changed} of ${targets.length} ${scopeLabel}. Last error: ${explainModelError(pipeline.lastModelError)}`
-      : pipeline.lastModelError
-        ? `Recategorized ${changed} of ${targets.length} ${scopeLabel}. The model failed on ${pipeline.modelFailures}: ${explainModelError(pipeline.lastModelError)}`
-        : `Recategorized ${changed} of ${targets.length} ${scopeLabel}.`;
+    const message = cancelled
+      ? `Stopped. Recategorized ${changed} of ${targets.length} ${scopeLabel}; what was done is kept.`
+      : stoppedEarly
+        ? `Stopped after ${pipeline.modelFailures} model failures. Recategorized ${changed} of ${targets.length} ${scopeLabel}. Last error: ${explainModelError(pipeline.lastModelError)}`
+        : pipeline.lastModelError
+          ? `Recategorized ${changed} of ${targets.length} ${scopeLabel}. The model failed on ${pipeline.modelFailures}: ${explainModelError(pipeline.lastModelError)}`
+          : `Recategorized ${changed} of ${targets.length} ${scopeLabel}.`;
+
+    this.deps.emit('categorization:progress', {
+      processed,
+      total: targets.length,
+      changed,
+      done: true,
+      cancelled,
+      message,
+    });
 
     return {
-      ok: pipeline.lastModelError === null,
+      ok: !cancelled && pipeline.lastModelError === null,
       examined: targets.length,
+      processed,
       changed,
+      cancelled,
       modelFailures: pipeline.modelFailures,
       stoppedEarly,
       message,
     };
+  }
+
+  /**
+   * Ask the running recategorization to stop.
+   *
+   * Checked between transactions, so it stops after the one in flight rather
+   * than abandoning a request mid-write. Everything already done is kept.
+   */
+  async cancelRecategorize(): Promise<unknown> {
+    if (!this.recategorizeRunning) return { ok: true, running: false };
+    this.recategorizeCancelled = true;
+    return { ok: true, running: true };
   }
 
   /**

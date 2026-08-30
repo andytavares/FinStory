@@ -78,4 +78,5 @@ export interface AppServices {
   modelStatus(): Promise<unknown>;
   testModel(): Promise<unknown>;
   recategorizePending(input?: unknown): Promise<unknown>;
+  cancelRecategorize(): Promise<unknown>;
 }

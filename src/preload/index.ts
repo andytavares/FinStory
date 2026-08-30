@@ -66,12 +66,14 @@ export const INVOKE_CHANNELS = [
   'model:status',
   'model:test',
   'categorization:rerun',
+  'categorization:cancel',
   'overrides:list',
   'overrides:clear',
 ] as const;
 
 const EVENT_CHANNELS = [
   'sync:progress',
+  'categorization:progress',
   'sync:complete',
   'alert:fired',
   'catchup:summary',

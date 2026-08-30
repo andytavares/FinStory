@@ -63,6 +63,7 @@ const CONTRACT_CHANNELS = [
   'model:status',
   'model:test',
   'categorization:rerun',
+  'categorization:cancel',
 ];
 
 describe('IPC wiring matches the contract', () => {

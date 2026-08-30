@@ -206,7 +206,7 @@ export function Review(): React.JSX.Element {
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px]">{transactionName(item.transaction)}</p>
               <p className="text-[12px] text-[var(--color-ink-faint)]">
-                {shortDate(item.transaction.postedDate)} · guessed {item.guessCategoryId} at{' '}
+                {shortDate(item.transaction.postedDate)} · guessed {item.guessCategoryName} at{' '}
                 {Math.round(item.confidence * 100)}%
               </p>
               {/* US6 AS1: the guess must be inspectable, not opaque. */}

@@ -44,6 +44,14 @@ body,
   height: 100%;
 }
 
+/* This is a desktop window, not a web page. The document itself must never
+   scroll or rubber-band past the chrome — only the panes inside it scroll. */
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   background: var(--color-ground);

@@ -222,6 +222,7 @@ describe('Review', () => {
       originalAmountMinor: null,
     },
     guessCategoryId: 'home',
+    guessCategoryName: 'Home & Garden',
     confidence: 0.62,
     reasoning: '60% of your 40 prior purchases here',
   };

@@ -73,6 +73,7 @@ describe('Services against a real encrypted database', () => {
         ),
       describeModel: () =>
         Promise.resolve({ provider: 'local_only', model: null, localOnly: true, reason: 'History only in tests' }),
+      emit: () => {},
     });
   });
 
@@ -228,6 +229,7 @@ describe('the wired registry answers every channel against real services', () =>
         ),
       describeModel: () =>
         Promise.resolve({ provider: 'local_only', model: null, localOnly: true, reason: 'History only in tests' }),
+      emit: () => {},
     });
     registry = new IpcRegistry();
     registerHandlers(registry, services);
@@ -306,6 +308,7 @@ describe('Plaid link flow error handling', () => {
         ),
       describeModel: () =>
         Promise.resolve({ provider: 'local_only', model: null, localOnly: true, reason: 'History only in tests' }),
+      emit: () => {},
     });
   });
 

@@ -114,8 +114,8 @@ export function App(): React.JSX.Element {
   };
 
   return (
-    <div className="flex h-full">
-      <nav className="flex w-52 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-surface)] pt-10">
+    <div className="flex h-full overflow-hidden">
+      <nav className="flex w-52 shrink-0 flex-col overflow-y-auto overscroll-contain border-r border-[var(--color-line)] bg-[var(--color-surface)] pt-10">
         <p className="px-5 pb-4 text-[13px] tracking-[0.2em] text-[var(--color-ink-faint)]">MONEY</p>
         {NAV.map(({ id, label, Icon }) => (
           <button
@@ -134,7 +134,7 @@ export function App(): React.JSX.Element {
         ))}
       </nav>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto overscroll-contain">
         {/* History controls: a drill-down is a navigation, so it needs a way back. */}
         <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-[var(--color-line)] bg-[var(--color-ground)] px-8 py-2">
           <button

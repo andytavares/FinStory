@@ -80,6 +80,8 @@ export interface DashboardResponse extends Qualified {
 export interface ReviewItem {
   readonly transaction: TransactionView;
   readonly guessCategoryId: string;
+  /** What to show. The id is an identifier and is never displayed. */
+  readonly guessCategoryName: string;
   readonly confidence: number;
   readonly reasoning: string | null;
 }

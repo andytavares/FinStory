@@ -28,6 +28,7 @@ function reviewRow(overrides: Record<string, unknown>) {
           ...overrides,
         },
         guessCategoryId: 'dining',
+        guessCategoryName: 'Dining & Takeout',
         confidence: 0.4,
         reasoning: 'Food delivery',
       },

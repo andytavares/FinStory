@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import { RecategorizeButton } from '@renderer/components/RecategorizeButton';
-import { installMoneyBridge } from './setup';
+import { installMoneyBridge, emitToRenderer } from './setup';
 
 afterEach(cleanup);
 
@@ -68,3 +68,89 @@ describe('the recategorize button', () => {
     await waitFor(() => expect(onDone).toHaveBeenCalled());
   });
 });
+
+describe('progress and stopping', () => {
+  it('shows a progress bar while a run is in flight', async () => {
+    installMoneyBridge({ 'categorization:rerun': { message: 'done' } });
+    render(<RecategorizeButton />);
+    fireEvent.click(screen.getByText('Recategorize with AI'));
+    act(() => {
+      emitToRenderer('categorization:progress', {
+        processed: 12,
+        total: 60,
+        changed: 9,
+        done: false,
+      });
+    });
+    const bar = screen.getByRole('progressbar');
+    expect(bar.getAttribute('aria-valuenow')).toBe('12');
+    expect(bar.getAttribute('aria-valuemax')).toBe('60');
+    expect(screen.getByText(/12 of 60 · 9 recategorized/)).toBeDefined();
+    await waitFor(() => screen.getByText('Recategorize with AI'));
+  });
+
+  it('offers Stop only while running', async () => {
+    installMoneyBridge({ 'categorization:rerun': { message: 'done' } });
+    render(<RecategorizeButton />);
+    expect(screen.queryByText('Stop')).toBeNull();
+    fireEvent.click(screen.getByText('Recategorize with AI'));
+    expect(screen.getByText('Stop')).toBeDefined();
+    await waitFor(() => expect(screen.queryByText('Stop')).toBeNull());
+  });
+
+  it('asks the main process to cancel', async () => {
+    const invoke = vi.fn(() => Promise.resolve({ message: 'stopped' }));
+    Object.defineProperty(globalThis.window, 'money', {
+      configurable: true,
+      value: { invoke, on: () => () => {} },
+    });
+    render(<RecategorizeButton />);
+    fireEvent.click(screen.getByText('Recategorize with AI'));
+    fireEvent.click(screen.getByText('Stop'));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('categorization:cancel', undefined));
+  });
+
+  it('says it is finishing the transaction in flight', async () => {
+    installMoneyBridge({
+      'categorization:rerun': { message: 'done' },
+      'categorization:cancel': { ok: true },
+    });
+    render(<RecategorizeButton />);
+    fireEvent.click(screen.getByText('Recategorize with AI'));
+    act(() => {
+      emitToRenderer('categorization:progress', {
+        processed: 3,
+        total: 60,
+        changed: 2,
+        done: false,
+      });
+    });
+    fireEvent.click(screen.getByText('Stop'));
+    expect(screen.getByText(/finishing the one in flight/)).toBeDefined();
+    await waitFor(() => screen.getByText('Recategorize with AI'));
+  });
+
+  it('clears the bar when the run reports done', async () => {
+    installMoneyBridge({ 'categorization:rerun': { message: 'done' } });
+    render(<RecategorizeButton />);
+    fireEvent.click(screen.getByText('Recategorize with AI'));
+    act(() => {
+      emitToRenderer('categorization:progress', { processed: 5, total: 60, changed: 5, done: false });
+    });
+    expect(screen.getByRole('progressbar')).toBeDefined();
+    act(() => {
+      emitToRenderer('categorization:progress', { processed: 60, total: 60, changed: 55, done: true });
+    });
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    await waitFor(() => screen.getByText('Recategorize with AI'));
+  });
+
+  it('hides the scope picker while running, since it cannot change mid-run', async () => {
+    installMoneyBridge({ 'categorization:rerun': { message: 'done' } });
+    render(<RecategorizeButton />);
+    expect(screen.getByLabelText('What to recategorize')).toBeDefined();
+    fireEvent.click(screen.getByText('Recategorize with AI'));
+    expect(screen.queryByLabelText('What to recategorize')).toBeNull();
+    await waitFor(() => screen.getByLabelText('What to recategorize'));
+  });
+})

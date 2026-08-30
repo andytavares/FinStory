@@ -169,6 +169,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('categorization:rerun', recategorizeAllSchema, (p) =>
     services.recategorizePending(p),
   );
+  registry.handle('categorization:cancel', empty, () => services.cancelRecategorize());
 
   // The only caller of /transactions/refresh, and only on user request (R2).
   registry.handle('sync:now', empty, async () => {

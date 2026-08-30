@@ -194,6 +194,7 @@ async function bootstrap(): Promise<void> {
     buildPipeline,
     describeModel,
     sync: () => runSync(),
+    emit: (channel, payload) => mainWindow?.webContents.send(channel, payload),
   });
 
   syncNow = runSync;

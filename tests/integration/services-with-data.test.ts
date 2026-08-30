@@ -49,6 +49,7 @@ describe('Services with realistic data', () => {
   let handle: DatabaseHandle;
   let services: InstanceType<typeof Services>;
   let modelDescription: ModelDescription;
+  let emitted: Array<{ channel: string; payload: unknown }>;
   let classify: () => Promise<{ categoryId: string; confidence: number; reasoning: string }>;
 
   beforeEach(async () => {
@@ -201,6 +202,7 @@ describe('Services with realistic data', () => {
       },
     ]);
 
+    emitted = [];
     classify = async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' });
     modelDescription = {
       provider: 'local_only',
@@ -225,6 +227,7 @@ describe('Services with realistic data', () => {
           new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
         ),
       describeModel: () => Promise.resolve(modelDescription),
+      emit: (channel, payload) => emitted.push({ channel, payload }),
     });
   });
 
@@ -1051,6 +1054,7 @@ describe('Services with realistic data', () => {
             new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
           ),
         describeModel: () => Promise.resolve(modelDescription),
+      emit: (channel, payload) => emitted.push({ channel, payload }),
         sync: async () => ({ ...EMPTY_SYNC, blocked: 'no_credentials' as const }),
       });
       await expect(speaking.syncNow()).rejects.toThrow(/credentials are missing/);
@@ -1069,6 +1073,7 @@ describe('Services with realistic data', () => {
             new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
           ),
         describeModel: () => Promise.resolve(modelDescription),
+      emit: (channel, payload) => emitted.push({ channel, payload }),
         sync: async () => ({ ...EMPTY_SYNC, institutionCount: 1, failures: ['INVALID_API_KEYS'] }),
       });
       await expect(failing.syncNow()).rejects.toThrow(/INVALID_API_KEYS/);
@@ -1087,6 +1092,7 @@ describe('Services with realistic data', () => {
             new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
           ),
         describeModel: () => Promise.resolve(modelDescription),
+      emit: (channel, payload) => emitted.push({ channel, payload }),
         sync: async () => ({
           ...EMPTY_SYNC,
           institutionCount: 1,
@@ -1562,6 +1568,147 @@ describe('Services with realistic data', () => {
         message: string;
       };
       expect(result.message).toContain('plaidSecret updated');
+    });
+  });
+
+
+  describe('a rerun reports progress and can be stopped', () => {
+    const withModel = { provider: 'anthropic', model: 'claude-haiku-4-5', localOnly: false, reason: '' };
+
+    function progressEvents(): Array<Record<string, unknown>> {
+      return emitted
+        .filter((e) => e.channel === 'categorization:progress')
+        .map((e) => e.payload as Record<string, unknown>);
+    }
+
+    it('emits a starting event, one per transaction, and a final one', async () => {
+      modelDescription = withModel;
+      const result = (await services.recategorizePending({ scope: 'all' })) as {
+        examined: number;
+      };
+      const events = progressEvents();
+      expect(events.length).toBe(result.examined + 2);
+      expect(events[0]).toMatchObject({ processed: 0, done: false });
+      expect(events.at(-1)).toMatchObject({ done: true, cancelled: false });
+    });
+
+    it('counts up to the total', async () => {
+      modelDescription = withModel;
+      const result = (await services.recategorizePending({ scope: 'all' })) as {
+        examined: number;
+      };
+      const last = progressEvents().at(-1)!;
+      expect(last['processed']).toBe(result.examined);
+      expect(last['total']).toBe(result.examined);
+    });
+
+    it('stops when asked, keeping what was already done', async () => {
+      modelDescription = withModel;
+      let seen = 0;
+      classify = async () => {
+        seen += 1;
+        if (seen === 2) await services.cancelRecategorize();
+        return { categoryId: 'dining', confidence: 0.9, reasoning: '' };
+      };
+      const result = (await services.recategorizePending({ scope: 'all' })) as {
+        cancelled: boolean;
+        processed: number;
+        examined: number;
+        changed: number;
+        message: string;
+      };
+      expect(result.cancelled).toBe(true);
+      expect(result.processed).toBeLessThan(result.examined);
+      expect(result.changed).toBeGreaterThan(0);
+      expect(result.message).toContain('what was done is kept');
+      expect(progressEvents().at(-1)).toMatchObject({ done: true, cancelled: true });
+    });
+
+    it('keeps the categories written before it was stopped', async () => {
+      modelDescription = withModel;
+      let seen = 0;
+      classify = async () => {
+        seen += 1;
+        if (seen === 2) await services.cancelRecategorize();
+        return { categoryId: 'groceries', confidence: 0.95, reasoning: '' };
+      };
+      await services.recategorizePending({ scope: 'all' });
+      const rows = (await services.queryTransactions({ limit: 500, offset: 0 })) as {
+        rows: Array<{ categoryId: string }>;
+      };
+      expect(rows.rows.some((r) => r.categoryId === 'groceries')).toBe(true);
+    });
+
+    it('cancelling when nothing is running is harmless', async () => {
+      expect(await services.cancelRecategorize()).toEqual({ ok: true, running: false });
+    });
+
+    it('does not leave the cancel flag set for the next run', async () => {
+      modelDescription = withModel;
+      let seen = 0;
+      classify = async () => {
+        seen += 1;
+        if (seen === 2) await services.cancelRecategorize();
+        return { categoryId: 'dining', confidence: 0.9, reasoning: '' };
+      };
+      await services.recategorizePending({ scope: 'all' });
+
+      classify = async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' });
+      const second = (await services.recategorizePending({ scope: 'all' })) as {
+        cancelled: boolean;
+        processed: number;
+        examined: number;
+      };
+      expect(second.cancelled).toBe(false);
+      expect(second.processed).toBe(second.examined);
+    });
+
+    it('refuses to start a second run on top of a running one', async () => {
+      modelDescription = withModel;
+      let started = false;
+      classify = async () => {
+        if (!started) {
+          started = true;
+          // Reaching in while the first run is mid-flight.
+          await expect(services.recategorizePending({ scope: 'all' })).rejects.toThrow(
+            /already running/,
+          );
+        }
+        return { categoryId: 'dining', confidence: 0.9, reasoning: '' };
+      };
+      await services.recategorizePending({ scope: 'all' });
+      expect(started).toBe(true);
+    });
+  });
+
+
+  describe('the review queue never shows an identifier', () => {
+    it('names the guessed category rather than its id', async () => {
+      const queue = (await services.reviewQueue({ limit: 200, offset: 0 })) as {
+        rows: Array<{ guessCategoryId: string; guessCategoryName: string }>;
+      };
+      expect(queue.rows.length).toBeGreaterThan(0);
+      for (const row of queue.rows) {
+        expect(row.guessCategoryName).not.toBe(row.guessCategoryId);
+        expect(row.guessCategoryName).not.toMatch(/^cat_/);
+      }
+    });
+
+    it('rewrites category ids the model quoted in its reasoning', async () => {
+      const target = ((await services.queryTransactions({ limit: 1, offset: 0 })) as {
+        rows: Array<{ id: string }>;
+      }).rows[0]!;
+      handle.raw
+        .prepare(
+          "UPDATE categorizations SET reasoning = ?, needs_review = 1 WHERE transaction_id = ? AND superseded_by IS NULL",
+        )
+        .run("50% for 'groceries' and 50% for 'dining'", target.id);
+
+      const queue = (await services.reviewQueue({ limit: 200, offset: 0 })) as {
+        rows: Array<{ transaction: { id: string }; reasoning: string | null }>;
+      };
+      const row = queue.rows.find((r) => r.transaction.id === target.id)!;
+      expect(row.reasoning).toBe('50% for Groceries and 50% for Dining & Takeout');
     });
   });
 
