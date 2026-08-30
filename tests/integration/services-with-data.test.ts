@@ -1323,4 +1323,92 @@ describe('Services with realistic data', () => {
     });
   });
 
+
+  describe('rerunning AI categorization', () => {
+    const withModel = { provider: 'anthropic', model: 'claude-haiku-4-5', localOnly: false, reason: '' };
+
+    it('does not skip repeat merchants once the run has learned them', async () => {
+      modelDescription = withModel;
+      // Every transaction gets an answer, so nothing may be left behind — the
+      // pipeline resolves later ones from history learned during this same run.
+      const result = (await services.recategorizePending({ scope: 'unresolved' })) as {
+        examined: number;
+        changed: number;
+      };
+      expect(result.examined).toBeGreaterThan(0);
+      expect(result.changed).toBe(result.examined);
+    });
+
+    it('leaves nothing unresolved afterwards', async () => {
+      modelDescription = withModel;
+      await services.recategorizePending({ scope: 'unresolved' });
+      const health = (await services.health()) as { contents: HealthContents };
+      expect(health.contents.uncategorizable).toBe(0);
+    });
+
+    it('scope "all" reaches more than scope "unresolved"', async () => {
+      modelDescription = withModel;
+      const unresolved = (await services.recategorizePending({ scope: 'unresolved' })) as {
+        examined: number;
+      };
+      const all = (await services.recategorizePending({ scope: 'all' })) as { examined: number };
+      expect(all.examined).toBeGreaterThan(unresolved.examined);
+    });
+
+    it('never overwrites a category the user set, at any scope', async () => {
+      const target = ((await services.queryTransactions({ limit: 1, offset: 0 })) as {
+        rows: Array<{ id: string }>;
+      }).rows[0]!;
+      await services.recategorize({ transactionIds: [target.id], categoryId: 'groceries' });
+
+      modelDescription = withModel;
+      await services.recategorizePending({ scope: 'all' });
+
+      const after = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
+        rows: Array<{ id: string; categoryId: string }>;
+      }).rows.find((r) => r.id === target.id)!;
+      expect(after.categoryId).toBe('groceries');
+    });
+
+    it('stops after repeated model failures rather than one request per row', async () => {
+      modelDescription = withModel;
+      let calls = 0;
+      classify = () => {
+        calls += 1;
+        return Promise.reject(new Error('401 invalid x-api-key'));
+      };
+      const result = (await services.recategorizePending({ scope: 'all' })) as {
+        ok: boolean;
+        stoppedEarly: boolean;
+        examined: number;
+        message: string;
+      };
+      expect(result.ok).toBe(false);
+      expect(result.stoppedEarly).toBe(true);
+      // Bounded by the failure limit, however many transactions there are.
+      expect(calls).toBeLessThanOrEqual(5);
+      expect(result.message).toContain('401 invalid x-api-key');
+    });
+
+    it('defaults to the unresolved scope when none is given', async () => {
+      modelDescription = withModel;
+      const health = (await services.health()) as { contents: HealthContents };
+      const implicit = (await services.recategorizePending()) as { examined: number };
+      expect(implicit.examined).toBeGreaterThan(0);
+      // Scoped, not everything: 'all' would have reached every transaction.
+      expect(implicit.examined).toBeLessThan(health.contents.transactions);
+    });
+
+    it('refuses and explains when no model is configured', async () => {
+      const result = (await services.recategorizePending({ scope: 'all' })) as {
+        ok: boolean;
+        changed: number;
+        message: string;
+      };
+      expect(result.ok).toBe(false);
+      expect(result.changed).toBe(0);
+      expect(result.message).toBe('History only in tests');
+    });
+  });
+
 });

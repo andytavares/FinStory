@@ -147,6 +147,10 @@ export const merchantRenameSchema = z.object({
 export const pathSchema = z.object({ destPath: z.string().default('') });
 export const importSchema = z.object({ srcPath: z.string().default('') });
 export const deleteAllSchema = z.object({ confirmation: z.literal('DELETE ALL MY DATA') });
+export const recategorizeAllSchema = z.object({
+  scope: z.enum(['unresolved', 'all']).default('unresolved'),
+});
+
 export const clearOverrideSchema = z.object({
   kind: z.enum([
     'merchant_name',

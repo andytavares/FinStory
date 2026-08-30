@@ -21,6 +21,7 @@ import {
   settingsUpdateSchema,
   pathSchema,
   clearOverrideSchema,
+  recategorizeAllSchema,
   importSchema,
   deleteAllSchema,
   idSchema,
@@ -159,7 +160,9 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('overrides:clear', clearOverrideSchema, (p) => services.clearOverride(p));
   registry.handle('model:status', empty, () => services.modelStatus());
   registry.handle('model:test', empty, () => services.testModel());
-  registry.handle('categorization:rerun', empty, () => services.recategorizePending());
+  registry.handle('categorization:rerun', recategorizeAllSchema, (p) =>
+    services.recategorizePending(p),
+  );
 
   // The only caller of /transactions/refresh, and only on user request (R2).
   registry.handle('sync:now', empty, async () => {

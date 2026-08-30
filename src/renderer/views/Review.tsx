@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { transactionName } from '../lib/name';
+import { RecategorizeButton } from '../components/RecategorizeButton';
 import { Money } from '../components/Money';
 import { EmptyState } from '../components/EmptyState';
 import { TransactionEditor, assignableCategories } from '../components/TransactionEditor';
@@ -112,6 +113,8 @@ export function Review(): React.JSX.Element {
       </div>
 
       <ModelNotice />
+
+      <RecategorizeButton onDone={refetch} />
 
       {pendingRetro && (
         <div className="border border-[var(--color-attention)] bg-[var(--color-surface)] p-4">

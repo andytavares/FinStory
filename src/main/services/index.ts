@@ -56,6 +56,9 @@ import { randomUUID as uuid } from 'node:crypto';
 
 const BALANCE_FLOOR_MINOR = 100_000;
 const BURN_WINDOW_DAYS = 30;
+const UNCATEGORIZABLE = 'uncategorizable';
+/** Stop a bulk recategorization rather than fire one doomed request per row. */
+const MODEL_FAILURE_LIMIT = 5;
 
 export interface ServiceDeps {
   readonly handle: DatabaseHandle;
@@ -442,7 +445,7 @@ export class Services implements AppServices {
           merchantKey: r.merchantKey,
           description: r.description,
           postedDate: r.postedDate,
-          categoryId: c?.categoryId ?? 'uncategorizable',
+          categoryId: c?.categoryId ?? UNCATEGORIZABLE,
           confidence: c?.confidence ?? 0,
           needsReview: c?.needsReview ?? true,
           isInternalTransfer: r.isInternalTransfer,
@@ -1235,8 +1238,8 @@ export class Services implements AppServices {
         transactionsThisMonth: transactions.filter(
           (r) => r.postedDate >= monthStart && everydayIds.has(r.accountId),
         ).length,
-        categorized: categorizations.filter((c) => c.categoryId !== 'uncategorizable').length,
-        uncategorizable: categorizations.filter((c) => c.categoryId === 'uncategorizable').length,
+        categorized: categorizations.filter((c) => c.categoryId !== UNCATEGORIZABLE).length,
+        uncategorizable: categorizations.filter((c) => c.categoryId === UNCATEGORIZABLE).length,
       },
       perAccount: institutions.map((i) => ({
         institutionId: i.id,
@@ -1526,7 +1529,8 @@ export class Services implements AppServices {
    * heuristics and would otherwise stay that way forever, because the model
    * only ever runs at ingestion time.
    */
-  async recategorizePending(): Promise<unknown> {
+  async recategorizePending(input?: unknown): Promise<unknown> {
+    const scope = (input as { scope?: 'unresolved' | 'all' } | undefined)?.scope ?? 'unresolved';
     const description = await this.deps.describeModel();
     if (description.localOnly) {
       return { ok: false, examined: 0, changed: 0, message: description.reason };
@@ -1537,34 +1541,60 @@ export class Services implements AppServices {
       this.liveCategorizations(),
     ]);
 
-    // A category the user set is never overwritten by a model.
-    const pending = rows.filter((r) => {
+    // A category the user set is never overwritten by a model, whatever the
+    // scope. Their correction is the whole point of having made it.
+    const targets = rows.filter((r) => {
       const current = live.get(r.id);
-      if (!current || current.source === 'user') return false;
-      return current.categoryId === 'uncategorizable' || current.needsReview;
+      if (current?.source === 'user') return false;
+      if (scope === 'all') return true;
+      return !current || current.categoryId === UNCATEGORIZABLE || current.needsReview;
     });
 
     const pipeline = await this.deps.buildPipeline();
     const at = this.deps.clock.now().toISOString();
     let changed = 0;
-    for (const row of pending) {
+    let stoppedEarly = false;
+
+    for (const row of targets) {
       const result = await pipeline.categorize({
         transactionId: row.id,
         descriptor: row.merchantName ?? row.description,
         amountMinor: row.amountMinor,
         occurredAt: new Date(row.datetime ?? `${row.postedDate}T12:00:00Z`),
       });
-      if (result.source !== 'model') continue;
-      await this.replaceCategorization(row.id, result, at);
-      changed += 1;
+
+      // Accept a learned answer too, not only a fresh model call: once this run
+      // has seen a merchant enough times the pipeline resolves it from that
+      // history, and skipping those would leave repeat merchants untouched.
+      if (result.categoryId !== UNCATEGORIZABLE) {
+        await this.replaceCategorization(row.id, result, at);
+        changed += 1;
+      }
+
+      // A bad key or a down endpoint should not mean one failed request per
+      // transaction. Stop and say so.
+      if (pipeline.modelFailures >= MODEL_FAILURE_LIMIT) {
+        stoppedEarly = true;
+        break;
+      }
     }
 
-    const message = pipeline.lastModelError
-      ? `Recategorized ${changed} of ${pending.length}. The model then failed: ${pipeline.lastModelError}`
-      : `Recategorized ${changed} of ${pending.length} unresolved transactions.`;
-    return { ok: pipeline.lastModelError === null, examined: pending.length, changed, message };
-  }
+    const scopeLabel = scope === 'all' ? 'transactions' : 'unresolved transactions';
+    const message = stoppedEarly
+      ? `Stopped after ${pipeline.modelFailures} model failures. Recategorized ${changed} of ${targets.length} ${scopeLabel}. Last error: ${pipeline.lastModelError}`
+      : pipeline.lastModelError
+        ? `Recategorized ${changed} of ${targets.length} ${scopeLabel}. The model failed on ${pipeline.modelFailures}: ${pipeline.lastModelError}`
+        : `Recategorized ${changed} of ${targets.length} ${scopeLabel}.`;
 
+    return {
+      ok: pipeline.lastModelError === null,
+      examined: targets.length,
+      changed,
+      modelFailures: pipeline.modelFailures,
+      stoppedEarly,
+      message,
+    };
+  }
 
   /**
    * Every override the user has made, in one list.
@@ -1880,7 +1910,7 @@ export class Services implements AppServices {
     return rows.map((r) => ({
       id: r.id,
       amountMinor: r.amountMinor,
-      categoryId: live.get(r.id)?.categoryId ?? 'uncategorizable',
+      categoryId: live.get(r.id)?.categoryId ?? UNCATEGORIZABLE,
       settlementState: r.settlementState,
       isInternalTransfer: r.isInternalTransfer,
       reversesTransactionId: r.reversesTransactionId,

@@ -75,5 +75,5 @@ export interface AppServices {
   clearOverride(input: unknown): Promise<unknown>;
   modelStatus(): Promise<unknown>;
   testModel(): Promise<unknown>;
-  recategorizePending(): Promise<unknown>;
+  recategorizePending(input?: unknown): Promise<unknown>;
 }

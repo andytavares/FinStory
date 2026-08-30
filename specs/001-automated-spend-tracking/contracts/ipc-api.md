@@ -86,7 +86,7 @@ The renderer is untrusted UI. It has **no Node integration**, runs with `context
 | `overrides:clear` | `{ kind, target }` | `{ ok }` | Undoes one override; the transaction history itself is untouched |
 | `model:status` | — | `{ provider, model, localOnly, reason }` | How categorization is configured; makes no network call |
 | `model:test` | — | `{ ok, provider, model, message }` | Calls the configured model for real and reports the raw failure, since categorization otherwise degrades silently |
-| `categorization:rerun` | — | `{ ok, examined, changed, message }` | Sends still-unresolved transactions to the model; user-set categories are never overwritten |
+| `categorization:rerun` | `{ scope: 'unresolved' \| 'all' }` | `{ ok, examined, changed, modelFailures, stoppedEarly, message }` | Re-runs categorization over stored transactions. User-set categories are never overwritten at any scope; stops after repeated model failures rather than one doomed request per row |
 
 ---
 

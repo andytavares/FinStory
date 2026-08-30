@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
+import { RecategorizeButton } from '../components/RecategorizeButton';
 import type { AppSettings, SetupStatus } from '@shared/types';
 
 const ANTHROPIC_MODELS = [
@@ -132,15 +133,14 @@ function ModelSection({ settings }: { settings: AppSettings }): React.JSX.Elemen
  * This calls the model for real and prints whatever came back.
  */
 function ModelCheck(): React.JSX.Element {
-  const [busy, setBusy] = useState<'test' | 'rerun' | null>(null);
+  const [busy, setBusy] = useState<'test' | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  const run = async (which: 'test' | 'rerun'): Promise<void> => {
+  const run = async (which: 'test'): Promise<void> => {
     setBusy(which);
     setNote(null);
     try {
-      const channel = which === 'test' ? 'model:test' : 'categorization:rerun';
-      const result = await call<{ message: string }>(channel);
+      const result = await call<{ message: string }>('model:test');
       setNote(result.message);
     } catch (e) {
       setNote((e as { message?: string }).message ?? 'The check itself failed.');
@@ -160,15 +160,8 @@ function ModelCheck(): React.JSX.Element {
         >
           {busy === 'test' ? 'Checking…' : 'Test the model'}
         </button>
-        <button
-          type="button"
-          onClick={() => void run('rerun')}
-          disabled={busy !== null}
-          className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-50"
-        >
-          {busy === 'rerun' ? 'Recategorizing…' : 'Recategorize unresolved'}
-        </button>
       </div>
+      <RecategorizeButton />
       {note && (
         <p role="status" className="text-[12px] text-[var(--color-ink-faint)]">
           {note}

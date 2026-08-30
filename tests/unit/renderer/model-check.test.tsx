@@ -46,8 +46,8 @@ describe('the model check reports the real answer', () => {
       'categorization:rerun': { ok: true, message: 'Recategorized 37 of 40 unresolved transactions.' },
     });
     render(<Settings />);
-    await waitFor(() => screen.getByText('Recategorize unresolved'));
-    fireEvent.click(screen.getByText('Recategorize unresolved'));
+    await waitFor(() => screen.getByText('Recategorize with AI'));
+    fireEvent.click(screen.getByText('Recategorize with AI'));
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('37 of 40'));
   });
 
@@ -59,13 +59,12 @@ describe('the model check reports the real answer', () => {
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('No stub'));
   });
 
-  it('disables both buttons while one is running', async () => {
+  it('disables the test button while it is running', async () => {
     installMoneyBridge({ ...BASE, 'model:test': { ok: true, message: 'ok' } });
     render(<Settings />);
     await waitFor(() => screen.getByText('Test the model'));
     fireEvent.click(screen.getByText('Test the model'));
     expect(screen.getByText('Checking…')).toBeDefined();
-    expect((screen.getByText('Recategorize unresolved') as HTMLButtonElement).disabled).toBe(true);
     await waitFor(() => screen.getByText('Test the model'));
   });
 });

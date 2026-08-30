@@ -110,6 +110,7 @@ describe('IPC wiring matches the contract', () => {
       'income:override': { id: 'i' },
       'income:clearOverride': { id: 'i' },
       'overrides:clear': { kind: 'merchant_name', target: 'uber eats' },
+      'categorization:rerun': { scope: 'unresolved' },
       'review:queue': {},
       'review:recategorize': { transactionIds: ['t'], categoryId: 'c' },
       'review:applyRetroactive': { merchantKey: 'm', categoryId: 'c' },
