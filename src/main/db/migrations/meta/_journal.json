@@ -29,6 +29,13 @@
       "when": 1788055950153,
       "tag": "0003_true_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788056917833,
+      "tag": "0004_lush_enchantress",
+      "breakpoints": true
     }
   ]
 }

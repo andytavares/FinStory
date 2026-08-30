@@ -30,6 +30,7 @@ export const transactionQuerySchema = z.object({
   periodEnd: isoDate.optional(),
   categoryIds: z.array(z.string()).optional(),
   merchantKey: z.string().optional(),
+  direction: z.enum(['all', 'in', 'out']).default('all'),
   minAmountMinor: minorUnits.optional(),
   maxAmountMinor: minorUnits.optional(),
   accountIds: z.array(z.string()).optional(),
@@ -112,6 +113,18 @@ export const transactionUpdateSchema = z.object({
   userExcluded: z.boolean().optional(),
   userRecurringOverride: z.enum(['recurring', 'not_recurring']).nullable().optional(),
 });
+
+export const reportGenerateSchema = z
+  .object({
+    type: z.enum(['weekly_digest', 'monthly_report', 'custom']),
+    asOf: z.string().optional(),
+    periodStart: z.string().optional(),
+    periodEnd: z.string().optional(),
+    label: z.string().max(80).optional(),
+  })
+  .refine((v) => v.type !== 'custom' || (v.periodStart && v.periodEnd), {
+    message: 'A custom report needs a start and end date',
+  });
 
 export const pathSchema = z.object({ destPath: z.string().min(1) });
 export const importSchema = z.object({ srcPath: z.string().min(1) });

@@ -56,6 +56,7 @@ export interface AppServices {
   listReports(): Promise<unknown>;
   getReport(id: string): Promise<unknown>;
   generateReport(input: unknown): Promise<unknown>;
+  deleteReport(id: string): Promise<unknown>;
 
   health(): Promise<unknown>;
   exportDiagnostics(destPath: string): Promise<unknown>;

@@ -232,7 +232,9 @@ export const baselines = sqliteTable('baselines', {
 
 export const periodReports = sqliteTable('period_reports', {
   id: text('id').primaryKey(),
-  type: text('type', { enum: ['weekly_digest', 'monthly_report'] }).notNull(),
+  type: text('type', { enum: ['weekly_digest', 'monthly_report', 'custom'] }).notNull(),
+  /** User-supplied name for a custom report over an arbitrary range. */
+  label: text('label'),
   periodStart: text('period_start').notNull(),
   periodEnd: text('period_end').notNull(),
   content: text('content').notNull(),

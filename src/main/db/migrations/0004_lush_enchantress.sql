@@ -1,0 +1,1 @@
+ALTER TABLE `period_reports` ADD `label` text;

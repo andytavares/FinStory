@@ -31,3 +31,17 @@ export function relativeAge(iso: string | null): string {
   if (hours < 24) return `${Math.floor(hours)}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
 }
+
+/**
+ * Name the month a period belongs to.
+ *
+ * Uses the midpoint, not the start: a period stored as midnight UTC renders as
+ * the previous month for anyone behind UTC, which would label an August report
+ * "July".
+ */
+export function periodLabel(startIso: string, endIso: string): string {
+  const start = new Date(startIso).getTime();
+  const end = new Date(endIso).getTime();
+  const midpoint = new Date(start + (end - start) / 2);
+  return midpoint.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}

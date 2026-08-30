@@ -14,6 +14,7 @@ import {
   incomeOverrideSchema,
   alertRuleUpdateSchema,
   alertRuleCreateSchema,
+  reportGenerateSchema,
   settingsUpdateSchema,
   pathSchema,
   importSchema,
@@ -131,14 +132,8 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('reports:get', z.object({ reportId: z.string() }), (p) =>
     services.getReport(p.reportId),
   );
-  registry.handle(
-    'reports:generate',
-    z.object({
-      type: z.enum(['weekly_digest', 'monthly_report']),
-      asOf: z.string().optional(),
-    }),
-    (p) => services.generateReport(p),
-  );
+  registry.handle('reports:generate', reportGenerateSchema, (p) => services.generateReport(p));
+  registry.handle('reports:delete', idSchema, (p) => services.deleteReport(p.id));
 
   // Diagnostics, settings, data
   registry.handle('health:get', empty, () => services.health());

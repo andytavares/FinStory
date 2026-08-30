@@ -32,6 +32,7 @@ export function Register({
   initialCategoryId: string | null;
 }): React.JSX.Element {
   const [search, setSearch] = useState('');
+  const [direction, setDirection] = useState<'all' | 'in' | 'out'>('all');
   const [categoryId] = useState(initialCategoryId);
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
   const [changed, setChanged] = useState<Record<string, string>>({});
@@ -40,10 +41,21 @@ export function Register({
   const { data, loading } = useQuery<RegisterResponse>('transactions:query', {
     ...(categoryId ? { categoryIds: [categoryId] } : {}),
     ...(search ? { merchantKey: search } : {}),
+    direction,
     confirmationStatus: 'all',
-    limit: 100,
+    limit: 200,
     offset: 0,
   });
+
+  const totals = (data?.rows ?? []).reduce(
+    (acc, t) => {
+      if (t.isInternalTransfer) return acc;
+      return t.amountMinor > 0
+        ? { ...acc, inMinor: acc.inMinor + t.amountMinor }
+        : { ...acc, outMinor: acc.outMinor + t.amountMinor };
+    },
+    { inMinor: 0, outMinor: 0 },
+  );
 
   return (
     <div className="space-y-4">
@@ -56,12 +68,49 @@ export function Register({
         )}
       </div>
 
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search merchants"
-        className="w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px] outline-none placeholder:text-[var(--color-ink-faint)]"
-      />
+      <div className="flex gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search merchants"
+          aria-label="Search merchants"
+          className="flex-1 border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px] outline-none placeholder:text-[var(--color-ink-faint)]"
+        />
+        {/* Income is a first-class part of the log, not a special case. */}
+        <div className="flex border border-[var(--color-line)]">
+          {(
+            [
+              ['all', 'All'],
+              ['in', 'Money in'],
+              ['out', 'Money out'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setDirection(value)}
+              className={`px-3 text-[12px] ${
+                direction === value
+                  ? 'bg-[var(--color-surface-raised)] text-[var(--color-ink)]'
+                  : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink-muted)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {data && data.rows.length > 0 && (
+        <p className="text-[12px] text-[var(--color-ink-faint)]">
+          <span className="numeric" style={{ color: 'var(--color-positive)' }}>
+            +{(totals.inMinor / 100).toFixed(2)}
+          </span>{' '}
+          in ·{' '}
+          <span className="numeric">−{Math.abs(totals.outMinor / 100).toFixed(2)}</span> out ·{' '}
+          {data.rows.length} of {data.totalCount} shown, newest first
+        </p>
+      )}
 
       {data && <Qualification dataComplete={data.dataComplete} staleInstitutions={data.staleInstitutions} />}
 

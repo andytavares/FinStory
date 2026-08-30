@@ -48,6 +48,7 @@ const INVOKE_CHANNELS = [
   'reports:list',
   'reports:get',
   'reports:generate',
+  'reports:delete',
   'health:get',
   'diagnostics:export',
   'settings:get',

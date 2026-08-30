@@ -331,6 +331,9 @@ export class Services implements AppServices {
       periodEnd?: string;
       categoryIds?: string[];
       merchantKey?: string;
+      direction?: 'all' | 'in' | 'out';
+      minAmountMinor?: number;
+      maxAmountMinor?: number;
       limit: number;
       offset: number;
     };
@@ -351,9 +354,28 @@ export class Services implements AppServices {
       filtered = filtered.filter(
         (r) =>
           (r.merchantName ?? '').toLowerCase().includes(needle) ||
+          (r.userMerchantName ?? '').toLowerCase().includes(needle) ||
           r.description.toLowerCase().includes(needle),
       );
     }
+    if (q.direction === 'in') filtered = filtered.filter((r) => r.amountMinor > 0);
+    if (q.direction === 'out') filtered = filtered.filter((r) => r.amountMinor < 0);
+    if (q.minAmountMinor !== undefined) {
+      const min = q.minAmountMinor;
+      filtered = filtered.filter((r) => Math.abs(r.amountMinor) >= min);
+    }
+    if (q.maxAmountMinor !== undefined) {
+      const max = q.maxAmountMinor;
+      filtered = filtered.filter((r) => Math.abs(r.amountMinor) <= max);
+    }
+
+    // Newest first. Without an explicit order the register returns rows in
+    // insertion order and the 100-row page can hide recent activity entirely —
+    // which is how income became invisible.
+    filtered = [...filtered].sort((a, b) => {
+      const byDate = b.postedDate.localeCompare(a.postedDate);
+      return byDate !== 0 ? byDate : (b.datetime ?? '').localeCompare(a.datetime ?? '');
+    });
 
     return {
       rows: filtered.slice(q.offset, q.offset + q.limit).map((r) => {
@@ -847,6 +869,7 @@ export class Services implements AppServices {
       return {
         id: r.id,
         type: r.type,
+        label: r.label,
         periodStart: r.periodStart,
         periodEnd: r.periodEnd,
         dataComplete: r.dataComplete,
@@ -864,13 +887,31 @@ export class Services implements AppServices {
    * you force is identical to the one that would have arrived on its own.
    */
   async generateReport(input: unknown): Promise<unknown> {
-    const p = input as { type: 'weekly_digest' | 'monthly_report'; asOf?: string };
+    const p = input as {
+      type: 'weekly_digest' | 'monthly_report' | 'custom';
+      asOf?: string;
+      periodStart?: string;
+      periodEnd?: string;
+      label?: string;
+    };
     const settings = (await this.getSettings()) as { timeZone: string };
     const asOf = p.asOf ? new Date(p.asOf) : this.deps.clock.now();
+
+    // A custom report uses the exact range the user asked for; the scheduled
+    // kinds snap to a period boundary.
     const range =
-      p.type === 'monthly_report'
-        ? monthBoundaries(asOf, settings.timeZone)
-        : weekBoundaries(asOf, settings.timeZone);
+      p.type === 'custom'
+        ? { start: new Date(p.periodStart ?? ''), end: new Date(p.periodEnd ?? '') }
+        : p.type === 'monthly_report'
+          ? monthBoundaries(asOf, settings.timeZone)
+          : weekBoundaries(asOf, settings.timeZone);
+
+    if (Number.isNaN(range.start.getTime()) || Number.isNaN(range.end.getTime())) {
+      throw new IpcFailure('VALIDATION_FAILED', 'That date range is not valid', false);
+    }
+    if (range.end.getTime() <= range.start.getTime()) {
+      throw new IpcFailure('VALIDATION_FAILED', 'The end date must be after the start date', false);
+    }
 
     const [transactions, completeness, recurring] = await Promise.all([
       this.spendingIn(range.start.toISOString(), range.end.toISOString()),
@@ -878,10 +919,16 @@ export class Services implements AppServices {
       this.db.select().from(t.recurringCharges),
     ]);
 
+    // Compare against the immediately preceding window of the same length.
     const priorRange =
-      p.type === 'monthly_report'
-        ? monthBoundaries(new Date(range.start.getTime() - 1), settings.timeZone)
-        : weekBoundaries(new Date(range.start.getTime() - 1), settings.timeZone);
+      p.type === 'custom'
+        ? {
+            start: new Date(range.start.getTime() - (range.end.getTime() - range.start.getTime())),
+            end: range.start,
+          }
+        : p.type === 'monthly_report'
+          ? monthBoundaries(new Date(range.start.getTime() - 1), settings.timeZone)
+          : weekBoundaries(new Date(range.start.getTime() - 1), settings.timeZone);
     const priorBreakdown = breakdownByCategory(
       await this.spendingIn(priorRange.start.toISOString(), priorRange.end.toISOString()),
     );
@@ -893,7 +940,10 @@ export class Services implements AppServices {
       periodEnd: range.end,
       transactions,
       priorPeriodTotals,
-      baselinesByCategory: await this.baselines(settings.timeZone, p.type),
+      baselinesByCategory: await this.baselines(
+        settings.timeZone,
+        p.type === 'weekly_digest' ? 'weekly_digest' : 'monthly_report',
+      ),
       recurringCharges: recurring.map((r) => ({
         merchantKey: r.merchantKey,
         currentAmountMinor: r.currentAmountMinor,
@@ -905,9 +955,7 @@ export class Services implements AppServices {
     };
 
     const content =
-      p.type === 'monthly_report'
-        ? buildMonthlyReport(reportInput)
-        : buildWeeklyDigest(reportInput);
+      p.type === 'weekly_digest' ? buildWeeklyDigest(reportInput) : buildMonthlyReport(reportInput);
 
     const id = `rep_${uuid().slice(0, 8)}`;
     await this.db
@@ -915,6 +963,7 @@ export class Services implements AppServices {
       .values({
         id,
         type: p.type,
+        label: p.label ?? null,
         periodStart: range.start.toISOString(),
         periodEnd: range.end.toISOString(),
         content: JSON.stringify(content),
@@ -960,6 +1009,11 @@ export class Services implements AppServices {
       out[categoryId] = computeBaseline(totals);
     }
     return out;
+  }
+
+  async deleteReport(id: string): Promise<unknown> {
+    await this.db.delete(t.periodReports).where(eq(t.periodReports.id, id));
+    return { ok: true };
   }
 
   async getReport(id: string): Promise<unknown> {

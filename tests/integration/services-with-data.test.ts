@@ -261,6 +261,72 @@ describe('Services with realistic data', () => {
     expect(q.rows.find((r) => r.id === 'txn_2')?.originalCurrency).toBe('EUR');
   });
 
+  it('shows income in the transaction log alongside spending', async () => {
+    const q = (await services.queryTransactions({
+      limit: 50,
+      offset: 0,
+      direction: 'all',
+    })) as { rows: Array<{ id: string; amountMinor: number }> };
+    const income = q.rows.find((r) => r.id === 'txn_4');
+    expect(income, 'income must appear in the register').toBeDefined();
+    expect(income?.amountMinor).toBe(520_000);
+  });
+
+  it('returns transactions newest first, so recent activity is never buried', async () => {
+    const q = (await services.queryTransactions({ limit: 50, offset: 0 })) as {
+      rows: Array<{ postedDate: string }>;
+    };
+    const dates = q.rows.map((r) => r.postedDate);
+    expect([...dates].sort((a, b) => b.localeCompare(a))).toEqual(dates);
+  });
+
+  it('filters to money in', async () => {
+    const q = (await services.queryTransactions({
+      limit: 50,
+      offset: 0,
+      direction: 'in',
+    })) as { rows: Array<{ amountMinor: number }>; totalCount: number };
+    expect(q.totalCount).toBe(1);
+    expect(q.rows.every((r) => r.amountMinor > 0)).toBe(true);
+  });
+
+  it('filters to money out', async () => {
+    const q = (await services.queryTransactions({
+      limit: 50,
+      offset: 0,
+      direction: 'out',
+    })) as { rows: Array<{ amountMinor: number }> };
+    expect(q.rows.every((r) => r.amountMinor < 0)).toBe(true);
+    expect(q.rows.length).toBe(4);
+  });
+
+  it('filters by amount range on magnitude, so it works for income too', async () => {
+    const q = (await services.queryTransactions({
+      limit: 50,
+      offset: 0,
+      // $100 and up: catches rent (-$120) and the paycheck (+$5,200), and
+      // excludes the small purchases.
+      minAmountMinor: 10_000,
+    })) as { rows: Array<{ id: string }> };
+    const ids = q.rows.map((r) => r.id);
+    expect(ids).toContain('txn_4');
+    expect(ids).toContain('txn_3');
+    expect(ids).not.toContain('txn_5');
+  });
+
+  it('searches a user-applied rename as well as the imported name', async () => {
+    await services.updateTransaction({
+      transactionId: 'txn_1',
+      userMerchantName: 'Late night food',
+    });
+    const q = (await services.queryTransactions({
+      limit: 50,
+      offset: 0,
+      merchantKey: 'late night',
+    })) as { totalCount: number };
+    expect(q.totalCount).toBe(1);
+  });
+
   it('filters transactions by category and by merchant search', async () => {
     const byCategory = (await services.queryTransactions({
       categoryIds: ['dining'],
@@ -548,6 +614,51 @@ describe('Services with realistic data', () => {
         asOf: '2026-08-05T12:00:00Z',
       })) as { content: { hadActivity: boolean } };
       expect(r.content.hadActivity).toBeDefined();
+    });
+
+    it('generates a custom report over an arbitrary range', async () => {
+      const r = (await services.generateReport({
+        type: 'custom',
+        periodStart: '2026-08-01T00:00:00Z',
+        periodEnd: '2026-08-10T00:00:00Z',
+        label: 'First ten days',
+      })) as { id: string; content: { totalSpendingMinor: number } };
+      expect(r.id).toBeDefined();
+      const list = (await services.listReports()) as Array<{ type: string; label: string | null }>;
+      expect(list.find((x) => x.type === 'custom')?.label).toBe('First ten days');
+    });
+
+    it('a custom range only includes transactions inside it', async () => {
+      const narrow = (await services.generateReport({
+        type: 'custom',
+        periodStart: '2026-08-01T00:00:00Z',
+        periodEnd: '2026-08-02T00:00:00Z',
+      })) as { content: { totalSpendingMinor: number } };
+      // Only rent (-12,000) falls on 2026-08-01.
+      expect(narrow.content.totalSpendingMinor).toBe(-12_000);
+    });
+
+    it('rejects a range that ends before it starts', async () => {
+      await expect(
+        services.generateReport({
+          type: 'custom',
+          periodStart: '2026-08-10T00:00:00Z',
+          periodEnd: '2026-08-01T00:00:00Z',
+        }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    });
+
+    it('rejects an unparseable date', async () => {
+      await expect(
+        services.generateReport({ type: 'custom', periodStart: 'nope', periodEnd: 'also nope' }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    });
+
+    it('deletes a report', async () => {
+      const r = (await services.generateReport({ type: 'monthly_report' })) as { id: string };
+      await services.deleteReport(r.id);
+      const list = (await services.listReports()) as Array<{ id: string }>;
+      expect(list.some((x) => x.id === r.id)).toBe(false);
     });
 
     it('the generated report then appears in the list', async () => {
