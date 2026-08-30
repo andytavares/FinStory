@@ -53,11 +53,11 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T012 Verify every institution the user banks with appears in Plaid's supported institution list; record results in `docs/adr/0003-plaid-viability.md`
 - [ ] T013 Confirm Trial plan eligibility (US/Canada teams created on or after 2026-04-15); record in `docs/adr/0003-plaid-viability.md`
 - [ ] T014 Add a Production Item creation log to `docs/plaid-setup.md` so the lifetime 10-Item quota is tracked deliberately
-- [ ] T015 Write failing test asserting `safeStorage.isEncryptionAvailable()` is checked after `app.ready` and that startup aborts when unavailable, in `tests/unit/secrets/availability.test.ts`
-- [ ] T016 Implement the encryption availability gate in `src/main/secrets/availability.ts` — **fail loudly with an explanation; never fall back to an unencrypted database** (FR-054, Constitution VII)
-- [ ] T017 Write failing test for database-key generation and `safeStorage` async round-trip in `tests/unit/secrets/keyring.test.ts`
-- [ ] T018 Implement `src/main/secrets/keyring.ts` using `encryptStringAsync`/`decryptStringAsync` (the sync API may be deprecated; research.md R5)
-- [ ] T019 Write integration test asserting the database file on disk is **not** readable by an unencrypted SQLite client, in `tests/integration/encryption.test.ts` (quickstart V0)
+- [X] T015 Write failing test asserting `safeStorage.isEncryptionAvailable()` is checked after `app.ready` and that startup aborts when unavailable, in `tests/unit/secrets/availability.test.ts`
+- [X] T016 Implement the encryption availability gate in `src/main/secrets/availability.ts` — **fail loudly with an explanation; never fall back to an unencrypted database** (FR-054, Constitution VII)
+- [X] T017 Write failing test for database-key generation and `safeStorage` async round-trip in `tests/unit/secrets/keyring.test.ts`
+- [X] T018 Implement `src/main/secrets/keyring.ts` using `encryptStringAsync`/`decryptStringAsync` (the sync API may be deprecated; research.md R5)
+- [X] T019 Write integration test asserting the database file on disk is **not** readable by an unencrypted SQLite client, in `tests/integration/encryption.test.ts` (quickstart V0)
 
 ---
 
@@ -71,13 +71,13 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T021 Implement `src/shared/money.ts` with integer minor-unit arithmetic. **Floating-point money arithmetic is forbidden** (Constitution II)
 - [X] T022 [P] Write failing tests for the injectable clock abstraction in `tests/unit/shared/clock.test.ts`
 - [X] T023 Implement `src/shared/clock.ts` with a real and a controllable test implementation. **Every time-dependent module takes this as a dependency** (Constitution V)
-- [ ] T024 [P] Write failing tests for period-boundary math in the user's local timezone in `tests/unit/shared/periods.test.ts`
-- [ ] T025 Implement `src/shared/periods.ts` for week/month boundary computation using date-fns
+- [X] T024 [P] Write failing tests for period-boundary math in the user's local timezone in `tests/unit/shared/periods.test.ts`
+- [X] T025 Implement `src/shared/periods.ts` for week/month boundary computation using date-fns
 - [X] T026 Write failing tests asserting the diagnostic logger **cannot** accept merchant names, amounts, balances, or credentials, in `tests/unit/diagnostics/redaction.test.ts` (FR-091)
 - [X] T027 Implement `src/main/diagnostics/logger.ts` accepting only enumerated event types and opaque identifiers — **redaction enforced at write time, not export time** (research.md R15)
 - [ ] T028 Implement log rotation bounded by size and age in `src/main/diagnostics/rotation.ts` (FR-093)
 - [X] T029 Implement failure isolation in `src/main/diagnostics/logger.ts` so a logging failure is swallowed and counted, never propagated (FR-094)
-- [ ] T030 [P] Define the complete Drizzle schema for all 15 tables from data-model.md in `src/main/db/schema.ts`
+- [X] T030 [P] Define the complete Drizzle schema for all 15 tables from data-model.md in `src/main/db/schema.ts`
 - [ ] T031 Implement the SQLCipher database client in `src/main/db/client.ts` using better-sqlite3-multiple-ciphers keyed from `src/main/secrets/keyring.ts`
 - [ ] T032 Generate and commit the initial migration in `src/main/db/migrations/`; implement the migration runner in `src/main/db/migrate.ts`
 - [ ] T033 [P] Define shared cross-boundary types in `src/shared/types.ts` per contracts/ipc-api.md

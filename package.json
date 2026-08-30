@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.122.0",
+    "@date-fns/tz": "^1.5.0",
     "better-sqlite3-multiple-ciphers": "13.0.3",
     "cron": "4.4.0",
     "date-fns": "4.4.0",
