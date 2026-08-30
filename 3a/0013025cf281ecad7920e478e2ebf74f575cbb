@@ -1,0 +1,31 @@
+tests/unit/analysis/recurring.test.ts
+  s_f1d20e583de5c0::t_d611707a5bb727 1-110
+src/main/analysis/income.ts
+  s_f1d20e583de5c0::t_4edebef83162c0 1-134
+tests/unit/analysis/income.test.ts
+  s_f1d20e583de5c0::t_4edebef83162c0 1-143
+src/main/analysis/recurring.ts
+  s_f1d20e583de5c0::t_d611707a5bb727 1-139
+tests/unit/ingestion/apply.test.ts
+  s_f1d20e583de5c0::t_7fe2530ab04769 1-161
+src/main/ingestion/apply.ts
+  s_f1d20e583de5c0::t_5a11ba055485a2 1-171
+specs/001-automated-spend-tracking/tasks.md
+  s_f1d20e583de5c0::t_b762ec0c9be97b 106-108,125-128,164-165,183-184,191-193,218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "3a0013025cf281ecad7920e478e2ebf74f575cbb",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
