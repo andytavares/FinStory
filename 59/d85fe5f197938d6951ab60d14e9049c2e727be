@@ -1,0 +1,44 @@
+src/renderer/views/Review.tsx
+  s_f1d20e583de5c0::t_b28f519c8da531 4,117
+  s_f1d20e583de5c0::t_9de0e588392c28 118
+tests/unit/renderer/recategorize-button.test.tsx
+  s_f1d20e583de5c0::t_03c1172578e286 1-70
+src/shared/schemas.ts
+  s_f1d20e583de5c0::t_0410ecf357b10d 150-153
+src/renderer/components/RecategorizeButton.tsx
+  s_f1d20e583de5c0::t_b28f519c8da531 1-72
+src/main/services/index.ts
+  s_f1d20e583de5c0::t_3541ec446ff605 59-61,1532-1533,1544-1546,1548-1550,1556-1558,1565-1579,1582-1587,1589-1597
+  s_f1d20e583de5c0::t_0410ecf357b10d 448,1241-1242,1913
+tests/unit/ipc/handlers.test.ts
+  s_f1d20e583de5c0::t_8982c1463a2b04 113
+tests/unit/renderer/model-check.test.tsx
+  s_f1d20e583de5c0::t_d5642ee13894c9 49-50,62
+src/renderer/views/Settings.tsx
+  s_f1d20e583de5c0::t_b28f519c8da531 3,136,139,143,164
+src/main/ipc/handlers/services.ts
+  s_f1d20e583de5c0::t_0410ecf357b10d 78
+src/main/ipc/handlers/index.ts
+  s_f1d20e583de5c0::t_0410ecf357b10d 24,163-165
+tests/integration/services-with-data.test.ts
+  s_f1d20e583de5c0::t_9b6ae897b6efe8 1388-1389,1395,1397-1399
+  s_f1d20e583de5c0::t_791147d42a1771 1326-1387,1390-1394,1396,1400-1413
+specs/001-automated-spend-tracking/contracts/ipc-api.md
+  s_f1d20e583de5c0::t_8982c1463a2b04 89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "59d85fe5f197938d6951ab60d14e9049c2e727be",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
