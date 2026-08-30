@@ -1,0 +1,50 @@
+tests/unit/ipc/stub-services.ts
+  s_f1d20e583de5c0::t_c0b1aac36d3359 1-15
+tsconfig.json
+  s_f1d20e583de5c0::t_5144ff87f141c6 24-25
+src/renderer/views/Income.tsx
+  s_f1d20e583de5c0::t_0e2a155947f93e 25-29
+  s_f1d20e583de5c0::t_21936ac9008aa7 4,38,52
+  s_f1d20e583de5c0::t_616c527480c251 30-31
+tests/integration/services-with-data.test.ts
+  s_f1d20e583de5c0::t_deef196fa10edf 1414-1484
+src/main/ipc/handlers/index.ts
+  s_f1d20e583de5c0::t_ae560ca5199df3 25,102
+tests/unit/ipc/handlers.test.ts
+  s_f1d20e583de5c0::t_c0b1aac36d3359 4
+  s_f1d20e583de5c0::t_ae560ca5199df3 24,99
+tests/unit/ipc/preload-allowlist.test.ts
+  s_f1d20e583de5c0::t_2bd21103747122 1-35
+vitest.config.ts
+  s_f1d20e583de5c0::t_5144ff87f141c6 12
+src/shared/schemas.ts
+  s_f1d20e583de5c0::t_ae560ca5199df3 150-157
+src/main/services/index.ts
+  s_f1d20e583de5c0::t_ae560ca5199df3 532-573
+src/renderer/components/AddIncomeSource.tsx
+  s_f1d20e583de5c0::t_21936ac9008aa7 1-25,27-159
+  s_f1d20e583de5c0::t_0e2a155947f93e 26
+src/preload/index.ts
+  s_f1d20e583de5c0::t_ed7abdddbf1e63 11
+  s_f1d20e583de5c0::t_2bd21103747122 65-69
+src/main/ipc/handlers/services.ts
+  s_f1d20e583de5c0::t_ae560ca5199df3 33
+tests/unit/renderer/add-income.test.tsx
+  s_f1d20e583de5c0::t_fd9c5d5e1baa45 1-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "9559868aca7405eb1f0edea16f4705502e47980d",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
