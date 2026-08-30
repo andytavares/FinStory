@@ -1,0 +1,140 @@
+tests/unit/renderer/reports.test.tsx
+  s_f1d20e583de5c0::t_657e5b2eecba81 129,131-136
+  s_f1d20e583de5c0::t_5c5d74bfe92ba8 140-169
+  s_f1d20e583de5c0::t_794a5599541709 170
+src/renderer/App.tsx
+  s_f1d20e583de5c0::t_2afe6b937eff60 166,168-178
+tests/unit/sync/outcome.test.ts
+  s_f1d20e583de5c0::t_00ce6cf8aaf876 1-73
+src/main/services/index.ts
+  s_f1d20e583de5c0::t_0d1bca7868fccb 33,189
+  s_f1d20e583de5c0::t_c2c8c568093353 34,72,1535-1547,1549
+  s_f1d20e583de5c0::t_930d6e081fe19d 893-913
+  s_f1d20e583de5c0::t_c25f45662e499b 35-41,65-71,1448-1532,1709-1736
+  s_f1d20e583de5c0::t_a29549c211d485 1115
+  s_f1d20e583de5c0::t_553dc18ed86c07 758-760,765,767-771,773-775,778-780,783-784,792-794,797-798,800,804-832,835-836
+  s_f1d20e583de5c0::t_7585e0efce015f 1533
+src/main/db/migrations/meta/_journal.json
+  s_f1d20e583de5c0::t_76e4bab3d191a2 46-52
+tests/unit/renderer/query.test.tsx
+  s_f1d20e583de5c0::t_160254c6d76438 1-41
+src/renderer/views/Income.tsx
+  s_f1d20e583de5c0::t_543a190c158d0c 7-11,56-63
+src/renderer/views/Recurring.tsx
+  s_f1d20e583de5c0::t_930d6e081fe19d 1,9-13,17-18,21-43,47-60,63-65,70-79,81-101,104-130,132-142,146-161,163-169
+tests/unit/ipc/handlers.test.ts
+  s_f1d20e583de5c0::t_220beef2be08d4 73-74
+  s_f1d20e583de5c0::t_930d6e081fe19d 49,118
+src/main/ipc/handlers/services.ts
+  s_f1d20e583de5c0::t_1414ff4d484292 74-75
+  s_f1d20e583de5c0::t_930d6e081fe19d 48
+  s_f1d20e583de5c0::t_553dc18ed86c07 46
+src/renderer/lib/ipc.ts
+  s_f1d20e583de5c0::t_c778eafa7bc2ae 28-31
+tests/unit/renderer/views.test.tsx
+  s_f1d20e583de5c0::t_ed8c798b22ef33 169,177,198,204
+  s_f1d20e583de5c0::t_657e5b2eecba81 324-325,339,352
+src/shared/types.ts
+  s_f1d20e583de5c0::t_dee27bcb92a80c 165
+src/preload/index.ts
+  s_f1d20e583de5c0::t_930d6e081fe19d 41
+tests/integration/migration-upgrade.test.ts
+  s_f1d20e583de5c0::t_bfb1615d0a08ea 114-128,130-131,133-141,145-155
+  s_f1d20e583de5c0::t_49f1ef8d42dc0d 2,129,142-144
+  s_f1d20e583de5c0::t_a87dd8cfcdfd0f 132
+src/main/analysis/cadence.ts
+  s_f1d20e583de5c0::t_3fa7d5f9ce300b 43-53,74-76,80-82,98-111,114,119-122
+  s_f1d20e583de5c0::t_69714082f732e7 112-113,115-118
+src/renderer/lib/format.ts
+  s_f1d20e583de5c0::t_2be2a23fa0457e 42-57
+tests/unit/renderer/model-check.test.tsx
+  s_f1d20e583de5c0::t_8ceceeb4935cc5 1-71
+tests/unit/shared/schemas.test.ts
+  s_f1d20e583de5c0::t_04a4f948b4e0c3 1-2
+  s_f1d20e583de5c0::t_b7e3a227aef216 3-17
+tests/unit/renderer/categories-view.test.tsx
+  s_f1d20e583de5c0::t_bf19351316cc5f 284
+  s_f1d20e583de5c0::t_160254c6d76438 250-269,271-283,286-304,306-310
+  s_f1d20e583de5c0::t_c0dc7c667e5cfd 45-46,57-58,80,90-92,104,118,138,270,285,305
+  s_f1d20e583de5c0::t_657e5b2eecba81 11-13,87,95-103,105-117,119-135,139
+src/main/analysis/reports.ts
+  s_f1d20e583de5c0::t_a29549c211d485 26-27,50-51,86,90-91,131-137,167-176
+tests/integration/services-with-data.test.ts
+  s_f1d20e583de5c0::t_2371cc6b02a388 480,484,487-488,491,495,505,511-541,543,547-559,564-565,569-580,582
+  s_f1d20e583de5c0::t_ff0d7d612cd142 222-223,225
+  s_f1d20e583de5c0::t_84b0260622a48d 982-1014,1016-1023,1025-1100
+  s_f1d20e583de5c0::t_58e08b2d81b838 789
+  s_f1d20e583de5c0::t_2b68c5419cce61 50-51
+  s_f1d20e583de5c0::t_dee27bcb92a80c 1,221
+  s_f1d20e583de5c0::t_2d48e51cc1b209 1015,1024
+  s_f1d20e583de5c0::t_993089f1333961 2,203-210,224,226
+src/renderer/views/Settings.tsx
+  s_f1d20e583de5c0::t_3e0360951d36f5 121-122,127-182
+  s_f1d20e583de5c0::t_71ba6ed2b7b969 183-185
+tests/unit/analysis/cadence.test.ts
+  s_f1d20e583de5c0::t_69714082f732e7 98-101,105-122
+src/renderer/views/ReportDetail.tsx
+  s_f1d20e583de5c0::t_ed8c798b22ef33 290,292-300,399
+  s_f1d20e583de5c0::t_2be2a23fa0457e 4-5,7,12-13,45-51,133-159,169-190,202-204,206-208,213-245,247-258,260-267,307
+  s_f1d20e583de5c0::t_80bc48fa57248d 160-168,191-201,205,209-212,246,259
+  s_f1d20e583de5c0::t_ea132b501df418 268
+tests/unit/renderer/sync-feedback.test.tsx
+  s_f1d20e583de5c0::t_d23d9ae703dd72 1-86
+src/main/db/migrations/0006_credit_is_everyday.sql
+  s_f1d20e583de5c0::t_76e4bab3d191a2 1-5
+tests/unit/categorization/model-errors.test.ts
+  s_f1d20e583de5c0::t_3d79b2688f0860 1-62
+src/main/categorization/pipeline.ts
+  s_f1d20e583de5c0::t_3d79b2688f0860 59-75,138,141-145
+src/renderer/views/Accounts.tsx
+  s_f1d20e583de5c0::t_91fddc62cd73bd 16-34,195-212
+specs/001-automated-spend-tracking/contracts/ipc-api.md
+  s_f1d20e583de5c0::t_58e08b2d81b838 84-86
+src/renderer/lib/navigation.ts
+  s_f1d20e583de5c0::t_2afe6b937eff60 8,29
+tests/unit/analysis/everyday-accounts.test.ts
+  s_f1d20e583de5c0::t_0d1bca7868fccb 1-35
+src/main/sync/outcome.ts
+  s_f1d20e583de5c0::t_00ce6cf8aaf876 1-88
+src/renderer/views/Register.tsx
+  s_f1d20e583de5c0::t_2afe6b937eff60 31,34,36
+tests/integration/services.test.ts
+  s_f1d20e583de5c0::t_dee27bcb92a80c 1,66,221,299
+  s_f1d20e583de5c0::t_ff0d7d612cd142 67-73,222-228,300-306
+  s_f1d20e583de5c0::t_816cbf692d5a21 74-75,229-230,307-308
+src/renderer/views/Categories.tsx
+  s_f1d20e583de5c0::t_93bc14bff1b882 14,183,185,271-276,278-281,283-286,289-345
+  s_f1d20e583de5c0::t_c778eafa7bc2ae 27,29,68,180-182,198-204,213-246
+  s_f1d20e583de5c0::t_c0dc7c667e5cfd 119,251,282
+  s_f1d20e583de5c0::t_0df0b085fa6334 175-176
+src/shared/schemas.ts
+  s_f1d20e583de5c0::t_930d6e081fe19d 139-143
+  s_f1d20e583de5c0::t_b7e3a227aef216 144-148
+  s_f1d20e583de5c0::t_553dc18ed86c07 134-138
+src/main/index.ts
+  s_f1d20e583de5c0::t_5be3d571762a2c 16,38,122,124,128,136-137,164-177
+  s_f1d20e583de5c0::t_816cbf692d5a21 12
+  s_f1d20e583de5c0::t_1414ff4d484292 103-120,187-188
+src/main/accounts/everyday.ts
+  s_f1d20e583de5c0::t_ef3d537427926e 1-26
+src/main/ipc/handlers/index.ts
+  s_f1d20e583de5c0::t_930d6e081fe19d 19,127
+  s_f1d20e583de5c0::t_1414ff4d484292 157-158
+  s_f1d20e583de5c0::t_553dc18ed86c07 20,124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "3281aa356b74a849ad0eba9d3c270c71b58bf472",
+  "prompts": {},
+  "sessions": {
+    "s_f1d20e583de5c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b75ede26-f4b2-402d-9a92-1728b1cb1b55",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
