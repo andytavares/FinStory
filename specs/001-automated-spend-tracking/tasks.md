@@ -80,12 +80,12 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T030 [P] Define the complete Drizzle schema for all 15 tables from data-model.md in `src/main/db/schema.ts`
 - [ ] T031 Implement the SQLCipher database client in `src/main/db/client.ts` using better-sqlite3-multiple-ciphers keyed from `src/main/secrets/keyring.ts`
 - [ ] T032 Generate and commit the initial migration in `src/main/db/migrations/`; implement the migration runner in `src/main/db/migrate.ts`
-- [ ] T033 [P] Define shared cross-boundary types in `src/shared/types.ts` per contracts/ipc-api.md
-- [ ] T034 [P] Define Zod schemas for every IPC channel payload in `src/shared/schemas.ts`
-- [ ] T035 Implement the IPC registration skeleton in `src/main/ipc/index.ts` with **main-side Zod validation on every channel** and the `{code, message, recoverable, action}` error contract
-- [ ] T036 Implement the `contextBridge` surface in `src/preload/index.ts` exposing only the documented channels
+- [X] T033 [P] Define shared cross-boundary types in `src/shared/types.ts` per contracts/ipc-api.md
+- [X] T034 [P] Define Zod schemas for every IPC channel payload in `src/shared/schemas.ts`
+- [X] T035 Implement the IPC registration skeleton in `src/main/ipc/index.ts` with **main-side Zod validation on every channel** and the `{code, message, recoverable, action}` error contract
+- [X] T036 Implement the `contextBridge` surface in `src/preload/index.ts` exposing only the documented channels
 - [ ] T037 Write failing test asserting no secret value is reachable from the renderer and that `settings:get` returns presence booleans only, in `tests/unit/ipc/secret-isolation.test.ts` (FR-047, quickstart V15)
-- [ ] T038 Implement Electron app lifecycle in `src/main/index.ts`: single-instance lock, tray residency, `app.setLoginItemSettings` for launch-at-login (FR-056, research.md R6)
+- [X] T038 Implement Electron app lifecycle in `src/main/index.ts`: single-instance lock, tray residency, `app.setLoginItemSettings` for launch-at-login (FR-056, research.md R6)
 - [ ] T039 [P] Set up Tailwind and the base renderer shell in `src/renderer/main.tsx` and `src/renderer/App.tsx`
 - [ ] T040 [P] Write ADR `docs/adr/0001-sqlcipher-driver-exception.md` recording the single-publisher adoption, health evidence, and migration trigger (Constitution III, XI; research.md R9)
 - [ ] T041 [P] Write ADR `docs/adr/0002-plaid-client-secret-on-device.md` recording the accepted deviation, blast radius, and what it forecloses (research.md R10)
@@ -184,7 +184,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T086 [P] [US3] Write failing test asserting the balance projection is **withheld** when no income is detected or confidence is low, in `tests/unit/analysis/projection.test.ts` (FR-073)
 - [X] T087 [P] [US3] Write failing tests for each alert rule with near-miss boundary cases in `tests/unit/analysis/alerts.test.ts`
 - [X] T088 [P] [US3] Write failing test asserting `dedupe_key` prevents duplicate alerts on re-ingestion and when one event satisfies multiple triggers, in `tests/unit/analysis/alert-dedupe.test.ts` (FR-031)
-- [ ] T089 [P] [US3] Write failing tests for downtime catch-up — backlog alerts carry true event time and collapse above threshold — in `tests/unit/scheduler/catchup.test.ts` (quickstart V9)
+- [X] T089 [P] [US3] Write failing tests for downtime catch-up — backlog alerts carry true event time and collapse above threshold — in `tests/unit/scheduler/catchup.test.ts` (quickstart V9)
 
 ### Implementation for User Story 3
 
@@ -195,8 +195,8 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [X] T094 [US3] Implement the `dedupe_key` unique-index enforcement in `src/main/analysis/alerts.ts` — **suppression is a database constraint, not application logic a catch-up path can bypass** (FR-031)
 - [X] T095 [US3] Implement false-positive dismissal that does not disable the rule in `src/main/analysis/alerts.ts` (FR-032)
 - [ ] T096 [US3] Implement native notification delivery with a retained-undelivered queue in `src/main/notifications/deliver.ts` (FR-030, FR-034)
-- [ ] T097 [US3] Implement the scheduler with cron cadence plus **on-launch catch-up reconciliation** in `src/main/scheduler/index.ts` (FR-056, FR-058, research.md R6)
-- [ ] T098 [US3] Implement backlog-burst collapse into a single "while you were away" summary in `src/main/scheduler/catchup.ts` (FR-031, FR-057)
+- [X] T097 [US3] Implement the scheduler with cron cadence plus **on-launch catch-up reconciliation** in `src/main/scheduler/index.ts` (FR-056, FR-058, research.md R6)
+- [X] T098 [US3] Implement backlog-burst collapse into a single "while you were away" summary in `src/main/scheduler/catchup.ts` (FR-031, FR-057)
 - [ ] T099 [US3] Implement IPC handlers for `income:*`, `alerts:*`, `alertRules:*` in `src/main/ipc/handlers/`
 - [ ] T100 [P] [US3] Build the income view with confirm and override in `src/renderer/views/Income.tsx`
 - [ ] T101 [P] [US3] Build alert history and rule configuration in `src/renderer/views/Alerts.tsx` (FR-033)
@@ -237,7 +237,7 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 ### Tests for User Story 5 (MANDATORY — write first, must fail)
 
 - [X] T109 [P] [US5] Write failing tests for savings rate, month-over-month comparison, and annual projection in `tests/unit/analysis/report.test.ts`
-- [ ] T110 [P] [US5] Write failing test asserting all derived data recomputes byte-identically from scratch in `tests/unit/analysis/recompute.test.ts` (SC-010, quickstart V13)
+- [X] T110 [P] [US5] Write failing test asserting all derived data recomputes byte-identically from scratch in `tests/unit/analysis/recompute.test.ts` (SC-010, quickstart V13)
 
 ### Implementation for User Story 5
 

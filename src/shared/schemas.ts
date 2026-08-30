@@ -1,0 +1,92 @@
+import { z } from 'zod';
+
+/**
+ * IPC payload schemas.
+ *
+ * Validated on the MAIN side. The renderer is untrusted UI; its TypeScript
+ * types are a convenience, not a trust boundary.
+ */
+
+const isoDate = z.string().min(1);
+const minorUnits = z.number().int();
+
+export const dateRangeSchema = z.object({
+  periodStart: isoDate,
+  periodEnd: isoDate,
+});
+
+export const saveCredentialsSchema = z.object({
+  plaidClientId: z.string().min(1),
+  plaidSecret: z.string().min(1),
+  plaidEnv: z.enum(['sandbox', 'production']),
+  anthropicApiKey: z.string().min(1).optional(),
+});
+
+export const linkCompleteSchema = z.object({ linkToken: z.string().min(1) });
+export const institutionIdSchema = z.object({ institutionId: z.string().min(1) });
+
+export const transactionQuerySchema = z.object({
+  periodStart: isoDate.optional(),
+  periodEnd: isoDate.optional(),
+  categoryIds: z.array(z.string()).optional(),
+  merchantKey: z.string().optional(),
+  minAmountMinor: minorUnits.optional(),
+  maxAmountMinor: minorUnits.optional(),
+  accountIds: z.array(z.string()).optional(),
+  confirmationStatus: z.enum(['all', 'confirmed', 'unconfirmed']).default('all'),
+  limit: z.number().int().min(1).max(500).default(100),
+  offset: z.number().int().min(0).default(0),
+});
+
+export const recategorizeSchema = z.object({
+  transactionIds: z.array(z.string().min(1)).min(1),
+  categoryId: z.string().min(1),
+});
+
+export const applyRetroactiveSchema = z.object({
+  merchantKey: z.string().min(1),
+  categoryId: z.string().min(1),
+});
+
+export const createCategorySchema = z.object({
+  name: z.string().min(1).max(60),
+  parentId: z.string().nullable().default(null),
+});
+
+export const mergeCategoriesSchema = z.object({
+  sourceId: z.string().min(1),
+  targetId: z.string().min(1),
+});
+
+export const setHiddenSchema = z.object({ id: z.string().min(1), hidden: z.boolean() });
+
+export const incomeOverrideSchema = z.object({
+  id: z.string().min(1),
+  cadence: z.enum(['weekly', 'biweekly', 'semimonthly', 'monthly']).optional(),
+  expectedAmountMinor: minorUnits.optional(),
+  nextExpectedDate: isoDate.optional(),
+  accountId: z.string().optional(),
+});
+
+export const alertRuleUpdateSchema = z.object({
+  id: z.string().min(1),
+  thresholdMinor: minorUnits.nullable().optional(),
+  windowMinutes: z.number().int().positive().nullable().optional(),
+  enabled: z.boolean().optional(),
+});
+
+export const settingsUpdateSchema = z.object({
+  confidenceThreshold: z.number().min(0).max(1).optional(),
+  pollIntervalMinutes: z.number().int().min(15).max(1440).optional(),
+  categorizationMode: z.enum(['hybrid', 'local_only']).optional(),
+  timeZone: z.string().optional(),
+});
+
+export const pathSchema = z.object({ destPath: z.string().min(1) });
+export const importSchema = z.object({ srcPath: z.string().min(1) });
+export const deleteAllSchema = z.object({ confirmation: z.literal('DELETE ALL MY DATA') });
+export const idSchema = z.object({ id: z.string().min(1) });
+export const alertIdSchema = z.object({ alertId: z.string().min(1) });
+export const transactionIdsSchema = z.object({
+  transactionIds: z.array(z.string().min(1)).min(1),
+});
