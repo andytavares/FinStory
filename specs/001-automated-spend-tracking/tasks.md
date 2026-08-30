@@ -106,14 +106,14 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T045 [P] [US1] Write failing tests for `added`/`modified`/`removed` application, asserting exactly-once ingestion and in-place update, in `tests/unit/ingestion/apply.test.ts` (quickstart V3)
 - [ ] T046 [P] [US1] Write failing tests for internal-transfer and refund/reversal detection in `tests/unit/ingestion/exclusions.test.ts` (FR-007, FR-008)
 - [ ] T047 [P] [US1] Write failing tests for foreign-currency handling asserting settled amount is authoritative and `original_amount` never enters a sum, in `tests/unit/ingestion/currency.test.ts` (quickstart V20)
-- [ ] T048 [P] [US1] Write failing tests for the local merchant-history classifier in `tests/unit/categorization/local.test.ts`
+- [X] T048 [P] [US1] Write failing tests for the local merchant-history classifier in `tests/unit/categorization/local.test.ts`
 - [ ] T049 [P] [US1] Write failing tests for the model fallback, asserting structured output parsing and that **ingestion still succeeds when categorization fails**, in `tests/unit/categorization/model.test.ts`
-- [ ] T050 [P] [US1] Write failing tests for the two-stage pipeline asserting confirmed merchants resolve locally **with no API call**, in `tests/unit/categorization/pipeline.test.ts` (quickstart V6)
+- [X] T050 [P] [US1] Write failing tests for the two-stage pipeline asserting confirmed merchants resolve locally **with no API call**, in `tests/unit/categorization/pipeline.test.ts` (quickstart V6)
 - [X] T051 [P] [US1] Write failing test asserting category totals reconcile exactly to transaction totals for any range, in `tests/unit/analysis/reconciliation.test.ts` (FR-018, SC-004, quickstart V4)
 - [ ] T052 [P] [US1] Write failing tests for the category taxonomy — one-level nesting enforcement, rename by stable id, merge, hide — in `tests/unit/categories/taxonomy.test.ts` (quickstart V19)
 - [ ] T053 [P] [US1] Write failing integration test for the full Sandbox sync path in `tests/integration/plaid-sync.test.ts`
-- [ ] T053a [P] [US1] Build a labeled transaction fixture corpus with known-correct categories in `tests/fixtures/categorization-corpus.ts`, spanning unambiguous merchants, mixed-use merchants, and generic descriptors
-- [ ] T053b [P] [US1] Write failing test asserting hands-off categorization accuracy **meets 94%** against the labeled corpus, in `tests/unit/categorization/accuracy.test.ts` (SC-002) — this is the product's central quality bar and must be measurable, not assumed
+- [X] T053a [P] [US1] Build a labeled transaction fixture corpus with known-correct categories in `tests/fixtures/categorization-corpus.ts`, spanning unambiguous merchants, mixed-use merchants, and generic descriptors
+- [X] T053b [P] [US1] Write failing test asserting hands-off categorization accuracy **meets 94%** against the labeled corpus, in `tests/unit/categorization/accuracy.test.ts` (SC-002) — this is the product's central quality bar and must be measurable, not assumed
 - [ ] T053c [P] [US1] Write failing test asserting the system keeps operating and reporting on best-guess categories when the review queue is never opened, in `tests/unit/categorization/unreviewed.test.ts` (FR-017)
 
 ### Implementation for User Story 1
@@ -129,10 +129,10 @@ Single Electron application. Source under `src/` (`main/`, `preload/`, `renderer
 - [ ] T062 [US1] Implement historical backfill on first connection in `src/main/plaid/backfill.ts` (FR-004)
 - [ ] T063 [US1] Seed the curated default category taxonomy in `src/main/db/seed-categories.ts` (FR-078)
 - [ ] T064 [US1] Implement category management — create with nesting check, rename, merge with restatement, hide — in `src/main/categories/manage.ts` (FR-079–FR-083)
-- [ ] T065 [US1] Implement the merchant-profile store and local classifier in `src/main/categorization/local.ts` (data-model.md `merchant_profiles`)
+- [X] T065 [US1] Implement the merchant-profile store and local classifier in `src/main/categorization/local.ts` (data-model.md `merchant_profiles`)
 - [ ] T066 [US1] Implement the Claude fallback in `src/main/categorization/model.ts` using `output_config.format` structured outputs, adaptive thinking, and prompt caching on the taxonomy prefix. **Never send `budget_tokens`** (contracts/external-services.md)
-- [ ] T067 [US1] Implement the two-stage pipeline with confidence threshold and review flagging in `src/main/categorization/pipeline.ts` (FR-010–FR-013)
-- [ ] T068 [US1] Implement `local_only` categorization mode as a settings-driven skip of the model stage in `src/main/categorization/pipeline.ts` (FR-061)
+- [X] T067 [US1] Implement the two-stage pipeline with confidence threshold and review flagging in `src/main/categorization/pipeline.ts` (FR-010–FR-013)
+- [X] T068 [US1] Implement `local_only` categorization mode as a settings-driven skip of the model stage in `src/main/categorization/pipeline.ts` (FR-061)
 - [X] T069 [US1] Implement the single canonical spending predicate (excludes removed, excludes transfers, nets reversals) in `src/main/analysis/spending.ts` — **this must live in exactly one place** (Constitution II)
 - [X] T070 [US1] Implement category and merchant breakdown queries in `src/main/analysis/breakdown.ts` (FR-043)
 - [ ] T071 [US1] Implement IPC handlers for `setup:*`, `link:*`, `institutions:*`, `dashboard:get`, `breakdown:*`, `transactions:query`, `categories:*`, `sync:now` in `src/main/ipc/handlers/`
