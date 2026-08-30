@@ -17,6 +17,13 @@ function tx(id: string, amountMinor: number, categoryId: string): SpendingTransa
 const input: ReportInput = {
   periodStart: new Date('2026-08-01T04:00:00Z'),
   periodEnd: new Date('2026-09-01T04:00:00Z'),
+  categoryNames: {
+    dining: 'Dining & Takeout',
+    shopping: 'Shopping',
+    rent: 'Rent & Mortgage',
+    subscriptions: 'Subscriptions',
+    income: 'Income',
+  },
   transactions: [
     tx('a', -64000, 'dining'),
     tx('b', -38000, 'shopping'),
@@ -44,6 +51,22 @@ describe('monthly report figures (FR-038)', () => {
   it('computes savings and savings rate', () => {
     expect(r.savingsMinor).toBe(520000 - (64000 + 38000 + 120000 + 18700));
     expect(r.savingsRate).toBeCloseTo(r.savingsMinor / 520000, 5);
+  });
+
+  it('stores the human category name, not the raw id', () => {
+    const dining = r.categoryComparisons.find((c) => c.categoryId === 'dining');
+    expect(dining?.categoryName).toBe('Dining & Takeout');
+  });
+
+  it('falls back to the id when a name is unknown, rather than rendering blank', () => {
+    const anonymous = buildMonthlyReport({ ...input, categoryNames: {} });
+    expect(anonymous.categoryComparisons[0]?.categoryName).toBe(
+      anonymous.categoryComparisons[0]?.categoryId,
+    );
+  });
+
+  it('names the category on largest purchases too', () => {
+    expect(r.largestPurchases[0]?.categoryName).toBe('Rent & Mortgage');
   });
 
   it('reports month-over-month change per category with a direction', () => {
@@ -90,6 +113,12 @@ describe('weekly digest suppresses claims without baselines (FR-040)', () => {
     const d = buildWeeklyDigest(input);
     expect(d.deviations.every((x) => x.hasClaim === false)).toBe(true);
     expect(d.categoryTotals.length).toBeGreaterThan(0);
+  });
+
+  it('names categories in the digest', () => {
+    const d = buildWeeklyDigest(input);
+    expect(d.categoryTotals.every((c) => c.categoryName.length > 0)).toBe(true);
+    expect(d.categoryTotals.some((c) => c.categoryName === 'Dining & Takeout')).toBe(true);
   });
 
   it('makes claims once baselines are sufficient', () => {

@@ -27,3 +27,12 @@ describe('migration folder resolution', () => {
     expect(() => runMigrations(handle, '/definitely/not/here')).not.toThrow();
   });
 });
+
+describe('explicit folder handling', () => {
+  it('passes an explicit folder straight through, even a nonexistent one', () => {
+    runMigrations(handle, '/tmp/does-not-exist');
+    expect(migrate).toHaveBeenCalledWith(handle.db, {
+      migrationsFolder: '/tmp/does-not-exist',
+    });
+  });
+});

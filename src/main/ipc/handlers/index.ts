@@ -115,6 +115,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   );
   registry.handle('categories:merge', mergeCategoriesSchema, (p) => services.mergeCategories(p));
   registry.handle('categories:setHidden', setHiddenSchema, (p) => services.setCategoryHidden(p));
+  registry.handle('categories:delete', idSchema, (p) => services.deleteCategory(p.id));
 
   // Recurring
   registry.handle('recurring:list', empty, () => services.listRecurring());

@@ -44,7 +44,14 @@ export interface Qualified {
 }
 
 export interface BreakdownResponse extends Qualified {
-  readonly rows: Array<{ categoryId: string; name: string; totalMinor: number; txCount: number }>;
+  readonly rows: Array<{
+    categoryId: string;
+    name: string;
+    parentId: string | null;
+    parentName: string | null;
+    totalMinor: number;
+    txCount: number;
+  }>;
   readonly totalMinor: number;
 }
 

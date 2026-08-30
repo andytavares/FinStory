@@ -257,9 +257,10 @@ export class Services implements AppServices {
 
   async dashboard(range: unknown): Promise<unknown> {
     const { periodStart, periodEnd } = range as { periodStart: string; periodEnd: string };
-    const [transactions, names, completeness, accounts] = await Promise.all([
+    const [transactions, names, parents, completeness, accounts] = await Promise.all([
       this.spendingIn(periodStart, periodEnd),
       this.categoryNames(),
+      this.categoryParents(),
       this.completeness(),
       this.db.select().from(t.accounts),
     ]);
@@ -280,7 +281,7 @@ export class Services implements AppServices {
         balanceAsOf: a.balanceAsOf,
       })),
       cashFlowMinor: { incomeMinor, spendingMinor, netMinor: incomeMinor + spendingMinor },
-      categoryBreakdown: { ...this.namedRows(breakdown, names), ...completeness },
+      categoryBreakdown: { ...this.namedRows(breakdown, names, parents), ...completeness },
       whatChanged: [],
       runway: await this.runway(),
       ...completeness,
@@ -297,12 +298,16 @@ export class Services implements AppServices {
 
   async breakdownByCategory(range: unknown): Promise<unknown> {
     const { periodStart, periodEnd } = range as { periodStart: string; periodEnd: string };
-    const [transactions, names, completeness] = await Promise.all([
+    const [transactions, names, parents, completeness] = await Promise.all([
       this.spendingIn(periodStart, periodEnd),
       this.categoryNames(),
+      this.categoryParents(),
       this.completeness(),
     ]);
-    return { ...this.namedRows(breakdownByCategory(transactions), names), ...completeness };
+    return {
+      ...this.namedRows(breakdownByCategory(transactions), names, parents),
+      ...completeness,
+    };
   }
 
   async breakdownByMerchant(range: unknown): Promise<unknown> {
@@ -684,7 +689,76 @@ export class Services implements AppServices {
   // ---- Categories ----------------------------------------------------------
 
   async listCategories(): Promise<unknown> {
-    return this.db.select().from(t.categories);
+    const [categories, categorizations] = await Promise.all([
+      this.db.select().from(t.categories),
+      this.db.select().from(t.categorizations).where(isNull(t.categorizations.supersededBy)),
+    ]);
+    const usage = new Map<string, number>();
+    for (const c of categorizations) {
+      usage.set(c.categoryId, (usage.get(c.categoryId) ?? 0) + 1);
+    }
+    const childCount = new Map<string, number>();
+    for (const c of categories) {
+      if (c.parentId) childCount.set(c.parentId, (childCount.get(c.parentId) ?? 0) + 1);
+    }
+    return categories.map((c) => ({
+      ...c,
+      usageCount: usage.get(c.id) ?? 0,
+      childCount: childCount.get(c.id) ?? 0,
+      // Only an unused, childless, non-system category can be deleted; anything
+      // else would orphan history or break reconciliation.
+      canDelete: !c.isSystem && (usage.get(c.id) ?? 0) === 0 && (childCount.get(c.id) ?? 0) === 0,
+    }));
+  }
+
+  /**
+   * Delete a category.
+   *
+   * Refuses when it is in use or has children. Deleting a category that history
+   * references would orphan transactions and break the reconciliation invariant
+   * (Constitution II) — merging or hiding is the right move there instead.
+   */
+  async deleteCategory(id: string): Promise<unknown> {
+    const rows = await this.db.select().from(t.categories).where(eq(t.categories.id, id));
+    const category = rows[0];
+    if (!category) throw new IpcFailure('INTERNAL', 'That category no longer exists', false);
+    if (category.isSystem) {
+      throw new IpcFailure(
+        'VALIDATION_FAILED',
+        'Built-in categories cannot be deleted. Hide it instead.',
+        true,
+        'Hide',
+      );
+    }
+
+    const inUse = await this.db
+      .select()
+      .from(t.categorizations)
+      .where(and(eq(t.categorizations.categoryId, id), isNull(t.categorizations.supersededBy)));
+    if (inUse.length > 0) {
+      throw new IpcFailure(
+        'VALIDATION_FAILED',
+        `${inUse.length} transaction${inUse.length === 1 ? '' : 's'} still use this category. ` +
+          'Merge it into another category, or hide it to keep the history intact.',
+        true,
+        'Merge instead',
+      );
+    }
+
+    const children = await this.db
+      .select()
+      .from(t.categories)
+      .where(eq(t.categories.parentId, id));
+    if (children.length > 0) {
+      throw new IpcFailure(
+        'VALIDATION_FAILED',
+        'Remove or move its subcategories first.',
+        true,
+      );
+    }
+
+    await this.db.delete(t.categories).where(eq(t.categories.id, id));
+    return { ok: true };
   }
 
   async createCategory(input: unknown): Promise<unknown> {
@@ -938,6 +1012,7 @@ export class Services implements AppServices {
     const reportInput = {
       periodStart: range.start,
       periodEnd: range.end,
+      categoryNames: Object.fromEntries(await this.categoryNames()),
       transactions,
       priorPeriodTotals,
       baselinesByCategory: await this.baselines(
@@ -1147,16 +1222,29 @@ export class Services implements AppServices {
   private namedRows(
     breakdown: ReturnType<typeof breakdownByCategory>,
     names: Map<string, string>,
+    parents: Map<string, string | null> = new Map(),
   ): { rows: unknown[]; totalMinor: number } {
     return {
-      rows: breakdown.rows.map((r) => ({
-        categoryId: r.categoryId,
-        name: names.get(r.categoryId) ?? r.categoryId,
-        totalMinor: r.totalMinor,
-        txCount: r.transactionCount,
-      })),
+      rows: breakdown.rows.map((r) => {
+        const parentId = parents.get(r.categoryId) ?? null;
+        return {
+          categoryId: r.categoryId,
+          name: names.get(r.categoryId) ?? r.categoryId,
+          // Supplied so the dashboard can roll spending up to the parent.
+          parentId,
+          parentName: parentId ? (names.get(parentId) ?? parentId) : null,
+          totalMinor: r.totalMinor,
+          txCount: r.transactionCount,
+        };
+      }),
       totalMinor: breakdown.totalMinor,
     };
+  }
+
+  /** categoryId -> parentId, for rolling a breakdown up one level. */
+  private async categoryParents(): Promise<Map<string, string | null>> {
+    const rows = await this.db.select().from(t.categories);
+    return new Map(rows.map((r) => [r.id, r.parentId]));
   }
 
   private async runway(): Promise<unknown> {

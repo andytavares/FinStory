@@ -392,6 +392,69 @@ describe('Services with realistic data', () => {
     expect(q.totalCount).toBe(0);
   });
 
+  it('reports usage and deletability per category', async () => {
+    const cats = (await services.listCategories()) as Array<{
+      id: string;
+      usageCount: number;
+      canDelete: boolean;
+    }>;
+    expect(cats.find((c) => c.id === 'dining')?.usageCount).toBe(1);
+    // Built-in categories are never deletable, however unused.
+    expect(cats.find((c) => c.id === 'dining')?.canDelete).toBe(false);
+  });
+
+  it('deletes an unused, user-created category', async () => {
+    const created = (await services.createCategory({ name: 'Scratch', parentId: null })) as {
+      id: string;
+    };
+    await services.deleteCategory(created.id);
+    const cats = (await services.listCategories()) as Array<{ id: string }>;
+    expect(cats.some((c) => c.id === created.id)).toBe(false);
+  });
+
+  it('refuses to delete a category still in use, and says how many use it', async () => {
+    const created = (await services.createCategory({ name: 'InUse', parentId: null })) as {
+      id: string;
+    };
+    await services.updateTransaction({ transactionId: 'txn_1', categoryId: created.id });
+    await expect(services.deleteCategory(created.id)).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: expect.stringContaining('1 transaction'),
+    });
+  });
+
+  it('refuses to delete a built-in category, and suggests hiding instead', async () => {
+    await expect(services.deleteCategory('dining')).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      action: 'Hide',
+    });
+  });
+
+  it('refuses to delete a category that still has subcategories', async () => {
+    const parent = (await services.createCategory({ name: 'Parent', parentId: null })) as {
+      id: string;
+    };
+    await services.createCategory({ name: 'Child', parentId: parent.id });
+    await expect(services.deleteCategory(parent.id)).rejects.toMatchObject({
+      message: expect.stringContaining('subcategories'),
+    });
+  });
+
+  it('reports a missing category honestly', async () => {
+    await expect(services.deleteCategory('nope')).rejects.toMatchObject({ code: 'INTERNAL' });
+  });
+
+  it('rolls the dashboard breakdown up to parents', async () => {
+    const d = (await services.dashboard(RANGE)) as {
+      categoryBreakdown: {
+        rows: Array<{ categoryId: string; parentId: string | null; parentName: string | null }>;
+      };
+    };
+    const dining = d.categoryBreakdown.rows.find((r) => r.categoryId === 'dining');
+    expect(dining?.parentId).toBe('food');
+    expect(dining?.parentName).toBe('Food');
+  });
+
   it('lists recurring charges with cumulative total and amount history', async () => {
     const rows = (await services.listRecurring()) as Array<{
       cumulativePaidMinor: number;

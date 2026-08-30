@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import {
   ResponsiveContainer,
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -37,11 +39,15 @@ export function SpendingOverTime({
   data,
   priorAverageMinor,
   title,
+  onSelectPeriod,
 }: {
   data: readonly SpendingPoint[];
   priorAverageMinor: number | null;
   title: string;
+  /** Clicking a period drills into that month's transactions. */
+  onSelectPeriod?: (label: string) => void;
 }): React.JSX.Element {
+  const [shape, setShape] = useState<'bars' | 'line'>('bars');
   if (data.length === 0) {
     return (
       <p className="border border-dashed border-[var(--color-line)] px-4 py-8 text-center text-[13px] text-[var(--color-ink-faint)]">
@@ -53,10 +59,41 @@ export function SpendingOverTime({
   return (
     <figure className="m-0">
       {/* A single series needs no legend; the title names it. */}
-      <figcaption className="mb-3 text-[15px]">{title}</figcaption>
+      <figcaption className="mb-3 flex items-baseline justify-between text-[15px]">
+        <span>{title}</span>
+        <span className="flex items-center gap-3 text-[12px] font-normal">
+          {onSelectPeriod && (
+            <span className="text-[var(--color-ink-faint)]">Click a period to open it</span>
+          )}
+          <span className="flex border border-[var(--color-line)]">
+            {(['bars', 'line'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setShape(s)}
+                aria-pressed={shape === s}
+                className={`px-2 py-0.5 ${
+                  shape === s
+                    ? 'bg-[var(--color-surface-raised)] text-[var(--color-ink)]'
+                    : 'text-[var(--color-ink-faint)]'
+                }`}
+              >
+                {s === 'bars' ? 'Bars' : 'Line'}
+              </button>
+            ))}
+          </span>
+        </span>
+      </figcaption>
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={[...data]} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <ComposedChart
+            data={[...data]}
+            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+            onClick={(state) => {
+              if (typeof state.activeLabel === 'string') onSelectPeriod?.(state.activeLabel);
+            }}
+            style={{ cursor: onSelectPeriod ? 'pointer' : 'default' }}
+          >
             <CartesianGrid stroke={LINE} strokeDasharray="0" vertical={false} />
             <XAxis
               dataKey="label"
@@ -74,7 +111,11 @@ export function SpendingOverTime({
               tickFormatter={(v: number) => moneyCompact(v)}
             />
             <Tooltip
-              cursor={{ fill: 'oklch(0.27 0.02 250)' }}
+              cursor={
+                shape === 'line'
+                  ? { stroke: INK_FAINT, strokeDasharray: '3 3' }
+                  : { fill: 'oklch(0.27 0.02 250)' }
+              }
               contentStyle={{
                 background: 'oklch(0.23 0.02 250)',
                 border: `1px solid ${LINE}`,
@@ -98,8 +139,19 @@ export function SpendingOverTime({
               />
             )}
             {/* 4px rounded data-end anchored to the baseline. */}
-            <Bar dataKey="spendingMinor" fill={SERIES} radius={[4, 4, 0, 0]} maxBarSize={44} />
-          </BarChart>
+            {shape === 'bars' ? (
+              <Bar dataKey="spendingMinor" fill={SERIES} radius={[4, 4, 0, 0]} maxBarSize={44} />
+            ) : (
+              <Line
+                type="monotone"
+                dataKey="spendingMinor"
+                stroke={SERIES}
+                strokeWidth={2}
+                dot={{ r: 4, fill: SERIES, strokeWidth: 0 }}
+                activeDot={{ r: 6 }}
+              />
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </figure>

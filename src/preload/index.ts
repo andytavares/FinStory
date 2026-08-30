@@ -36,6 +36,7 @@ const INVOKE_CHANNELS = [
   'categories:rename',
   'categories:merge',
   'categories:setHidden',
+  'categories:delete',
   'recurring:list',
   'recurring:acknowledge',
   'recurring:markNotRecurring',

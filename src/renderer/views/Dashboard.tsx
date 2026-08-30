@@ -3,6 +3,10 @@ import { Money } from '../components/Money';
 import { Qualification } from '../components/Qualification';
 import { EmptyState } from '../components/EmptyState';
 import { Runway } from '../components/Runway';
+import { CategoryBars } from '../charts/CategoryBars';
+import { CategoryTree, groupByParent } from '../components/CategoryTree';
+import { SpendingOverTime } from '../charts/SpendingOverTime';
+import { useQuery as useTrends } from '../lib/ipc';
 import type { DashboardResponse } from '@shared/types';
 
 interface DashboardData extends DashboardResponse {
@@ -30,12 +34,20 @@ export function Dashboard({ onDrill }: { onDrill: (categoryId: string) => void }
     periodEnd,
   });
 
+  // A year back, so the trend has something to show.
+  const trends = useTrends<{
+    series: Array<{ label: string; spendingMinor: number }>;
+    priorAverageMinor: number | null;
+  }>('trends:overTime', {
+    periodStart: new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString(),
+    periodEnd,
+  });
+
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
   if (error) return <EmptyState title="Could not load your dashboard" detail={error} />;
   if (!data) return <EmptyState title="No data yet" detail="Connect an account to get started." />;
 
   const { cashFlowMinor, categoryBreakdown } = data;
-  const largest = categoryBreakdown.rows[0]?.totalMinor ?? -1;
 
   return (
     <div className="space-y-6">
@@ -59,11 +71,37 @@ export function Dashboard({ onDrill }: { onDrill: (categoryId: string) => void }
         ))}
       </section>
 
+      {categoryBreakdown.rows.length > 0 && (
+        <section>
+          {/* Charted at the parent level: a dozen subcategories is noise when
+              the question is "which part of my life cost the most". */}
+          <CategoryBars
+            data={groupByParent(categoryBreakdown.rows).map((g) => ({
+              categoryId: g.id,
+              categoryName: g.name,
+              totalMinor: g.totalMinor,
+            }))}
+            title="Where it went"
+            onSelect={onDrill}
+          />
+        </section>
+      )}
+
+      {trends.data && trends.data.series.length > 1 && (
+        <section>
+          <SpendingOverTime
+            data={trends.data.series}
+            priorAverageMinor={trends.data.priorAverageMinor}
+            title="Spending by month"
+          />
+        </section>
+      )}
+
       <section>
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-[15px]">Where it went</h2>
+          <h2 className="text-[15px]">By category</h2>
           <p className="text-[12px] text-[var(--color-ink-faint)]">
-            {categoryBreakdown.rows.length} categories
+            {groupByParent(categoryBreakdown.rows).length} groups · expand for detail
           </p>
         </div>
 
@@ -73,31 +111,7 @@ export function Dashboard({ onDrill }: { onDrill: (categoryId: string) => void }
             detail="Transactions appear here automatically as they post. There is nothing to enter."
           />
         ) : (
-          <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
-            {categoryBreakdown.rows.map((row) => (
-              <li key={row.categoryId}>
-                {/* SC-018: one interaction from any figure to its transactions. */}
-                <button
-                  type="button"
-                  onClick={() => onDrill(row.categoryId)}
-                  className="flex w-full items-center gap-4 bg-[var(--color-surface)] px-4 py-3 text-left hover:bg-[var(--color-surface-raised)]"
-                >
-                  <span className="w-40 shrink-0 truncate">{row.name}</span>
-                  {/* Bar encodes share of the largest category — comparison, not decoration. */}
-                  <span className="h-1 flex-1 bg-[var(--color-surface-raised)]">
-                    <span
-                      className="block h-full bg-[var(--color-ink-faint)]"
-                      style={{ width: `${(row.totalMinor / largest) * 100}%` }}
-                    />
-                  </span>
-                  <Money minor={row.totalMinor} magnitude className="w-28 text-right" />
-                  <span className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]">
-                    {row.txCount}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <CategoryTree rows={categoryBreakdown.rows} onDrill={onDrill} />
         )}
       </section>
 

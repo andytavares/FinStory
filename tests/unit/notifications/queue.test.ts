@@ -117,3 +117,29 @@ describe('queue behaviour under mixed outcomes', () => {
     expect(q.pending()).toHaveLength(0);
   });
 });
+
+describe('queue delivery bookkeeping', () => {
+  it('reports pending as a snapshot, not a live handle', async () => {
+    const q = new NotificationQueue({
+      deliver: async () => {
+        throw new Error('down');
+      },
+    });
+    await q.push({ id: 'n1', title: 'a', body: 'b', occurredAt: '2026-08-29T12:00:00Z' });
+    const snapshot = q.pending();
+    await q.push({ id: 'n2', title: 'a', body: 'b', occurredAt: '2026-08-29T12:00:00Z' });
+    expect(snapshot).toHaveLength(1);
+  });
+
+  it('ignores a push of something already queued', async () => {
+    const q = new NotificationQueue({
+      deliver: async () => {
+        throw new Error('down');
+      },
+    });
+    const n = { id: 'n1', title: 'a', body: 'b', occurredAt: '2026-08-29T12:00:00Z' };
+    await q.push(n);
+    await q.push(n);
+    expect(q.pending()).toHaveLength(1);
+  });
+});

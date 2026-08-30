@@ -2,9 +2,11 @@ import { useQuery } from '../lib/ipc';
 import { Money } from '../components/Money';
 import { Qualification } from '../components/Qualification';
 import { shortDate } from '../lib/format';
+import { CategoryBars } from '../charts/CategoryBars';
 
 interface CategoryComparison {
   readonly categoryId: string;
+  readonly categoryName: string;
   readonly currentMinor: number;
   readonly priorMinor: number;
   readonly changeMinor: number;
@@ -17,7 +19,12 @@ interface MonthlyContent {
   readonly savingsMinor: number;
   readonly savingsRate: number;
   readonly categoryComparisons: CategoryComparison[];
-  readonly largestPurchases: Array<{ id: string; amountMinor: number; categoryId: string }>;
+  readonly largestPurchases: Array<{
+    id: string;
+    amountMinor: number;
+    categoryId: string;
+    categoryName: string;
+  }>;
   readonly recurringAudit: Array<{
     merchantKey: string;
     currentAmountMinor: number;
@@ -31,9 +38,10 @@ interface MonthlyContent {
 
 interface DigestContent {
   readonly hadActivity: boolean;
-  readonly categoryTotals: Array<{ categoryId: string; totalMinor: number }>;
+  readonly categoryTotals: Array<{ categoryId: string; categoryName: string; totalMinor: number }>;
   readonly deviations: Array<{
     categoryId: string;
+    categoryName: string;
     hasClaim: boolean;
     direction: 'above' | 'below' | null;
     multiple: number | null;
@@ -113,8 +121,6 @@ function BackLink({ onBack }: { onBack: () => void }): React.JSX.Element {
 }
 
 function MonthlyBody({ content }: { content: MonthlyContent }): React.JSX.Element {
-  const worst = Math.min(...content.categoryComparisons.map((c) => c.currentMinor), -1);
-
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-4 gap-px bg-[var(--color-line)]">
@@ -135,23 +141,28 @@ function MonthlyBody({ content }: { content: MonthlyContent }): React.JSX.Elemen
       </section>
 
       <section>
-        <h2 className="mb-2 text-[15px]">By category, versus last period</h2>
+        <CategoryBars
+          data={content.categoryComparisons.map((c) => ({
+            categoryId: c.categoryId,
+            categoryName: c.categoryName,
+            totalMinor: c.currentMinor,
+          }))}
+          title="Where it went"
+        />
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-[15px]">Versus last period</h2>
         <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
           {content.categoryComparisons.map((c) => (
             <li
               key={c.categoryId}
               className="flex items-center gap-4 bg-[var(--color-surface)] px-4 py-2 text-[13px]"
             >
-              <span className="w-40 shrink-0 truncate">{c.categoryId}</span>
-              <span className="h-1 flex-1 bg-[var(--color-surface-raised)]">
-                <span
-                  className="block h-full bg-[var(--color-ink-faint)]"
-                  style={{ width: `${(c.currentMinor / worst) * 100}%` }}
-                />
-              </span>
+              <span className="flex-1 truncate">{c.categoryName}</span>
               <Money minor={c.currentMinor} magnitude className="w-24 text-right" />
               <span
-                className="numeric w-24 text-right text-[12px]"
+                className="numeric w-28 text-right text-[12px]"
                 style={{
                   color:
                     c.direction === 'up' ? 'var(--color-attention)' : 'var(--color-ink-faint)',
@@ -160,7 +171,7 @@ function MonthlyBody({ content }: { content: MonthlyContent }): React.JSX.Elemen
                 {/* Direction is worded, not colour-only. */}
                 {c.direction === 'flat'
                   ? 'unchanged'
-                  : `${c.direction === 'up' ? 'up' : 'down'} ${Math.abs(c.changeMinor / 100).toFixed(0)}`}
+                  : `${c.direction} ${Math.abs(c.changeMinor / 100).toFixed(0)}`}
               </span>
             </li>
           ))}
@@ -176,7 +187,7 @@ function MonthlyBody({ content }: { content: MonthlyContent }): React.JSX.Elemen
                 key={p.id}
                 className="flex items-center justify-between bg-[var(--color-surface)] px-4 py-2 text-[13px]"
               >
-                <span className="text-[var(--color-ink-muted)]">{p.categoryId}</span>
+                <span className="text-[var(--color-ink-muted)]">{p.categoryName}</span>
                 <Money minor={p.amountMinor} magnitude />
               </li>
             ))}
@@ -246,7 +257,7 @@ function DigestBody({ content }: { content: DigestContent }): React.JSX.Element 
           <ul className="space-y-1 text-[13px]">
             {claims.map((d) => (
               <li key={d.categoryId} className="text-[var(--color-ink-muted)]">
-                <span className="text-[var(--color-ink)]">{d.categoryId}</span> was{' '}
+                <span className="text-[var(--color-ink)]">{d.categoryName}</span> was{' '}
                 {d.multiple ? `${d.multiple.toFixed(1)}×` : ''} {d.direction} your normal range at{' '}
                 <Money minor={d.actualMinor} magnitude />
               </li>
@@ -256,14 +267,17 @@ function DigestBody({ content }: { content: DigestContent }): React.JSX.Element 
       )}
 
       <section>
-        <h2 className="mb-2 text-[15px]">Spending this period</h2>
+        <CategoryBars data={content.categoryTotals} title="Spending this period" />
+      </section>
+
+      <section>
         <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
           {content.categoryTotals.map((c) => (
             <li
               key={c.categoryId}
               className="flex items-center justify-between bg-[var(--color-surface)] px-4 py-2 text-[13px]"
             >
-              <span>{c.categoryId}</span>
+              <span>{c.categoryName}</span>
               <Money minor={c.totalMinor} magnitude />
             </li>
           ))}

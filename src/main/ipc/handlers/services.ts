@@ -42,6 +42,7 @@ export interface AppServices {
   renameCategory(input: unknown): Promise<unknown>;
   mergeCategories(input: unknown): Promise<unknown>;
   setCategoryHidden(input: unknown): Promise<unknown>;
+  deleteCategory(id: string): Promise<unknown>;
 
   listRecurring(): Promise<unknown>;
   acknowledgeRecurring(id: string): Promise<unknown>;

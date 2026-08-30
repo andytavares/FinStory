@@ -33,10 +33,10 @@ const MONTHLY = {
     savingsMinor: 95_000,
     savingsRate: 0.18,
     categoryComparisons: [
-      { categoryId: 'dining', currentMinor: -64_000, priorMinor: -50_000, changeMinor: -14_000, direction: 'up' as const },
-      { categoryId: 'rent', currentMinor: -120_000, priorMinor: -120_000, changeMinor: 0, direction: 'flat' as const },
+      { categoryId: 'dining', categoryName: 'Dining & Takeout', currentMinor: -64_000, priorMinor: -50_000, changeMinor: -14_000, direction: 'up' as const },
+      { categoryId: 'rent', categoryName: 'Rent & Mortgage', currentMinor: -120_000, priorMinor: -120_000, changeMinor: 0, direction: 'flat' as const },
     ],
-    largestPurchases: [{ id: 'a', amountMinor: -120_000, categoryId: 'rent' }],
+    largestPurchases: [{ id: 'a', amountMinor: -120_000, categoryId: 'rent', categoryName: 'Rent & Mortgage' }],
     recurringAudit: [
       { merchantKey: 'netflix', currentAmountMinor: -1_599, cadence: 'monthly', cumulativePaidMinor: -12_792 },
     ],
@@ -132,6 +132,18 @@ describe('Report detail', () => {
     expect(screen.getByText('unchanged')).toBeDefined();
   });
 
+  it('shows human category names, never raw ids', async () => {
+    render(<ReportDetail reportId="rep1" onBack={() => {}} />);
+    await waitFor(() => expect(screen.getAllByText('Dining & Takeout').length).toBeGreaterThan(0));
+    expect(screen.queryByText(/^cat_/)).toBeNull();
+  });
+
+  it('renders a chart of the category breakdown', async () => {
+    const { container } = render(<ReportDetail reportId="rep1" onBack={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Where it went')).toBeDefined());
+    expect(container.querySelector('figure')).not.toBeNull();
+  });
+
   it('includes the recurring audit and largest purchases', async () => {
     render(<ReportDetail reportId="rep1" onBack={() => {}} />);
     await waitFor(() => expect(screen.getByText('netflix')).toBeDefined());
@@ -172,9 +184,9 @@ describe('Report detail', () => {
         type: 'weekly_digest',
         content: {
           hadActivity: true,
-          categoryTotals: [{ categoryId: 'dining', totalMinor: -6400 }],
+          categoryTotals: [{ categoryId: 'dining', categoryName: 'Dining & Takeout', totalMinor: -6400 }],
           deviations: [
-            { categoryId: 'dining', hasClaim: false, direction: null, multiple: null, actualMinor: -6400 },
+            { categoryId: 'dining', categoryName: 'Dining & Takeout', hasClaim: false, direction: null, multiple: null, actualMinor: -6400 },
           ],
           qualification: null,
         },
@@ -194,9 +206,9 @@ describe('Report detail', () => {
         type: 'weekly_digest',
         content: {
           hadActivity: true,
-          categoryTotals: [{ categoryId: 'dining', totalMinor: -31_000 }],
+          categoryTotals: [{ categoryId: 'dining', categoryName: 'Dining & Takeout', totalMinor: -31_000 }],
           deviations: [
-            { categoryId: 'dining', hasClaim: true, direction: 'above', multiple: 3.06, actualMinor: -31_000 },
+            { categoryId: 'dining', categoryName: 'Dining & Takeout', hasClaim: true, direction: 'above', multiple: 3.06, actualMinor: -31_000 },
           ],
           qualification: null,
         },

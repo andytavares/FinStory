@@ -21,6 +21,8 @@ export interface RecurringSummary {
 export interface ReportInput {
   readonly periodStart: Date;
   readonly periodEnd: Date;
+  /** categoryId -> display name, captured at generation time. */
+  readonly categoryNames: Readonly<Record<string, string>>;
   readonly transactions: readonly SpendingTransaction[];
   readonly priorPeriodTotals: Readonly<Record<string, number>>;
   readonly baselinesByCategory: Readonly<Record<string, Baseline>>;
@@ -41,6 +43,8 @@ function qualificationFor(input: ReportInput): string | null {
 
 export interface CategoryComparison {
   readonly categoryId: string;
+  /** Stored with the report so it stays readable if the category is later renamed. */
+  readonly categoryName: string;
   readonly currentMinor: number;
   readonly priorMinor: number;
   readonly changeMinor: number;
@@ -55,7 +59,7 @@ export interface MonthlyReport {
   readonly savingsMinor: number;
   readonly savingsRate: number;
   readonly categoryComparisons: CategoryComparison[];
-  readonly largestPurchases: SpendingTransaction[];
+  readonly largestPurchases: Array<SpendingTransaction & { categoryName: string }>;
   readonly recurringAudit: RecurringSummary[];
   readonly projectedAnnualSpendingMinor: number;
   readonly projectionAssumption: string;
@@ -77,6 +81,7 @@ export function buildMonthlyReport(input: ReportInput): MonthlyReport {
     const changeMinor = row.totalMinor - priorMinor;
     return {
       categoryId: row.categoryId,
+      categoryName: input.categoryNames[row.categoryId] ?? row.categoryId,
       currentMinor: row.totalMinor,
       priorMinor,
       // Spending is negative, so a more-negative change means spending went up.
@@ -85,7 +90,10 @@ export function buildMonthlyReport(input: ReportInput): MonthlyReport {
     };
   });
 
-  const largestPurchases = [...spending].sort((a, b) => a.amountMinor - b.amountMinor).slice(0, 10);
+  const largestPurchases = [...spending]
+    .sort((a, b) => a.amountMinor - b.amountMinor)
+    .slice(0, 10)
+    .map((tx) => ({ ...tx, categoryName: input.categoryNames[tx.categoryId] ?? tx.categoryId }));
 
   return {
     periodStart: input.periodStart.toISOString(),
@@ -106,13 +114,14 @@ export function buildMonthlyReport(input: ReportInput): MonthlyReport {
 
 export interface DigestDeviation extends Deviation {
   readonly categoryId: string;
+  readonly categoryName: string;
 }
 
 export interface WeeklyDigest {
   readonly periodStart: string;
   readonly periodEnd: string;
   readonly hadActivity: boolean;
-  readonly categoryTotals: Array<{ categoryId: string; totalMinor: number }>;
+  readonly categoryTotals: Array<{ categoryId: string; categoryName: string; totalMinor: number }>;
   readonly deviations: DigestDeviation[];
   readonly dataComplete: boolean;
   readonly qualification: string | null;
@@ -131,14 +140,22 @@ export function buildWeeklyDigest(input: ReportInput): WeeklyDigest {
       samplePeriods: 0,
       isSufficient: false,
     };
-    return { categoryId: row.categoryId, ...describeDeviation(row.totalMinor, effective) };
+    return {
+      categoryId: row.categoryId,
+      categoryName: input.categoryNames[row.categoryId] ?? row.categoryId,
+      ...describeDeviation(row.totalMinor, effective),
+    };
   });
 
   return {
     periodStart: input.periodStart.toISOString(),
     periodEnd: input.periodEnd.toISOString(),
     hadActivity: breakdown.rows.length > 0,
-    categoryTotals: breakdown.rows.map((r) => ({ categoryId: r.categoryId, totalMinor: r.totalMinor })),
+    categoryTotals: breakdown.rows.map((r) => ({
+      categoryId: r.categoryId,
+      categoryName: input.categoryNames[r.categoryId] ?? r.categoryId,
+      totalMinor: r.totalMinor,
+    })),
     deviations,
     dataComplete: input.dataComplete,
     qualification: qualificationFor(input),

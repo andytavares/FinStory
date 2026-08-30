@@ -8,9 +8,9 @@ import { Alerts } from '@renderer/views/Alerts';
 afterEach(cleanup);
 
 const CATS = [
-  { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
-  { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null },
-  { id: 'custom', name: 'Custom', parentId: null, isSystem: false, isHidden: true, mergedIntoId: null },
+  { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, canDelete: false },
+  { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, canDelete: false },
+  { id: 'custom', name: 'Custom', parentId: null, isSystem: false, isHidden: true, mergedIntoId: null, usageCount: 0, childCount: 0, canDelete: true },
 ];
 
 describe('Categories screen', () => {
@@ -82,6 +82,22 @@ describe('Categories screen', () => {
     expect(values).toContain('dining');
   });
 
+  it('offers Delete only for an unused, user-created category', async () => {
+    render(<Categories />);
+    await waitFor(() => screen.getByLabelText('Name for Custom'));
+    // Custom is deletable; Food and Dining are built in, so theirs is inert.
+    const deletes = screen.getAllByText('Delete');
+    expect(deletes.some((d) => d.tagName === 'BUTTON')).toBe(true);
+    expect(deletes.some((d) => d.tagName === 'SPAN')).toBe(true);
+  });
+
+  it('explains why a category cannot be deleted', async () => {
+    render(<Categories />);
+    await waitFor(() => screen.getByLabelText('Name for Food'));
+    const inert = screen.getAllByText('Delete').find((d) => d.tagName === 'SPAN');
+    expect(inert?.getAttribute('title')).toMatch(/Built-in|subcategories|Used by/);
+  });
+
   it('shows Show for a hidden category and Hide for a visible one', async () => {
     render(<Categories />);
     await waitFor(() => screen.getByLabelText('Name for Custom'));
@@ -143,5 +159,50 @@ describe('Alerts screen editing', () => {
     fireEvent.change(input, { target: { value: '500' } });
     fireEvent.blur(input);
     expect((input as HTMLInputElement).value).toBe('500');
+  });
+});
+
+describe('Accounts and Alerts branches', () => {
+  it('Alerts shows a user label when one is set', async () => {
+    const { Alerts: A } = await import('@renderer/views/Alerts');
+    installMoneyBridge({
+      'alerts:list': [],
+      'alertRules:list': [
+        { id: 'r2', type: 'duplicate_charge', label: 'My dupes', thresholdMinor: null, windowMinutes: 60, enabled: true, isSystem: false },
+      ],
+    });
+    render(<A />);
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^Name for/) as HTMLInputElement).value).toBe('My dupes'),
+    );
+  });
+
+  it('Alerts renders alert history with a dismissed entry', async () => {
+    const { Alerts: A } = await import('@renderer/views/Alerts');
+    installMoneyBridge({
+      'alertRules:list': [],
+      'alerts:list': [
+        {
+          id: 'a1',
+          type: 'large_purchase',
+          eventOccurredAt: '2026-08-29T10:00:00Z',
+          detectedAt: '2026-08-29T10:01:00Z',
+          dismissed: true,
+        },
+      ],
+    });
+    render(<A />);
+    await waitFor(() => expect(screen.getByText(/Happened/)).toBeDefined());
+    // A dismissed alert offers no further action.
+    expect(screen.queryByText('Not a problem')).toBeNull();
+  });
+
+  it('Accounts shows the connect prompt while a link is in progress', async () => {
+    const { Accounts: Acc } = await import('@renderer/views/Accounts');
+    installMoneyBridge({ 'institutions:list': [] });
+    render(<Acc />);
+    await waitFor(() => screen.getByRole('button', { name: 'Connect an account' }));
+    expect(screen.getByRole('button', { name: 'Connect an account' })).toBeDefined();
+    expect(screen.getByText('Sync now')).toBeDefined();
   });
 });

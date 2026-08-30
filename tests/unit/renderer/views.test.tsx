@@ -23,8 +23,8 @@ const DASHBOARD = {
   cashFlowMinor: { incomeMinor: 520000, spendingMinor: -240700, netMinor: 279300 },
   categoryBreakdown: {
     rows: [
-      { categoryId: 'dining', name: 'Dining', totalMinor: -64000, txCount: 14 },
-      { categoryId: 'groceries', name: 'Groceries', totalMinor: -38000, txCount: 9 },
+      { categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food', totalMinor: -64000, txCount: 14 },
+      { categoryId: 'groceries', name: 'Groceries', parentId: 'food', parentName: 'Food', totalMinor: -38000, txCount: 9 },
     ],
     totalMinor: -102000,
     dataComplete: true,
@@ -49,6 +49,15 @@ describe('Dashboard', () => {
   it('shows the runway, cash flow, and category breakdown', async () => {
     render(<Dashboard onDrill={() => {}} />);
     await waitFor(() => expect(screen.getByText(/projected at payday/)).toBeDefined());
+    // Grouped under the parent, collapsed by default.
+    expect(screen.getAllByText('Food').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Dining')).toBeNull();
+  });
+
+  it('expands a parent group to reveal its subcategories', async () => {
+    render(<Dashboard onDrill={() => {}} />);
+    await waitFor(() => screen.getByLabelText('Expand Food'));
+    fireEvent.click(screen.getByLabelText('Expand Food'));
     expect(screen.getByText('Dining')).toBeDefined();
     expect(screen.getByText('Groceries')).toBeDefined();
   });
@@ -56,7 +65,8 @@ describe('Dashboard', () => {
   it('drills from a category to its transactions in one interaction (SC-018)', async () => {
     let drilled: string | null = null;
     render(<Dashboard onDrill={(id) => (drilled = id)} />);
-    await waitFor(() => screen.getByText('Dining'));
+    await waitFor(() => screen.getByLabelText('Expand Food'));
+    fireEvent.click(screen.getByLabelText('Expand Food'));
     fireEvent.click(screen.getByText('Dining'));
     expect(drilled).toBe('dining');
   });
@@ -309,8 +319,8 @@ describe('Reports, Health, Settings, Categories', () => {
   it('explains that hiding a category preserves history', async () => {
     installMoneyBridge({
       'categories:list': [
-        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
-        { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null },
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, canDelete: false },
+        { id: 'dining', name: 'Dining', parentId: 'food', isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 0, canDelete: false },
       ],
     });
     render(<Categories />);
@@ -324,7 +334,7 @@ describe('Reports, Health, Settings, Categories', () => {
   it('adds a subcategory under a parent', async () => {
     installMoneyBridge({
       'categories:list': [
-        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, canDelete: false },
       ],
       'categories:create': { id: 'new' },
     });
@@ -337,7 +347,7 @@ describe('Reports, Health, Settings, Categories', () => {
   it('offers hide and merge on every category', async () => {
     installMoneyBridge({
       'categories:list': [
-        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
+        { id: 'food', name: 'Food', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null, usageCount: 0, childCount: 1, canDelete: false },
       ],
     });
     render(<Categories />);
@@ -613,11 +623,12 @@ describe('App shell navigation covers every area', () => {
       'categories:list': [],
     });
     render(<App />);
-    await waitFor(() => screen.getByText('Dining'));
+    await waitFor(() => screen.getByLabelText('Expand Food'));
+    fireEvent.click(screen.getByLabelText('Expand Food'));
     fireEvent.click(screen.getByText('Dining'));
     await waitFor(() => expect(screen.getByText(/No transactions match/)).toBeDefined());
     fireEvent.click(screen.getByLabelText('Back'));
-    await waitFor(() => expect(screen.getByText('Where it went')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('By category')).toBeDefined());
   });
 
   it('shows setup first when Plaid is not configured', async () => {

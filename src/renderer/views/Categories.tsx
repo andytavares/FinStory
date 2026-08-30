@@ -9,6 +9,9 @@ interface CategoryRow {
   readonly isSystem: boolean;
   readonly isHidden: boolean;
   readonly mergedIntoId: string | null;
+  readonly usageCount: number;
+  readonly childCount: number;
+  readonly canDelete: boolean;
 }
 
 /** FR-079–FR-082: add, rename, merge, hide. Nesting is capped at one level. */
@@ -165,6 +168,7 @@ function Row({
 }): React.JSX.Element {
   const [name, setName] = useState(category.name);
   const [merging, setMerging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const mergeTargets = allCategories.filter((c) => c.id !== category.id);
 
@@ -233,6 +237,34 @@ function Row({
       >
         {category.isHidden ? 'Show' : 'Hide'}
       </button>
+
+      {category.canDelete ? (
+        <button
+          type="button"
+          onClick={() => {
+            void call('categories:delete', { id: category.id })
+              .then(onChanged)
+              .catch((e: { message?: string }) => setError(e.message ?? 'Could not delete'));
+          }}
+          className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+        >
+          Delete
+        </button>
+      ) : (
+        <span
+          className="text-[12px] text-[var(--color-ink-faint)] opacity-50"
+          title={
+            category.isSystem
+              ? 'Built-in categories cannot be deleted'
+              : category.childCount > 0
+                ? 'Has subcategories'
+                : `Used by ${category.usageCount} transaction${category.usageCount === 1 ? '' : 's'}`
+          }
+        >
+          Delete
+        </span>
+      )}
+      {error && <span className="text-[12px] text-[var(--color-attention)]">{error}</span>}
     </div>
   );
 }
