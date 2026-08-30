@@ -253,7 +253,7 @@ describe('Reports, Health, Settings, Categories', () => {
         },
       ],
     });
-    render(<Reports />);
+    render(<Reports openReportId={null} onOpenReport={() => {}} onCloseReport={() => {}} />);
     await waitFor(() => expect(screen.getByText(/incomplete data/)).toBeDefined());
     expect(screen.getByText(/generated late/)).toBeDefined();
   });
@@ -350,8 +350,8 @@ describe('App shell', () => {
   it('renders navigation and switches views', async () => {
     installMoneyBridge({ 'dashboard:get': DASHBOARD, 'recurring:list': [] });
     render(<App />);
-    await waitFor(() => expect(screen.getByText('Dashboard')).toBeDefined());
-    fireEvent.click(screen.getByText('Recurring'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Dashboard' })).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Recurring' }));
     await waitFor(() => expect(screen.getByText(/No recurring charges detected yet/)).toBeDefined());
   });
 });
@@ -554,7 +554,7 @@ describe('App shell navigation covers every area', () => {
       'models:listOllama': [],
     });
     render(<App />);
-    await waitFor(() => expect(screen.getByText('Dashboard')).toBeDefined());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Dashboard' })).toBeDefined());
 
     for (const label of [
       'Transactions',
@@ -571,6 +571,53 @@ describe('App shell navigation covers every area', () => {
       fireEvent.click(screen.getByRole('button', { name: label }));
       await waitFor(() => expect(screen.getByRole('button', { name: label })).toBeDefined());
     }
+  });
+
+  it('offers back and forward, disabled until there is history', async () => {
+    installMoneyBridge({
+      'setup:status': {
+        plaidConfigured: true,
+        categorizationConfigured: true,
+        accountCount: 1,
+        encryptionAvailable: true,
+      },
+      'dashboard:get': DASHBOARD,
+      'recurring:list': [],
+    });
+    render(<App />);
+    await waitFor(() => screen.getByLabelText('Back'));
+    expect((screen.getByLabelText('Back') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Forward') as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recurring' }));
+    await waitFor(() =>
+      expect((screen.getByLabelText('Back') as HTMLButtonElement).disabled).toBe(false),
+    );
+
+    fireEvent.click(screen.getByLabelText('Back'));
+    await waitFor(() =>
+      expect((screen.getByLabelText('Forward') as HTMLButtonElement).disabled).toBe(false),
+    );
+  });
+
+  it('goes back out of a category drill-down', async () => {
+    installMoneyBridge({
+      'setup:status': {
+        plaidConfigured: true,
+        categorizationConfigured: true,
+        accountCount: 1,
+        encryptionAvailable: true,
+      },
+      'dashboard:get': DASHBOARD,
+      'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
+      'categories:list': [],
+    });
+    render(<App />);
+    await waitFor(() => screen.getByText('Dining'));
+    fireEvent.click(screen.getByText('Dining'));
+    await waitFor(() => expect(screen.getByText(/No transactions match/)).toBeDefined());
+    fireEvent.click(screen.getByLabelText('Back'));
+    await waitFor(() => expect(screen.getByText('Where it went')).toBeDefined());
   });
 
   it('shows setup first when Plaid is not configured', async () => {

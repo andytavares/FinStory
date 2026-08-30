@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { installMoneyBridge } from './setup';
+import { useState } from 'react';
 import { Reports } from '@renderer/views/Reports';
 import { ReportDetail } from '@renderer/views/ReportDetail';
 
@@ -45,6 +46,18 @@ const MONTHLY = {
   },
 };
 
+/** Reports is route-driven now; the shell owns which report is open. */
+function ReportsHarness(): React.JSX.Element {
+  const [openId, setOpenId] = useState<string | null>(null);
+  return (
+    <Reports
+      openReportId={openId}
+      onOpenReport={setOpenId}
+      onCloseReport={() => setOpenId(null)}
+    />
+  );
+}
+
 describe('Reports list', () => {
   beforeEach(() =>
     installMoneyBridge({
@@ -56,14 +69,14 @@ describe('Reports list', () => {
   );
 
   it('offers scheduled runs and a custom range', async () => {
-    render(<Reports />);
+    render(<ReportsHarness />);
     await waitFor(() => screen.getByRole('button', { name: 'Run monthly report' }));
     expect(screen.getByRole('button', { name: 'Run weekly digest' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Custom range…' })).toBeDefined();
   });
 
   it('reveals date inputs for a custom report', async () => {
-    render(<Reports />);
+    render(<ReportsHarness />);
     await waitFor(() => screen.getByRole('button', { name: 'Custom range…' }));
     fireEvent.click(screen.getByRole('button', { name: 'Custom range…' }));
     expect(screen.getByLabelText('Report start date')).toBeDefined();
@@ -72,7 +85,7 @@ describe('Reports list', () => {
   });
 
   it('keeps Generate disabled until both dates are set', async () => {
-    render(<Reports />);
+    render(<ReportsHarness />);
     await waitFor(() => screen.getByRole('button', { name: 'Custom range…' }));
     fireEvent.click(screen.getByRole('button', { name: 'Custom range…' }));
     const generate = screen.getByRole('button', { name: 'Generate' }) as HTMLButtonElement;
@@ -83,14 +96,14 @@ describe('Reports list', () => {
   });
 
   it('opens a report when its row is clicked', async () => {
-    render(<Reports />);
+    render(<ReportsHarness />);
     await waitFor(() => screen.getByText(/August 2026/));
     fireEvent.click(screen.getByText(/August 2026/));
     await waitFor(() => expect(screen.getByText('← All reports')).toBeDefined());
   });
 
   it('offers deletion per report', async () => {
-    render(<Reports />);
+    render(<ReportsHarness />);
     await waitFor(() => expect(screen.getByLabelText(/Delete report from 2026-08-01/)).toBeDefined());
   });
 
@@ -98,7 +111,7 @@ describe('Reports list', () => {
     installMoneyBridge({
       'reports:list': [{ ...SUMMARY, type: 'custom' as const, label: 'Trip to Japan' }],
     });
-    render(<Reports />);
+    render(<ReportsHarness />);
     await waitFor(() => expect(screen.getByText('Trip to Japan')).toBeDefined());
     expect(screen.getByText('Custom range')).toBeDefined();
   });

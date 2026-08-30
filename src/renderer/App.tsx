@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   Receipt,
@@ -11,6 +11,8 @@ import {
   Tags,
   Bell,
   Landmark,
+  ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import { Dashboard } from './views/Dashboard';
 import { Register } from './views/Register';
@@ -26,6 +28,7 @@ import { Setup } from './views/Setup';
 import { Accounts } from './views/Accounts';
 import { useQuery } from './lib/ipc';
 import type { SetupStatus } from '@shared/types';
+import { useNavigation } from './lib/navigation';
 
 type ViewId =
   | 'dashboard'
@@ -55,10 +58,28 @@ const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboa
 ];
 
 export function App(): React.JSX.Element {
-  const [view, setView] = useState<ViewId>('dashboard');
-  const [drillCategoryId, setDrillCategoryId] = useState<string | null>(null);
+  const nav = useNavigation({ view: 'dashboard' });
   const [setupDismissed, setSetupDismissed] = useState(false);
   const status = useQuery<SetupStatus>('setup:status');
+
+  const view = nav.current.view as ViewId;
+  const setView = (next: ViewId): void => nav.navigate({ view: next });
+
+  // Standard back/forward chords, plus the mouse buttons some pointers have.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.metaKey || e.altKey)) return;
+      if (e.key === '[' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        nav.back();
+      } else if (e.key === ']' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        nav.forward();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [nav]);
 
   // First run: there is nothing to show until an account is connected, so the
   // setup screen is the app rather than a banner on an empty dashboard.
@@ -75,8 +96,7 @@ export function App(): React.JSX.Element {
   }
 
   const drill = (categoryId: string): void => {
-    setDrillCategoryId(categoryId);
-    setView('register');
+    nav.navigate({ view: 'register', categoryId });
   };
 
   return (
@@ -100,15 +120,54 @@ export function App(): React.JSX.Element {
         ))}
       </nav>
 
-      <main className="flex-1 overflow-y-auto px-8 py-10">
-        <div className="mx-auto max-w-4xl">
+      <main className="flex-1 overflow-y-auto">
+        {/* History controls: a drill-down is a navigation, so it needs a way back. */}
+        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-[var(--color-line)] bg-[var(--color-ground)] px-8 py-2">
+          <button
+            type="button"
+            onClick={nav.back}
+            disabled={!nav.canGoBack}
+            aria-label="Back"
+            title="Back (⌘[)"
+            className="icon p-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-30"
+          >
+            <ArrowLeft aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={nav.forward}
+            disabled={!nav.canGoForward}
+            aria-label="Forward"
+            title="Forward (⌘])"
+            className="icon p-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-30"
+          >
+            <ArrowRight aria-hidden />
+          </button>
+          <span className="ml-2 text-[12px] text-[var(--color-ink-faint)]">
+            {NAV.find((n) => n.id === view)?.label ?? ''}
+            {nav.current.categoryId ? ` · ${nav.current.categoryId}` : ''}
+          </span>
+        </div>
+
+        <div className="mx-auto max-w-4xl px-8 py-10">
           {view === 'dashboard' && <Dashboard onDrill={drill} />}
-          {view === 'register' && <Register initialCategoryId={drillCategoryId} />}
+          {view === 'register' && (
+            <Register
+              key={nav.current.categoryId ?? 'all'}
+              initialCategoryId={nav.current.categoryId ?? null}
+            />
+          )}
           {view === 'recurring' && <Recurring />}
           {view === 'income' && <Income />}
           {view === 'review' && <Review />}
           {view === 'alerts' && <Alerts />}
-          {view === 'reports' && <Reports />}
+          {view === 'reports' && (
+            <Reports
+              openReportId={nav.current.reportId ?? null}
+              onOpenReport={(reportId) => nav.navigate({ view: 'reports', reportId })}
+              onCloseReport={nav.back}
+            />
+          )}
           {view === 'health' && <Health />}
           {view === 'categories' && <Categories />}
           {view === 'accounts' && <Accounts />}

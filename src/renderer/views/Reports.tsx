@@ -18,11 +18,18 @@ interface ReportSummary {
 }
 
 /** FR-038: the monthly read. Ten minutes, once a month, is the whole budget. */
-export function Reports(): React.JSX.Element {
+export function Reports({
+  openReportId,
+  onOpenReport,
+  onCloseReport,
+}: {
+  openReportId: string | null;
+  onOpenReport: (reportId: string) => void;
+  onCloseReport: () => void;
+}): React.JSX.Element {
   const { data, loading, refetch } = useQuery<ReportSummary[]>('reports:list', { type: 'all', limit: 24 });
   const [generating, setGenerating] = useState<string | null>(null);
   const [generated, setGenerated] = useState<string | null>(null);
-  const [openReportId, setOpenReportId] = useState<string | null>(null);
 
   const [customOpen, setCustomOpen] = useState(false);
   const [from, setFrom] = useState('');
@@ -133,7 +140,7 @@ export function Reports(): React.JSX.Element {
   );
 
   if (openReportId) {
-    return <ReportDetail reportId={openReportId} onBack={() => setOpenReportId(null)} />;
+    return <ReportDetail reportId={openReportId} onBack={onCloseReport} />;
   }
 
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
@@ -169,7 +176,7 @@ export function Reports(): React.JSX.Element {
           <li key={r.id} className="flex items-center bg-[var(--color-surface)]">
             <button
               type="button"
-              onClick={() => setOpenReportId(r.id)}
+              onClick={() => onOpenReport(r.id)}
               className="flex w-full items-center gap-4 bg-[var(--color-surface)] px-4 py-3 text-left hover:bg-[var(--color-surface-raised)]"
             >
             <div className="flex-1">

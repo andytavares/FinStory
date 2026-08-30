@@ -96,3 +96,50 @@ test.describe('income visibility and report detail', () => {
       .toBeLessThan(before);
   });
 });
+
+test.describe('navigation history', () => {
+  let n: Harness;
+
+  test.beforeAll(async () => {
+    n = await launch();
+    await n.page.locator('#root').waitFor({ timeout: 20_000 });
+    await dismissSetup(n.page);
+  });
+  test.afterAll(async () => {
+    await n.close();
+  });
+
+  test('back and forward controls are present', async () => {
+    await expect(n.page.getByLabel('Back')).toBeVisible();
+    await expect(n.page.getByLabel('Forward')).toBeVisible();
+    // Forward is empty until something is popped.
+    await expect(n.page.getByLabel('Forward')).toBeDisabled();
+  });
+
+  test('navigating enables back, and back returns to the previous view', async () => {
+    await n.page.getByRole('button', { name: 'Recurring' }).click();
+    await expect(n.page.getByLabel('Back')).toBeEnabled();
+    await n.page.getByLabel('Back').click();
+    await expect(n.page.getByLabel('Forward')).toBeEnabled();
+  });
+
+  test('a report detail is a navigation, so back leaves it', async () => {
+    await n.page.getByRole('button', { name: 'Reports' }).click();
+    await n.page.getByRole('button', { name: 'Custom range…' }).click();
+    await n.page.getByLabel('Report start date').fill('2026-08-01');
+    await n.page.getByLabel('Report end date').fill('2026-08-31');
+    await n.page.getByRole('button', { name: 'Generate' }).click();
+    await expect(n.page.getByText('Custom report ready.')).toBeVisible({ timeout: 15_000 });
+
+    // Scope to the report list: "Custom range…" is also the button label above it.
+    await n.page.getByRole('list').getByRole('button').first().click();
+    await expect(n.page.getByText('← All reports')).toBeVisible({ timeout: 10_000 });
+    await n.page.getByLabel('Back').click();
+    await expect(n.page.getByRole('button', { name: 'Custom range…' })).toBeVisible();
+  });
+
+  test('the breadcrumb names where you are', async () => {
+    await n.page.getByRole('button', { name: 'Transactions' }).click();
+    await expect(n.page.locator('main').getByText('Transactions').first()).toBeVisible();
+  });
+});
