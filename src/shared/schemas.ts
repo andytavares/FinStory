@@ -45,6 +45,13 @@ export const linkCompleteSchema = z.object({ linkToken: z.string().min(1) });
 export const institutionIdSchema = z.object({ institutionId: z.string().min(1) });
 
 export const transactionQuerySchema = z.object({
+  /**
+   * Restrict to the transactions a spending total is built from: day-to-day
+   * accounts only, and only what counts as spending. Drilling into a figure
+   * must show the transactions behind it, not a different set that happens to
+   * share a category (Constitution II).
+   */
+  spendingOnly: z.boolean().default(false),
   periodStart: isoDate.optional(),
   periodEnd: isoDate.optional(),
   categoryIds: z.array(z.string()).optional(),

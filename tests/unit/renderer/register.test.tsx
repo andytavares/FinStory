@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { installMoneyBridge } from './setup';
 import { Register } from '@renderer/views/Register';
@@ -170,3 +170,79 @@ describe('past overrides are offered wherever a transaction is edited', () => {
     await waitFor(() => expect(screen.queryByText(/past transactions too/)).toBeNull());
   });
 });
+
+describe('drilling in from a spending figure', () => {
+  const base = {
+    'categories:list': [
+      { id: 'financial', name: 'Financial', parentId: null, isHidden: false, mergedIntoId: null },
+    ],
+    'transactions:query': {
+      rows: [],
+      totalCount: 3,
+      excludedCount: 5,
+      dataComplete: true,
+      staleInstitutions: [],
+    },
+  };
+
+  it('says what it is showing and what it is not', async () => {
+    installMoneyBridge(base);
+    render(<Register initialCategoryId="financial" />);
+    await waitFor(() =>
+      expect(screen.getByText(/5 more transactions are in this category but not counted/)).toBeDefined(),
+    );
+  });
+
+  it('names the category rather than its id', async () => {
+    installMoneyBridge(base);
+    render(<Register initialCategoryId="financial" />);
+    await waitFor(() => expect(screen.getByText(/in Financial/)).toBeDefined());
+  });
+
+  it('offers the full set', async () => {
+    installMoneyBridge(base);
+    render(<Register initialCategoryId="financial" />);
+    await waitFor(() => screen.getByText('Show all 8'));
+    fireEvent.click(screen.getByText('Show all 8'));
+    await waitFor(() => expect(screen.getByText(/Showing everything in this category/)).toBeDefined());
+  });
+
+  it('can go back to only what counted', async () => {
+    installMoneyBridge(base);
+    render(<Register initialCategoryId="financial" />);
+    await waitFor(() => screen.getByText('Show all 8'));
+    fireEvent.click(screen.getByText('Show all 8'));
+    await waitFor(() => screen.getByText('Show only what counted toward spending'));
+    fireEvent.click(screen.getByText('Show only what counted toward spending'));
+    await waitFor(() => expect(screen.getByText('Show all 8')).toBeDefined());
+  });
+
+  it('says nothing about exclusions when there are none', async () => {
+    installMoneyBridge({
+      ...base,
+      'transactions:query': { ...base['transactions:query'], excludedCount: 0 },
+    });
+    render(<Register initialCategoryId="financial" />);
+    await waitFor(() => screen.getByText(/in Financial/));
+    expect(screen.queryByText(/not counted/)).toBeNull();
+  });
+
+  it('does not filter to spending when opened without a category', async () => {
+    const invoke = vi.fn((channel: string) =>
+      channel === 'categories:list'
+        ? Promise.resolve(base['categories:list'])
+        : Promise.resolve(base['transactions:query']),
+    );
+    Object.defineProperty(globalThis.window, 'money', {
+      configurable: true,
+      value: { invoke, on: () => () => {} },
+    });
+    render(<Register initialCategoryId={null} />);
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith(
+        'transactions:query',
+        expect.objectContaining({ spendingOnly: false }),
+      ),
+    );
+  });
+})

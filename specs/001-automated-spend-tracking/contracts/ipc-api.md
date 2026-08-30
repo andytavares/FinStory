@@ -27,9 +27,9 @@ The renderer is untrusted UI. It has **no Node integration**, runs with `context
 | Channel | Request | Response | Requirements |
 |---|---|---|---|
 | `dashboard:get` | `{ periodStart, periodEnd }` | `{ balances, cashFlow, categoryBreakdown, whatChanged, dataComplete, staleInstitutions }` | FR-062, SC-019 — one call populates the first screen |
-| `breakdown:byCategory` | `{ periodStart, periodEnd, groupBy }` | `{ rows: [{categoryId, name, totalMinor, txCount}], totalMinor, dataComplete }` | FR-043. **`sum(rows.totalMinor) === totalMinor` is a contract guarantee** (FR-018, SC-004) |
+| `breakdown:byCategory` | `{ periodStart, periodEnd, groupBy }` | `{ rows: [{categoryId, name, parentId, parentName, totalMinor, txCount, uncountedCount}], totalMinor, dataComplete }` | FR-043. **`sum(rows.totalMinor) === totalMinor` is a contract guarantee** (FR-018, SC-004). `txCount` is what the total was built from; `uncountedCount` is what the category holds beyond it, so a category with no spending is still listed and reachable |
 | `breakdown:byMerchant` | same | same shape | FR-043 |
-| `transactions:query` | `{ periodStart?, periodEnd?, categoryIds?, merchantKey?, minAmount?, maxAmount?, accountIds?, confirmationStatus?, limit, offset }` | `{ rows, totalCount, dataComplete }` | FR-064; paginated for FR-068/SC-020 |
+| `transactions:query` | `{ periodStart?, periodEnd?, categoryIds?, merchantKey?, minAmount?, maxAmount?, accountIds?, confirmationStatus?, spendingOnly?, limit, offset }` | `{ rows, totalCount, excludedCount, dataComplete }` | FR-064; paginated for FR-068/SC-020. `spendingOnly` restricts to what a spending figure is built from — day-to-day accounts, money out, no transfers or exclusions — so drilling into a total returns exactly the transactions behind it; `excludedCount` reports what that left out |
 | `trends:overTime` | `{ periodStart, periodEnd, bucket, categoryIds? }` | `{ series, comparisonSeries }` | FR-065 |
 
 ### Income

@@ -350,12 +350,13 @@ export class Services implements AppServices {
 
   async dashboard(range: unknown): Promise<unknown> {
     const { periodStart, periodEnd } = range as { periodStart: string; periodEnd: string };
-    const [transactions, names, parents, completeness, accounts] = await Promise.all([
+    const [transactions, names, parents, completeness, accounts, uncounted] = await Promise.all([
       this.spendingIn(periodStart, periodEnd),
       this.categoryNames(),
       this.categoryParents(),
       this.completeness(),
       this.db.select().from(t.accounts),
+      this.uncountedByCategory(periodStart, periodEnd),
     ]);
 
     const breakdown = breakdownByCategory(transactions);
@@ -374,7 +375,10 @@ export class Services implements AppServices {
         balanceAsOf: a.balanceAsOf,
       })),
       cashFlowMinor: { incomeMinor, spendingMinor, netMinor: incomeMinor + spendingMinor },
-      categoryBreakdown: { ...this.namedRows(breakdown, names, parents), ...completeness },
+      categoryBreakdown: {
+        ...this.namedRows(breakdown, names, parents, uncounted),
+        ...completeness,
+      },
       whatChanged: [],
       runway: await this.runway(),
       ...completeness,
@@ -391,14 +395,15 @@ export class Services implements AppServices {
 
   async breakdownByCategory(range: unknown): Promise<unknown> {
     const { periodStart, periodEnd } = range as { periodStart: string; periodEnd: string };
-    const [transactions, names, parents, completeness] = await Promise.all([
+    const [transactions, names, parents, completeness, uncounted] = await Promise.all([
       this.spendingIn(periodStart, periodEnd),
       this.categoryNames(),
       this.categoryParents(),
       this.completeness(),
+      this.uncountedByCategory(periodStart, periodEnd),
     ]);
     return {
-      ...this.namedRows(breakdownByCategory(transactions), names, parents),
+      ...this.namedRows(breakdownByCategory(transactions), names, parents, uncounted),
       ...completeness,
     };
   }
@@ -439,14 +444,16 @@ export class Services implements AppServices {
       direction?: 'all' | 'in' | 'out';
       minAmountMinor?: number;
       maxAmountMinor?: number;
+      spendingOnly?: boolean;
       limit: number;
       offset: number;
     };
-    const [rows, live, completeness, aliases] = await Promise.all([
+    const [rows, live, completeness, aliases, everydayIds] = await Promise.all([
       this.transactionsIn(q.periodStart, q.periodEnd),
       this.liveCategorizations(),
       this.completeness(),
       this.merchantAliases(),
+      this.everydayAccountIds(),
     ]);
 
     let filtered = rows;
@@ -473,6 +480,17 @@ export class Services implements AppServices {
       const max = q.maxAmountMinor;
       filtered = filtered.filter((r) => Math.abs(r.amountMinor) <= max);
     }
+
+    // Applied last, over the same set the other filters produced, so the count
+    // of what was left out belongs to this category rather than the whole
+    // period. Drilling into a figure must show the transactions behind it, and
+    // say plainly what it is not showing (Constitution II, IX).
+    const countsTowardSpending = (r: TransactionRow): boolean =>
+      everydayIds.has(r.accountId) && this.countsAsSpending(r);
+    const excludedCount = q.spendingOnly
+      ? filtered.filter((r) => !countsTowardSpending(r)).length
+      : 0;
+    if (q.spendingOnly) filtered = filtered.filter(countsTowardSpending);
 
     // Newest first. Without an explicit order the register returns rows in
     // insertion order and the 100-row page can hide recent activity entirely —
@@ -505,6 +523,8 @@ export class Services implements AppServices {
         };
       }),
       totalCount: filtered.length,
+      // Only meaningful alongside spendingOnly; zero otherwise.
+      excludedCount,
       ...completeness,
     };
   }
@@ -2161,22 +2181,66 @@ export class Services implements AppServices {
     breakdown: ReturnType<typeof breakdownByCategory>,
     names: Map<string, string>,
     parents: Map<string, string | null> = new Map(),
+    /** categoryId -> transactions in it that did not count toward spending. */
+    uncounted: ReadonlyMap<string, number> = new Map(),
   ): { rows: unknown[]; totalMinor: number } {
-    return {
-      rows: breakdown.rows.map((r) => {
-        const parentId = parents.get(r.categoryId) ?? null;
-        return {
-          categoryId: r.categoryId,
-          name: names.get(r.categoryId) ?? r.categoryId,
-          // Supplied so the dashboard can roll spending up to the parent.
-          parentId,
-          parentName: parentId ? (names.get(parentId) ?? parentId) : null,
-          totalMinor: r.totalMinor,
-          txCount: r.transactionCount,
-        };
-      }),
-      totalMinor: breakdown.totalMinor,
+    const describe = (
+      categoryId: string,
+      totalMinor: number,
+      txCount: number,
+    ): Record<string, unknown> => {
+      const parentId = parents.get(categoryId) ?? null;
+      return {
+        categoryId,
+        name: names.get(categoryId) ?? categoryId,
+        // Supplied so the dashboard can roll spending up to the parent.
+        parentId,
+        parentName: parentId ? (names.get(parentId) ?? parentId) : null,
+        totalMinor,
+        txCount,
+        uncountedCount: uncounted.get(categoryId) ?? 0,
+      };
     };
+
+    const rows = breakdown.rows.map((r) =>
+      describe(r.categoryId, r.totalMinor, r.transactionCount),
+    );
+
+    // A category holding only transactions that do not count as spending — a
+    // credit-card payment category, say — would otherwise not appear at all,
+    // leaving no way to reach those transactions. It is listed at zero, which
+    // keeps the rows summing to the total.
+    const present = new Set(breakdown.rows.map((r) => r.categoryId));
+    for (const [categoryId, count] of uncounted) {
+      if (count > 0 && !present.has(categoryId)) rows.push(describe(categoryId, 0, 0));
+    }
+
+    return { rows, totalMinor: breakdown.totalMinor };
+  }
+
+  /**
+   * Transactions per category that a spending figure leaves out.
+   *
+   * Money in, internal transfers, user exclusions, removed rows, and accounts
+   * not marked day-to-day. Reported so the UI can offer them rather than
+   * pretending they do not exist (Constitution IX).
+   */
+  private async uncountedByCategory(
+    periodStart?: string,
+    periodEnd?: string,
+  ): Promise<Map<string, number>> {
+    const [rows, live, everydayIds] = await Promise.all([
+      this.transactionsIn(periodStart, periodEnd),
+      this.liveCategorizations(),
+      this.everydayAccountIds(),
+    ]);
+    const out = new Map<string, number>();
+    for (const row of rows) {
+      if (everydayIds.has(row.accountId) && this.countsAsSpending(row)) continue;
+      const categoryId = live.get(row.id)?.categoryId ?? UNCATEGORIZABLE;
+      out.set(categoryId, (out.get(categoryId) ?? 0) + 1);
+    }
+    return out;
   }
 
   /** categoryId -> parentId, for rolling a breakdown up one level. */

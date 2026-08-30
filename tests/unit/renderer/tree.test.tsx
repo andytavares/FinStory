@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { CategoryTree, groupByParent } from '@renderer/components/CategoryTree';
 import type { BreakdownRow } from '@renderer/components/CategoryTree';
@@ -122,3 +122,95 @@ describe('CategoryTree interaction', () => {
     expect(drilled).toBe('dining');
   });
 });
+
+describe('the "Directly in" row', () => {
+  const row = (over: Partial<BreakdownRow> = {}): BreakdownRow => ({
+    categoryId: 'food',
+    name: 'Food',
+    parentId: null,
+    parentName: null,
+    totalMinor: -1000,
+    txCount: 2,
+    ...over,
+  });
+
+  it('appears when transactions sit on the parent itself', () => {
+    render(
+      <CategoryTree
+        rows={[row(), row({ categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food' })]}
+        onDrill={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    expect(screen.getByText('Directly in Food')).toBeDefined();
+  });
+
+  it('appears even when those transactions net to zero', () => {
+    // A refund cancelling its original still leaves two real transactions.
+    render(
+      <CategoryTree
+        rows={[
+          row({ totalMinor: 0, txCount: 2 }),
+          row({ categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food' }),
+        ]}
+        onDrill={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    expect(screen.getByText('Directly in Food')).toBeDefined();
+  });
+
+  it('appears when the only transactions on the parent were not counted', () => {
+    render(
+      <CategoryTree
+        rows={[
+          row({ totalMinor: 0, txCount: 0, uncountedCount: 5 }),
+          row({ categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food' }),
+        ]}
+        onDrill={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    expect(screen.getByText('Directly in Food')).toBeDefined();
+  });
+
+  it('stays hidden when nothing sits on the parent', () => {
+    render(
+      <CategoryTree
+        rows={[row({ categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food' })]}
+        onDrill={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    expect(screen.queryByText('Directly in Food')).toBeNull();
+  });
+
+  it('drills into the parent category', () => {
+    const onDrill = vi.fn();
+    render(
+      <CategoryTree
+        rows={[row(), row({ categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food' })]}
+        onDrill={onDrill}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    fireEvent.click(screen.getByLabelText('View transactions directly in Food'));
+    expect(onDrill).toHaveBeenCalledWith('food');
+  });
+
+  it('says how many were counted and how many were not', () => {
+    render(
+      <CategoryTree
+        rows={[
+          row({ txCount: 3, uncountedCount: 5 }),
+          row({ categoryId: 'dining', name: 'Dining', parentId: 'food', parentName: 'Food' }),
+        ]}
+        onDrill={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Expand Food'));
+    const label = screen.getByLabelText('View transactions directly in Food');
+    expect(label.textContent).toContain('3');
+    expect(label.querySelector('[title*="5 not counted"]')).not.toBeNull();
+  });
+})

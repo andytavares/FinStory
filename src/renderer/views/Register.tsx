@@ -11,6 +11,8 @@ import type { TransactionView, Qualified } from '@shared/types';
 interface RegisterResponse extends Qualified {
   readonly rows: TransactionView[];
   readonly totalCount: number;
+  /** In this category but left out of the spending figure. */
+  readonly excludedCount: number;
 }
 
 interface CategoryOption {
@@ -37,6 +39,9 @@ export function Register({
   const [search, setSearch] = useState(initialMerchantKey ?? '');
   const [direction, setDirection] = useState<'all' | 'in' | 'out'>('all');
   const [categoryId] = useState(initialCategoryId);
+  // Arriving from a spending figure means the question is "what made up that
+  // number", so start with exactly those rows and offer the rest explicitly.
+  const [spendingOnly, setSpendingOnly] = useState(Boolean(initialCategoryId));
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
   const [changed, setChanged] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<string | null>(null);
@@ -50,11 +55,16 @@ export function Register({
   const { data, loading } = useQuery<RegisterResponse>('transactions:query', {
     ...(categoryId ? { categoryIds: [categoryId] } : {}),
     ...(search ? { merchantKey: search } : {}),
+    spendingOnly,
     direction,
     confirmationStatus: 'all',
     limit: 200,
     offset: 0,
   });
+
+  const categoryName = categoryId
+    ? (categories.data?.find((c) => c.id === categoryId)?.name ?? categoryId)
+    : null;
 
   const totals = (data?.rows ?? []).reduce(
     (acc, t) => {
@@ -72,10 +82,42 @@ export function Register({
         <h1 className="text-[20px]">Transactions</h1>
         {data && (
           <p className="text-[12px] text-[var(--color-ink-faint)]">
-            {data.totalCount} total{categoryId ? ` in ${categoryId}` : ''}
+            {data.totalCount} {data.totalCount === 1 ? 'transaction' : 'transactions'}
+            {categoryName ? ` in ${categoryName}` : ''}
           </p>
         )}
       </div>
+
+      {/* The dashboard's count is spending in day-to-day accounts. Anything else
+          in the category is still here, but it has to be asked for, and the
+          reason it was left out has to be stated. */}
+      {data && spendingOnly && data.excludedCount > 0 && (
+        <p className="text-[12px] text-[var(--color-ink-faint)]">
+          Showing what counted toward the spending total. {data.excludedCount} more{' '}
+          {data.excludedCount === 1 ? 'transaction is' : 'transactions are'} in this category but
+          not counted — money in, transfers between your own accounts, transactions you excluded,
+          or accounts not marked day-to-day.{' '}
+          <button
+            type="button"
+            onClick={() => setSpendingOnly(false)}
+            className="underline hover:text-[var(--color-ink)]"
+          >
+            Show all {data.totalCount + data.excludedCount}
+          </button>
+        </p>
+      )}
+      {data && !spendingOnly && categoryId && (
+        <p className="text-[12px] text-[var(--color-ink-faint)]">
+          Showing everything in this category.{' '}
+          <button
+            type="button"
+            onClick={() => setSpendingOnly(true)}
+            className="underline hover:text-[var(--color-ink)]"
+          >
+            Show only what counted toward spending
+          </button>
+        </p>
+      )}
 
       <div className="flex gap-2">
         <input

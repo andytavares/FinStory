@@ -101,7 +101,7 @@ export function Dashboard({ onDrill }: { onDrill: (categoryId: string) => void }
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-[15px]">By category</h2>
           <p className="text-[12px] text-[var(--color-ink-faint)]">
-            {groupByParent(categoryBreakdown.rows).length} groups · expand for detail
+            {groupByParent(categoryBreakdown.rows).length} groups · amount and transactions counted
           </p>
         </div>
 

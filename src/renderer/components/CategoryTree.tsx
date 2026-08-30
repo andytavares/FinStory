@@ -9,6 +9,8 @@ export interface BreakdownRow {
   readonly parentName: string | null;
   readonly totalMinor: number;
   readonly txCount: number;
+  /** In this category but left out of the spending figure. */
+  readonly uncountedCount?: number;
 }
 
 interface Group {
@@ -19,6 +21,16 @@ interface Group {
   readonly children: BreakdownRow[];
   /** Spending recorded on the parent itself, not one of its children. */
   readonly ownMinor: number;
+  /**
+   * How many transactions sit directly on the parent.
+   *
+   * Counted separately from the amount: transactions that net to zero are still
+   * transactions, and hiding the row when the total happens to be zero means
+   * there is no way to reach them.
+   */
+  readonly ownCount: number;
+  /** Transactions directly on the parent that the total does not include. */
+  readonly ownUncounted: number;
 }
 
 /**
@@ -40,6 +52,8 @@ export function groupByParent(rows: readonly BreakdownRow[]): Group[] {
       txCount: 0,
       children: [],
       ownMinor: 0,
+      ownCount: 0,
+      ownUncounted: 0,
     };
     groups.set(id, {
       ...existing,
@@ -48,6 +62,10 @@ export function groupByParent(rows: readonly BreakdownRow[]): Group[] {
       txCount: existing.txCount + row.txCount,
       children: row.parentId ? [...existing.children, row] : existing.children,
       ownMinor: row.parentId ? existing.ownMinor : existing.ownMinor + row.totalMinor,
+      ownCount: row.parentId ? existing.ownCount : existing.ownCount + row.txCount,
+      ownUncounted: row.parentId
+        ? existing.ownUncounted
+        : existing.ownUncounted + (row.uncountedCount ?? 0),
     });
   }
 
@@ -107,7 +125,10 @@ export function CategoryTree({
                   />
                 </span>
                 <Money minor={group.totalMinor} magnitude className="w-28 text-right text-[13px]" />
-                <span className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]">
+                <span
+                  className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]"
+                  title={`${group.txCount} transactions counted toward this total`}
+                >
                   {group.txCount}
                 </span>
               </button>
@@ -130,13 +151,16 @@ export function CategoryTree({
                     magnitude
                     className="w-28 text-right text-[13px] text-[var(--color-ink-muted)]"
                   />
-                  <span className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]">
+                  <span
+                    className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]"
+                    title={`${child.txCount} transactions counted toward this total`}
+                  >
                     {child.txCount}
                   </span>
                 </button>
               ))}
 
-            {isOpen && group.ownMinor !== 0 && (
+            {isOpen && group.ownCount + group.ownUncounted > 0 && (
               // Spending sitting on the parent itself is a real set of
               // transactions, so it drills like any other row.
               <button
@@ -148,7 +172,16 @@ export function CategoryTree({
                 <span className="w-40 shrink-0 truncate">Directly in {group.name}</span>
                 <span className="flex-1" />
                 <Money minor={group.ownMinor} magnitude className="w-28 text-right" />
-                <span className="w-10" />
+                <span
+                  className="numeric w-10 text-right text-[12px]"
+                  title={
+                    group.ownUncounted > 0
+                      ? `${group.ownCount} counted, ${group.ownUncounted} not counted toward this total`
+                      : `${group.ownCount} transactions counted toward this total`
+                  }
+                >
+                  {group.ownCount}
+                </span>
               </button>
             )}
           </li>

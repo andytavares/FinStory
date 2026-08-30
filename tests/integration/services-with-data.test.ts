@@ -1945,4 +1945,218 @@ describe('Services with realistic data', () => {
     });
   });
 
+
+  describe('drilling into a spending figure shows what that figure was built from', () => {
+    async function categoryOf(): Promise<{ categoryId: string; counted: number; total: number }> {
+      const breakdown = (await services.breakdownByCategory({
+        periodStart: '2000-01-01T00:00:00Z',
+        periodEnd: '2100-01-01T00:00:00Z',
+      })) as { rows: Array<{ categoryId: string; txCount: number }> };
+      const row = breakdown.rows[0]!;
+      const all = (await services.queryTransactions({
+        categoryIds: [row.categoryId],
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number };
+      return { categoryId: row.categoryId, counted: row.txCount, total: all.totalCount };
+    }
+
+    it('returns exactly the count the dashboard reported', async () => {
+      const { categoryId, counted } = await categoryOf();
+      const drilled = (await services.queryTransactions({
+        categoryIds: [categoryId],
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number };
+      expect(drilled.totalCount).toBe(counted);
+    });
+
+    it('says how many in the category it is not showing', async () => {
+      const { categoryId, counted, total } = await categoryOf();
+      const drilled = (await services.queryTransactions({
+        categoryIds: [categoryId],
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number; excludedCount: number };
+      expect(drilled.totalCount + drilled.excludedCount).toBe(total);
+      expect(drilled.totalCount).toBe(counted);
+    });
+
+    it('counts the excluded within the category, not the whole period', async () => {
+      const { categoryId } = await categoryOf();
+      const drilled = (await services.queryTransactions({
+        categoryIds: [categoryId],
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number; excludedCount: number };
+      const everything = (await services.queryTransactions({
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { excludedCount: number };
+      expect(drilled.excludedCount).toBeLessThanOrEqual(everything.excludedCount);
+    });
+
+    it('reports no exclusions when it is not filtering to spending', async () => {
+      const { categoryId } = await categoryOf();
+      const drilled = (await services.queryTransactions({
+        categoryIds: [categoryId],
+        limit: 500,
+        offset: 0,
+      })) as { excludedCount: number };
+      expect(drilled.excludedCount).toBe(0);
+    });
+
+    it('leaves out money in, which is never spending', async () => {
+      const drilled = (await services.queryTransactions({
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { rows: Array<{ amountMinor: number }> };
+      for (const row of drilled.rows) expect(row.amountMinor).toBeLessThan(0);
+    });
+
+    it('leaves out a transaction the user excluded', async () => {
+      const target = ((await services.queryTransactions({
+        spendingOnly: true,
+        limit: 1,
+        offset: 0,
+      })) as { rows: Array<{ id: string }> }).rows[0]!;
+      const before = (await services.queryTransactions({
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number };
+
+      await services.updateTransaction({ transactionId: target.id, userExcluded: true });
+
+      const after = (await services.queryTransactions({
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number; rows: Array<{ id: string }> };
+      expect(after.totalCount).toBe(before.totalCount - 1);
+      expect(after.rows.some((r) => r.id === target.id)).toBe(false);
+    });
+
+    it('leaves out accounts not marked day-to-day', async () => {
+      const institutions = (await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>;
+      for (const inst of institutions) {
+        for (const account of inst.accounts) {
+          await services.setAccountEveryday({ accountId: account.id, isEveryday: false });
+        }
+      }
+      const drilled = (await services.queryTransactions({
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number; excludedCount: number };
+      expect(drilled.totalCount).toBe(0);
+      expect(drilled.excludedCount).toBeGreaterThan(0);
+    });
+
+    it('every category total reconciles with its drill-down', async () => {
+      const breakdown = (await services.breakdownByCategory({
+        periodStart: '2000-01-01T00:00:00Z',
+        periodEnd: '2100-01-01T00:00:00Z',
+      })) as { rows: Array<{ categoryId: string; txCount: number; totalMinor: number }> };
+
+      for (const row of breakdown.rows) {
+        const drilled = (await services.queryTransactions({
+          categoryIds: [row.categoryId],
+          spendingOnly: true,
+          limit: 500,
+          offset: 0,
+        })) as { totalCount: number; rows: Array<{ amountMinor: number }> };
+        expect(drilled.totalCount).toBe(row.txCount);
+        const sum = drilled.rows.reduce((a, r) => a + r.amountMinor, 0);
+        expect(sum).toBe(row.totalMinor);
+      }
+    });
+  });
+
+
+  describe('categories holding only uncounted transactions stay reachable', () => {
+    async function seedInflowOnlyCategory(): Promise<string> {
+      const accountId = ((await services.listInstitutions()) as Array<{
+        accounts: Array<{ id: string }>;
+      }>)[0]!.accounts[0]!.id;
+      handle.raw
+        .prepare(
+          'INSERT INTO transactions (id,plaid_transaction_id,account_id,amount_minor,merchant_name,merchant_key,description,posted_date,datetime,pending,settlement_state,is_internal_transfer,reverses_transaction_id,original_currency,original_amount_minor,user_excluded,first_seen_at,updated_at) VALUES (?,?,?,?,?,?,?,?,NULL,0,\'posted\',0,NULL,NULL,NULL,0,?,?)',
+        )
+        .run(
+          'inflow_1',
+          'pinflow_1',
+          accountId,
+          575867,
+          'Card Payment',
+          'card payment',
+          'PAYMENT THANK YOU',
+          '2026-08-10',
+          NOW.toISOString(),
+          NOW.toISOString(),
+        );
+      handle.raw
+        .prepare(
+          "INSERT INTO categorizations (id,transaction_id,category_id,confidence,source,is_confirmed,needs_review,reasoning,superseded_by,created_at) VALUES ('c_inflow','inflow_1','financial',1,'user',1,0,NULL,NULL,?)",
+        )
+        .run(NOW.toISOString());
+      return 'financial';
+    }
+
+    it('lists the category even though nothing in it counted as spending', async () => {
+      const categoryId = await seedInflowOnlyCategory();
+      const breakdown = (await services.breakdownByCategory({
+        periodStart: '2000-01-01T00:00:00Z',
+        periodEnd: '2100-01-01T00:00:00Z',
+      })) as { rows: Array<{ categoryId: string; txCount: number; uncountedCount: number }> };
+      const row = breakdown.rows.find((r) => r.categoryId === categoryId);
+      expect(row).toBeDefined();
+      expect(row?.uncountedCount).toBeGreaterThan(0);
+    });
+
+    it('lists it at zero, so the rows still sum to the total', async () => {
+      await seedInflowOnlyCategory();
+      const breakdown = (await services.breakdownByCategory({
+        periodStart: '2000-01-01T00:00:00Z',
+        periodEnd: '2100-01-01T00:00:00Z',
+      })) as { rows: Array<{ totalMinor: number }>; totalMinor: number };
+      const sum = breakdown.rows.reduce((a, r) => a + r.totalMinor, 0);
+      expect(sum).toBe(breakdown.totalMinor);
+    });
+
+    it('the drill-down then reaches those transactions', async () => {
+      const categoryId = await seedInflowOnlyCategory();
+      const counted = (await services.queryTransactions({
+        categoryIds: [categoryId],
+        spendingOnly: true,
+        limit: 500,
+        offset: 0,
+      })) as { totalCount: number; excludedCount: number };
+      expect(counted.excludedCount).toBeGreaterThan(0);
+
+      const everything = (await services.queryTransactions({
+        categoryIds: [categoryId],
+        limit: 500,
+        offset: 0,
+      })) as { rows: Array<{ id: string }> };
+      expect(everything.rows.some((r) => r.id === 'inflow_1')).toBe(true);
+    });
+
+    it('reports uncounted transactions on categories that do have spending', async () => {
+      await seedInflowOnlyCategory();
+      const breakdown = (await services.breakdownByCategory({
+        periodStart: '2000-01-01T00:00:00Z',
+        periodEnd: '2100-01-01T00:00:00Z',
+      })) as { rows: Array<{ categoryId: string; uncountedCount: number }> };
+      for (const row of breakdown.rows) expect(row.uncountedCount).toBeGreaterThanOrEqual(0);
+    });
+  });
+
 });
