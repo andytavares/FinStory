@@ -27,6 +27,7 @@ import type { Keyring } from '@main/secrets/keyring';
 import type { Clock } from '@shared/clock';
 import type { AppSettings } from '@shared/types';
 import { listOllamaModels } from '@main/categorization/ollama';
+import { explainModelError } from '@main/categorization/errors';
 import { createPlaidClient, type PlaidEnvironment } from '@main/plaid/client';
 import { exchangePublicToken, pollForPublicToken, startHostedLink } from '@main/plaid/link';
 import { fetchItemAccounts } from '@main/plaid/accounts';
@@ -1331,6 +1332,9 @@ export class Services implements AppServices {
         ? { modelProvider: map.get('modelProvider') as AppSettings['modelProvider'] }
         : {}),
       ...(map.has('anthropicModel') ? { anthropicModel: map.get('anthropicModel') as string } : {}),
+      ...(map.has('anthropicWorkspaceId')
+        ? { anthropicWorkspaceId: map.get('anthropicWorkspaceId') as string }
+        : {}),
       ...(map.has('ollamaModel') ? { ollamaModel: map.get('ollamaModel') as string } : {}),
       ...(map.has('ollamaBaseUrl') ? { ollamaBaseUrl: map.get('ollamaBaseUrl') as string } : {}),
       ...(map.has('timeZone') ? { timeZone: map.get('timeZone') as string } : {}),
@@ -1548,7 +1552,7 @@ export class Services implements AppServices {
     });
 
     if (pipeline.lastModelError) {
-      return { ok: false, ...description, message: pipeline.lastModelError };
+      return { ok: false, ...description, message: explainModelError(pipeline.lastModelError) };
     }
     if (result.source !== 'model') {
       return {
@@ -1623,9 +1627,9 @@ export class Services implements AppServices {
 
     const scopeLabel = scope === 'all' ? 'transactions' : 'unresolved transactions';
     const message = stoppedEarly
-      ? `Stopped after ${pipeline.modelFailures} model failures. Recategorized ${changed} of ${targets.length} ${scopeLabel}. Last error: ${pipeline.lastModelError}`
+      ? `Stopped after ${pipeline.modelFailures} model failures. Recategorized ${changed} of ${targets.length} ${scopeLabel}. Last error: ${explainModelError(pipeline.lastModelError)}`
       : pipeline.lastModelError
-        ? `Recategorized ${changed} of ${targets.length} ${scopeLabel}. The model failed on ${pipeline.modelFailures}: ${pipeline.lastModelError}`
+        ? `Recategorized ${changed} of ${targets.length} ${scopeLabel}. The model failed on ${pipeline.modelFailures}: ${explainModelError(pipeline.lastModelError)}`
         : `Recategorized ${changed} of ${targets.length} ${scopeLabel}.`;
 
     return {

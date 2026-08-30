@@ -37,6 +37,13 @@ export interface ClaudeClassifierOptions {
   readonly model?: string;
   /** Stable prefix — cached, so it must not vary per request. */
   readonly taxonomy: string;
+  /**
+   * Workspace the request acts in.
+   *
+   * An identity-linked API key rejects every request without this header, so
+   * the key alone is not enough to configure Claude.
+   */
+  readonly workspaceId?: string | undefined;
 }
 
 /**
@@ -112,7 +119,11 @@ export class ClaudeClassifier implements ModelClassifier {
   readonly #taxonomy: string;
 
   constructor(options: ClaudeClassifierOptions) {
-    this.#client = new Anthropic({ apiKey: options.apiKey });
+    const workspaceId = options.workspaceId?.trim();
+    this.#client = new Anthropic({
+      apiKey: options.apiKey,
+      ...(workspaceId ? { defaultHeaders: { 'anthropic-workspace-id': workspaceId } } : {}),
+    });
     this.#model = options.model ?? 'claude-opus-5';
     this.#taxonomy = options.taxonomy;
   }

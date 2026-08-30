@@ -45,3 +45,26 @@ describe('settings', () => {
     expect(isSecretKey('pollIntervalMinutes')).toBe(false);
   });
 });
+
+describe('the Anthropic workspace id', () => {
+  it('defaults to empty, since most keys do not need one', () => {
+    expect(DEFAULT_SETTINGS.anthropicWorkspaceId).toBe('');
+  });
+
+  it('is carried through an update', () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { anthropicWorkspaceId: 'wrkspc_1' });
+    expect(merged.anthropicWorkspaceId).toBe('wrkspc_1');
+  });
+
+  it('survives an unrelated update', () => {
+    const withId = mergeSettings(DEFAULT_SETTINGS, { anthropicWorkspaceId: 'wrkspc_1' });
+    expect(mergeSettings(withId, { anthropicModel: 'claude-opus-5' }).anthropicWorkspaceId).toBe(
+      'wrkspc_1',
+    );
+  });
+
+  it('is not a secret: it identifies a workspace, it does not authorize one', () => {
+    expect(isSecretKey('anthropicWorkspaceId')).toBe(false);
+    expect(isSecretKey('anthropicApiKey')).toBe(true);
+  });
+})

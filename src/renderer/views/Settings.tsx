@@ -96,6 +96,24 @@ function ModelSection({ settings }: { settings: AppSettings }): React.JSX.Elemen
         </label>
       )}
 
+      {provider === 'anthropic' && (
+        <label className="block text-[13px]">
+          <span className="text-[12px] text-[var(--color-ink-faint)]">Workspace ID</span>
+          <input
+            defaultValue={settings.anthropicWorkspaceId}
+            onChange={(e) => update({ anthropicWorkspaceId: e.target.value.trim() })}
+            placeholder="Leave empty unless your key requires one"
+            aria-label="Anthropic workspace ID"
+            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px]"
+          />
+          <span className="mt-1 block text-[12px] text-[var(--color-ink-faint)]">
+            Only identity-linked keys need this. If yours does, requests fail with
+            &ldquo;anthropic-workspace-id is required&rdquo; until it is set. Find it in the
+            Anthropic Console URL when your workspace is open.
+          </span>
+        </label>
+      )}
+
       {provider === 'ollama' && (
         <label className="block text-[13px]">
           <span className="text-[12px] text-[var(--color-ink-faint)]">Installed model</span>

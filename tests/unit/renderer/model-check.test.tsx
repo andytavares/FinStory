@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { Settings } from '@renderer/views/Settings';
 import { installMoneyBridge } from './setup';
@@ -10,6 +10,7 @@ const BASE = {
   'settings:get': {
     modelProvider: 'anthropic',
     anthropicModel: 'claude-haiku-4-5',
+    anthropicWorkspaceId: '',
     ollamaModel: '',
     ollamaBaseUrl: '',
     confidenceThreshold: 0.8,
@@ -68,3 +69,41 @@ describe('the model check reports the real answer', () => {
     await waitFor(() => screen.getByText('Test the model'));
   });
 });
+
+describe('the workspace id field', () => {
+  it('is offered for Claude, because identity-linked keys require it', async () => {
+    installMoneyBridge(BASE);
+    render(<Settings />);
+    await waitFor(() => expect(screen.getByLabelText('Anthropic workspace ID')).toBeDefined());
+  });
+
+  it('saves what is typed, trimmed', async () => {
+    const invoke = vi.fn((channel: string) =>
+      channel === 'settings:get'
+        ? Promise.resolve(BASE['settings:get'])
+        : Promise.resolve(BASE['setup:status']),
+    );
+    Object.defineProperty(globalThis.window, 'money', {
+      configurable: true,
+      value: { invoke, on: () => () => {} },
+    });
+    render(<Settings />);
+    await waitFor(() => screen.getByLabelText('Anthropic workspace ID'));
+    fireEvent.change(screen.getByLabelText('Anthropic workspace ID'), {
+      target: { value: '  wrkspc_42  ' },
+    });
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('settings:update', { anthropicWorkspaceId: 'wrkspc_42' }),
+    );
+  });
+
+  it('is hidden when categorization runs locally', async () => {
+    installMoneyBridge({
+      ...BASE,
+      'settings:get': { ...BASE['settings:get'], modelProvider: 'local_only' },
+    });
+    render(<Settings />);
+    await waitFor(() => screen.getByText('Test the model'));
+    expect(screen.queryByLabelText('Anthropic workspace ID')).toBeNull();
+  });
+})

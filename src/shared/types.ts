@@ -192,6 +192,8 @@ export interface AppSettings {
   readonly categorizationMode: 'hybrid' | 'local_only';
   readonly modelProvider: ModelProvider;
   readonly anthropicModel: string;
+  /** Required by identity-linked API keys; empty for a plain workspace key. */
+  readonly anthropicWorkspaceId: string;
   readonly ollamaModel: string;
   readonly ollamaBaseUrl: string;
   readonly timeZone: string;

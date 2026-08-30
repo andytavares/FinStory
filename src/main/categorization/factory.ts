@@ -34,6 +34,7 @@ export interface ClassifierConfig {
   readonly taxonomy: string;
   readonly anthropicApiKey?: string | undefined;
   readonly anthropicModel?: string | undefined;
+  readonly anthropicWorkspaceId?: string | undefined;
   readonly ollamaModel?: string | undefined;
   readonly ollamaBaseUrl?: string | undefined;
 }
@@ -87,6 +88,7 @@ export function buildClassifier(config: ClassifierConfig): BuiltClassifier {
       apiKey: config.anthropicApiKey,
       taxonomy: config.taxonomy,
       model,
+      ...(config.anthropicWorkspaceId ? { workspaceId: config.anthropicWorkspaceId } : {}),
     }),
     localOnly: false,
     reason: `Categorizing with ${model} for merchants your history cannot resolve.`,

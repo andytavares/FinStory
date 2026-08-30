@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // economics — and it is changeable in Settings.
   modelProvider: 'anthropic',
   anthropicModel: 'claude-haiku-4-5',
+  anthropicWorkspaceId: '',
   ollamaModel: '',
   ollamaBaseUrl: 'http://localhost:11434',
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -41,6 +42,7 @@ export function mergeSettings(
     categorizationMode: update.categorizationMode ?? current.categorizationMode,
     modelProvider: update.modelProvider ?? current.modelProvider,
     anthropicModel: update.anthropicModel ?? current.anthropicModel,
+    anthropicWorkspaceId: update.anthropicWorkspaceId ?? current.anthropicWorkspaceId,
     ollamaModel: update.ollamaModel ?? current.ollamaModel,
     ollamaBaseUrl: update.ollamaBaseUrl ?? current.ollamaBaseUrl,
     timeZone: update.timeZone ?? current.timeZone,

@@ -1000,7 +1000,9 @@ describe('Services with realistic data', () => {
       classify = () => Promise.reject(new Error('401 invalid x-api-key'));
       const result = (await services.testModel()) as { ok: boolean; message: string };
       expect(result.ok).toBe(false);
-      expect(result.message).toBe('401 invalid x-api-key');
+      // The raw error survives; the actionable hint is appended to it.
+      expect(result.message).toContain('401 invalid x-api-key');
+      expect(result.message).toContain('check the API key');
     });
   });
 

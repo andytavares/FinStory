@@ -88,6 +88,7 @@ async function bootstrap(): Promise<void> {
       taxonomy: taxonomyPromptList(categories),
       anthropicApiKey: (await readSecret('anthropicApiKey')) ?? undefined,
       anthropicModel: (await readSetting('anthropicModel')) ?? DEFAULT_ANTHROPIC_MODEL,
+      anthropicWorkspaceId: (await readSetting('anthropicWorkspaceId')) ?? undefined,
       ollamaModel: (await readSetting('ollamaModel')) ?? undefined,
       ollamaBaseUrl: (await readSetting('ollamaBaseUrl')) ?? undefined,
     });
@@ -113,6 +114,7 @@ async function bootstrap(): Promise<void> {
       taxonomy: '',
       anthropicApiKey: (await readSecret('anthropicApiKey')) ?? undefined,
       anthropicModel: (await readSetting('anthropicModel')) ?? DEFAULT_ANTHROPIC_MODEL,
+      anthropicWorkspaceId: (await readSetting('anthropicWorkspaceId')) ?? undefined,
       ollamaModel: (await readSetting('ollamaModel')) ?? undefined,
       ollamaBaseUrl: (await readSetting('ollamaBaseUrl')) ?? undefined,
     });

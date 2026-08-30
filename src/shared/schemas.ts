@@ -103,6 +103,7 @@ export const settingsUpdateSchema = z.object({
   categorizationMode: z.enum(['hybrid', 'local_only']).optional(),
   modelProvider: z.enum(['anthropic', 'ollama', 'local_only']).optional(),
   anthropicModel: z.string().min(1).optional(),
+  anthropicWorkspaceId: z.string().optional(),
   ollamaModel: z.string().optional(),
   ollamaBaseUrl: z.string().optional(),
   timeZone: z.string().optional(),
