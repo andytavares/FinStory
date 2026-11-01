@@ -1,0 +1,65 @@
+src/renderer/components/Credentials.tsx
+  s_d8b2366061c670::t_04008115982081 3,69-73,76-88,90-91,96,98-99,105,108,113-124,131,136
+src/renderer/components/EmptyState.tsx
+  s_d8b2366061c670::t_843298f0f64094 1-2,14,16,18
+src/renderer/components/ErrorBoundary.tsx
+  s_d8b2366061c670::t_42e05a3373835c 2,34,41,47,49-50,52,54
+src/renderer/views/Accounts.tsx
+  s_d8b2366061c670::t_d81d847e93ebd3 4-6,66-76,79-93,95-99,101,104,106,108,113,115,122-125,127,130-131,133
+src/renderer/views/Categories.tsx
+  s_d8b2366061c670::t_66ae39bb957d44 4-6,8,15,17,21-22,25-39,41,43-52,54-55,59,63,65,67-68,71-73,75,79-80,82-83,85-86,88
+src/renderer/views/Settings.tsx
+  s_d8b2366061c670::t_37fd67ed577019 1-2,4-7,10-12,15-33,35-41,44-57,60-62,64-68,70,72-74,76,78-105,107-108,112,114-122
+src/renderer/views/accounts/BankCard.tsx
+  s_d8b2366061c670::t_da7e9b4bfc5706 1-102
+src/renderer/views/categories/CategoryCard.tsx
+  s_d8b2366061c670::t_238a758e1aa244 1-123
+src/renderer/views/categories/CategoryMenu.tsx
+  s_d8b2366061c670::t_4a6f3626e68e20 1-172
+src/renderer/views/categories/CategoryName.tsx
+  s_d8b2366061c670::t_0304b13f4ff114 1-43
+src/renderer/views/categories/types.ts
+  s_d8b2366061c670::t_443451021056f2 1-15
+src/renderer/views/settings/BackupCard.tsx
+  s_d8b2366061c670::t_d26c03e06c0a6b 1-85
+src/renderer/views/settings/CategorizationSection.tsx
+  s_d8b2366061c670::t_25e09f0229755d 1-83
+src/renderer/views/settings/GeneralSection.tsx
+  s_d8b2366061c670::t_c379bb2af22bad 1-49
+src/renderer/views/settings/PrivacySection.tsx
+  s_d8b2366061c670::t_a7b96ec0d010a2 1-50
+src/renderer/views/settings/ProviderChoice.tsx
+  s_d8b2366061c670::t_0a6beefecec696 1-78
+src/renderer/views/settings/ProviderFields.tsx
+  s_d8b2366061c670::t_62ca41a2a62059 1-104
+src/renderer/views/settings/ResetCard.tsx
+  s_d8b2366061c670::t_de1e15b6cdad6b 1-58
+tests/unit/renderer/accounts-cards.test.tsx
+  s_d8b2366061c670::t_690623b215d2e0 1-71
+tests/unit/renderer/categories-cards.test.tsx
+  s_d8b2366061c670::t_e43703d7129575 1-175
+tests/unit/renderer/model-check.test.tsx
+  s_d8b2366061c670::t_117146a95656a3 84-86
+tests/unit/renderer/settings-tabs.test.tsx
+  s_d8b2366061c670::t_a1308edafcd38a 1-164
+tests/unit/renderer/sync-feedback.test.tsx
+  s_d8b2366061c670::t_ef8ec3e9a01451 12-13,24
+tests/unit/renderer/views.test.tsx
+  s_d8b2366061c670::t_35b7b560e0073d 343,346,357-358,369-371,552-553,555-558,565,624-625,635,671-672
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "833f6dc1e58ad1269c36f5a3462fd77b2daf210f",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
