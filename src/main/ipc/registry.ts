@@ -88,6 +88,8 @@ export class IpcRegistry {
       return await handler(payload);
     } catch (error) {
       if (error instanceof IpcFailure) throw error;
+      // Dev builds only: the terminal is the one place the real cause can be read.
+      if (import.meta.env?.DEV) console.error(`[ipc] ${channel} failed:`, error);
       // Never surface a raw error message: it may carry a connection string,
       // a token, or a file path (FR-047).
       throw new IpcFailure('INTERNAL', 'An unexpected error occurred', false);
