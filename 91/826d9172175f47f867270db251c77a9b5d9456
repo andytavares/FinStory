@@ -1,0 +1,25 @@
+src/renderer/charts/RunwayChart.tsx
+  s_2dd7c0bdfa9972::t_bb78b173d09960 24
+src/renderer/views/DesignSystem.tsx
+  s_2dd7c0bdfa9972::t_a289d5df6f107a 85-88
+tests/unit/renderer/chart-kit.test.tsx
+  s_2dd7c0bdfa9972::t_2c3b4bd542357e 37-38
+tests/unit/renderer/design-system.test.tsx
+  s_2dd7c0bdfa9972::t_3fe362d49f6308 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "91826d9172175f47f867270db251c77a9b5d9456",
+  "prompts": {},
+  "sessions": {
+    "s_2dd7c0bdfa9972": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "648786c5-8c3d-404f-9a4d-d319576d090d",
+        "model": "unknown"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
