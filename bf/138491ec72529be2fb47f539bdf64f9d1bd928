@@ -1,0 +1,41 @@
+src/main/import/commit.ts
+  s_2dd7c0bdfa9972::t_739df0949441e0 18-19,139,145-146,166
+src/main/ipc/handlers/index.ts
+  s_2dd7c0bdfa9972::t_0edbd062d71fe6 204
+src/main/ipc/handlers/services.ts
+  s_2dd7c0bdfa9972::t_1bebf808088e0d 98
+src/main/services/index.ts
+  s_2dd7c0bdfa9972::t_5eae22e4455c78 77,225-226,1926-1958
+src/preload/index.ts
+  s_2dd7c0bdfa9972::t_27266ded6229ed 79,95
+src/renderer/views/Import.tsx
+  s_2dd7c0bdfa9972::t_f81d55f2f7b6d7 1,3,57-74,96-98
+src/renderer/views/import/flow.ts
+  s_2dd7c0bdfa9972::t_56d8ff81bfd299 1,3,52-67,124
+src/shared/features.ts
+  s_2dd7c0bdfa9972::t_93e30813712850 134
+src/shared/types.ts
+  s_2dd7c0bdfa9972::t_3190d5a4172441 56-64
+tests/integration/import-commit.test.ts
+  s_2dd7c0bdfa9972::t_8f37154986060f 69-70,89-90,105-108,110,204-235
+tests/unit/ipc/handlers.test.ts
+  s_2dd7c0bdfa9972::t_70daa4accc5a4d 77
+tests/unit/renderer/import.test.tsx
+  s_2dd7c0bdfa9972::t_4674fdd667a8aa 3,5,104-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bf138491ec72529be2fb47f539bdf64f9d1bd928",
+  "prompts": {},
+  "sessions": {
+    "s_2dd7c0bdfa9972": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "648786c5-8c3d-404f-9a4d-d319576d090d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
