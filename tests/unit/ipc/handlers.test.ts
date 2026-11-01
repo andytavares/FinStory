@@ -74,6 +74,7 @@ const CONTRACT_CHANNELS = [
   'categorization:cancel',
   'import:preview',
   'import:commit',
+  'import:status',
   'usage:view',
   'usage:action',
   'usage:summary',

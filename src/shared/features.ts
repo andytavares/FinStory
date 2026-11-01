@@ -131,6 +131,7 @@ const CHANNELS: Record<string, ReadonlyArray<readonly [string, string]>> = {
     ['categorization:cancel', 'Categorization: cancel'],
     ['import:preview', 'Import: check a file'],
     ['import:commit', 'Import: bring in transactions'],
+    ['import:status', 'Import: check progress'],
   ],
 };
 

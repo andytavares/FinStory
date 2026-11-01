@@ -66,6 +66,8 @@ describe('Quicken import', () => {
   let handle: DatabaseHandle;
   let services: InstanceType<typeof Services>;
   let modelCalls: number;
+  let emitted: Array<{ channel: string; payload: unknown }>;
+  let pipelineGate: Promise<void>;
 
   const file = { fileName: 'register.csv', text: CSV };
   const commit = (over: Record<string, unknown> = {}) =>
@@ -84,6 +86,8 @@ describe('Quicken import', () => {
     runMigrations(handle, MIGRATIONS);
     await seedLedger(handle);
     modelCalls = 0;
+    emitted = [];
+    pipelineGate = Promise.resolve();
     const model = {
       classify: async () => {
         modelCalls += 1;
@@ -98,9 +102,12 @@ describe('Quicken import', () => {
       store: new MemorySecretStore(),
       pipeline: new CategorizationPipeline(model, { confidenceThreshold: 0.8 }),
       sync: async () => EMPTY_SYNC,
-      buildPipeline: async () => new CategorizationPipeline(model, { confidenceThreshold: 0.8 }),
+      buildPipeline: async () => {
+        await pipelineGate;
+        return new CategorizationPipeline(model, { confidenceThreshold: 0.8 });
+      },
       describeModel: async () => ({ provider: 'anthropic', model: 'm', localOnly: false, reason: '' }),
-      emit: () => {},
+      emit: (channel: string, payload: unknown) => emitted.push({ channel, payload }),
     });
   });
 
@@ -191,6 +198,38 @@ describe('Quicken import', () => {
       expect((await handle.db.select().from(schema.transactions)).length).toBe(1);
       expect((await handle.db.select().from(schema.accounts)).length).toBe(1);
       expect((await handle.db.select().from(schema.institutions)).length).toBe(1);
+    });
+  });
+
+  describe('progress', () => {
+    const progressEvents = () => emitted.filter((e) => e.channel === 'import:progress').map((e) => e.payload);
+
+    it('emits a starting event, one per new row, and a final one with the result', async () => {
+      const result = await commit();
+      const events = progressEvents();
+      expect(events[0]).toEqual({ running: true, processed: 0, total: 0 });
+      expect(events.slice(1, -1)).toEqual([1, 2, 3].map((processed) => ({ running: true, processed, total: 3 })));
+      expect(events.at(-1)).toEqual({ running: false, processed: 3, total: 3, result });
+    });
+
+    it('reports a running import to a view that opens mid-way, then the result once', async () => {
+      let resume = (): void => {};
+      pipelineGate = new Promise<void>((resolve) => (resume = resolve));
+      const running = commit();
+      await vi.waitFor(() => expect(progressEvents().length).toBe(1));
+      expect(await services.importStatus()).toEqual({ running: true, processed: 0, total: 0 });
+      await expect(commit()).rejects.toThrow('An import is already running');
+
+      resume();
+      const result = await running;
+      expect(await services.importStatus()).toEqual({ running: false, processed: 3, total: 3, result });
+      expect(await services.importStatus()).toBeNull();
+    });
+
+    it('keeps the error for a view that opens after a failed import', async () => {
+      const bad = [{ label: CHECKING, accountId: 'acct_missing' }, ACCOUNT_MAP[1]];
+      await expect(commit({ accountMap: bad })).rejects.toThrow();
+      expect(await services.importStatus()).toMatchObject({ running: false, error: expect.any(String) });
     });
   });
 

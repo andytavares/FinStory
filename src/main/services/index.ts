@@ -74,7 +74,7 @@ import {
   type SecretStore,
 } from '@main/secrets/secret-store';
 import type { Clock } from '@shared/clock';
-import type { AppSettings } from '@shared/types';
+import type { AppSettings, ImportProgress } from '@shared/types';
 import { detectOllama, listOllamaModels } from '@main/categorization/ollama';
 import { explainModelError } from '@main/categorization/errors';
 import { createPlaidClient, type PlaidEnvironment } from '@main/plaid/client';
@@ -229,6 +229,8 @@ export class Services implements AppServices {
   /** Set by cancelRecategorize; read by the loop between transactions. */
   private recategorizeCancelled = false;
   private recategorizeRunning = false;
+  /** The running import, or how the last one ended until a view reads it. */
+  private importProgress: ImportProgress | null = null;
 
   readonly usage: UsageRecorder;
 
@@ -1928,13 +1930,39 @@ export class Services implements AppServices {
   }
 
   async commitImport(input: unknown): Promise<unknown> {
-    const result = await commitImport(
-      { handle: this.deps.handle, clock: this.deps.clock, buildPipeline: this.deps.buildPipeline },
-      input as ImportCommitInput,
-    );
-    // Recurring and income detection need the imported history.
-    if (result.imported > 0) await this.refreshAnalysis();
-    return result;
+    if (this.importProgress?.running) {
+      throw new IpcFailure('VALIDATION_FAILED', 'An import is already running.', true, 'Wait for it to finish');
+    }
+    const report = (progress: ImportProgress): void => {
+      this.importProgress = progress;
+      this.deps.emit('import:progress', progress);
+    };
+    report({ running: true, processed: 0, total: 0 });
+    try {
+      const result = await commitImport(
+        {
+          handle: this.deps.handle,
+          clock: this.deps.clock,
+          buildPipeline: this.deps.buildPipeline,
+          onProgress: (processed, total) => report({ running: true, processed, total }),
+        },
+        input as ImportCommitInput,
+      );
+      // Recurring and income detection need the imported history.
+      if (result.imported > 0) await this.refreshAnalysis();
+      report({ running: false, processed: result.imported, total: result.imported, result });
+      return result;
+    } catch (e) {
+      report({ running: false, processed: 0, total: 0, error: (e as Error).message });
+      throw e;
+    }
+  }
+
+  /** A finished import is reported once, so the view does not show an old result forever. */
+  async importStatus(): Promise<unknown> {
+    const progress = this.importProgress;
+    if (progress && !progress.running) this.importProgress = null;
+    return progress;
   }
 
   /** Whether Ollama answers at the saved address, within two seconds. */

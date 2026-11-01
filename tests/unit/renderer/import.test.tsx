@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import { Import } from '@renderer/views/Import';
+import { installMoneyBridge, emitToRenderer } from './setup';
 
 afterEach(cleanup);
 
@@ -99,5 +100,36 @@ describe('Import view', () => {
         mapping: { date: 0, payee: 1, amount: 2 },
       }),
     );
+  });
+
+  it('shows a running import when the view opens, and its result when it ends', async () => {
+    installMoneyBridge({
+      'institutions:list': [],
+      'categories:list': [],
+      'import:status': { running: true, processed: 4000, total: 13267 },
+    });
+    render(<Import onViewTransactions={() => {}} />);
+
+    await screen.findByText(/Sorting 4,000 of 13,267 transactions/);
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+    expect(screen.getByText(/You can leave this screen/)).toBeTruthy();
+    expect(screen.queryByLabelText('Quicken file')).toBeNull();
+
+    act(() => emitToRenderer('import:progress', { running: true, processed: 13267, total: 13267 }));
+    await screen.findByText(/Saving/);
+
+    const result = { imported: 13267, skippedDuplicates: 180, createdAccounts: 0 };
+    act(() => emitToRenderer('import:progress', { running: false, processed: 13267, total: 13267, result }));
+    await screen.findByText('Imported 13,267 transactions');
+  });
+
+  it('shows why an import failed when the view opens after it ended', async () => {
+    installMoneyBridge({
+      'institutions:list': [],
+      'categories:list': [],
+      'import:status': { running: false, processed: 0, total: 0, error: 'Disk full' },
+    });
+    render(<Import onViewTransactions={() => {}} />);
+    expect((await screen.findByRole('alert')).textContent).toBe('Disk full');
   });
 });

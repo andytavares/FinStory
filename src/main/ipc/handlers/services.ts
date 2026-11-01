@@ -95,4 +95,5 @@ export interface AppServices {
 
   previewImport(input: unknown): Promise<unknown>;
   commitImport(input: unknown): Promise<unknown>;
+  importStatus(): Promise<unknown>;
 }

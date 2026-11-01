@@ -15,6 +15,8 @@ export interface CommitDeps {
   readonly handle: DatabaseHandle;
   readonly clock: Clock;
   readonly buildPipeline: () => Promise<CategorizationPipeline>;
+  /** Called after each new row is categorized; categorizing is the slow part. */
+  readonly onProgress?: (processed: number, total: number) => void;
 }
 
 interface TargetAccount {
@@ -134,13 +136,14 @@ async function categorySources(deps: CommitDeps, input: ImportCommitInput, live:
 async function decideAll(
   fresh: readonly PlannedRow[],
   targets: ReadonlyMap<string, TargetAccount>,
-  sources: Sources,
+  context: { sources: Sources; onProgress: CommitDeps['onProgress'] },
 ): Promise<WritePlan['rows']> {
   const rows: WritePlan['rows'] = [];
   for (const planned of fresh) {
     const transactionId = newId('txn');
     const accountId = targets.get(planned.transaction.accountLabel)?.id ?? '';
-    rows.push({ planned, transactionId, accountId, decision: await decide(planned, transactionId, sources) });
+    rows.push({ planned, transactionId, accountId, decision: await decide(planned, transactionId, context.sources) });
+    context.onProgress?.(rows.length, fresh.length);
   }
   return rows;
 }
@@ -160,7 +163,7 @@ export async function commitImport(deps: CommitDeps, input: ImportCommitInput): 
   const planned = planRows(result.transactions, accountIdFor, existing);
   const live = new Set(categories.filter((c) => c.mergedIntoId === null).map((c) => c.id));
   const sources = await categorySources(deps, input, live);
-  const rows = await decideAll(planned.filter((p) => !p.duplicate), targets, sources);
+  const rows = await decideAll(planned.filter((p) => !p.duplicate), targets, { sources, onProgress: deps.onProgress });
 
   const used = new Set(rows.map((r) => r.accountId));
   const accounts = [...targets]

@@ -53,6 +53,15 @@ export interface ImportResult {
   readonly createdAccounts: number;
 }
 
+/** Where a running import is, or how the last one ended. Held by the main process so a view can leave and come back. */
+export interface ImportProgress {
+  readonly running: boolean;
+  readonly processed: number;
+  readonly total: number;
+  readonly result?: ImportResult;
+  readonly error?: string;
+}
+
 export interface AccountSummary {
   readonly id: string;
   readonly name: string;

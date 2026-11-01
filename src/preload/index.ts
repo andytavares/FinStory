@@ -76,6 +76,7 @@ export const INVOKE_CHANNELS = [
   'categorization:cancel',
   'import:preview',
   'import:commit',
+  'import:status',
   'overrides:list',
   'overrides:clear',
   'rules:list',
@@ -91,6 +92,7 @@ export const INVOKE_CHANNELS = [
 const EVENT_CHANNELS = [
   'sync:progress',
   'categorization:progress',
+  'import:progress',
   'sync:complete',
   'alert:fired',
   'catchup:summary',
