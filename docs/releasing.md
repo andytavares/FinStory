@@ -137,6 +137,7 @@ Do this once, on the first release, to confirm signing and notarization worked.
 | Symptom | Cause and fix |
 |---|---|
 | Release job fails at `codesign` with "no identity found" | `CSC_LINK` or `CSC_KEY_PASSWORD` is wrong, or the `.p12` has no private key. Repeat Part 1 step 10 and Part 2. |
+| "Import the Developer ID certificate" fails at `security import` with "MAC verification failed" | `CSC_KEY_PASSWORD` does not match the `.p12`. Export again (Part 2) and update both secrets. |
 | Release job fails at notarization with "invalid credentials" | `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` or `APPLE_TEAM_ID` is wrong. Create a new app-specific password (Part 3) and update the secret. |
 | Release job fails with "Resource not accessible by integration" | Workflow permissions are read-only. Repeat Part 4 step 4. |
 | macOS says the app "is damaged" or "cannot be opened" | The build was not notarized. Check the notarization step in the job log. |
