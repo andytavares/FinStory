@@ -8,6 +8,9 @@ tests/unit/release-config.test.ts
 src/main/index.ts
   s_d8b2366061c670::t_a67200d6c0657b 41-42,274,280
   s_d8b2366061c670::t_eba11b534f0f5b 422
+  s_d8b2366061c670::t_a7870692a302c9 25-29,35-39,127-129,186-187,247-250,372-383,386-401,406-409,411-413,415-421,423-443
+  s_d8b2366061c670::t_7e6b1f6e9dba94 62
+  s_d8b2366061c670::t_e6dc36e879876e 273,275-279,281
 package.json
   s_d8b2366061c670::t_a67200d6c0657b 14
 src/preload/index.ts
@@ -20,11 +23,14 @@ src/renderer/components/UpdateToast.tsx
   s_d8b2366061c670::t_ad3771fb876ff5 1-41
 src/main/updates.ts
   s_d8b2366061c670::t_ad3771fb876ff5 1-16,19-25,27-32,34-43
+  s_d8b2366061c670::t_e6dc36e879876e 17,33
+  s_d8b2366061c670::t_f382ea33f435a9 18,26
 README.md
   s_d8b2366061c670::t_a67200d6c0657b 11-15,34,44,64-66
   s_d8b2366061c670::t_f761e268364954 67
 src/renderer/App.tsx
   s_d8b2366061c670::t_a67200d6c0657b 2,182
+  s_d8b2366061c670::t_1970d2e829bfae 133-181,183
 tests/unit/ipc/preload-allowlist.test.ts
   s_d8b2366061c670::t_a67200d6c0657b 24-26
 tests/unit/renderer/update-toast.test.tsx
@@ -32,6 +38,9 @@ tests/unit/renderer/update-toast.test.tsx
   s_d8b2366061c670::t_0d99ee203bb5b0 1-32,34-35
 tests/unit/updates/updates.test.ts
   s_d8b2366061c670::t_3a3c4628610207 1-49,64-72
+  s_d8b2366061c670::t_25e2f3ddbf708a 50-63
+src/shared/features.ts
+  s_d8b2366061c670::t_a7870692a302c9 124-125
 ---
 {
   "schema_version": "authorship/3.0.0",
