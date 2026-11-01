@@ -1,0 +1,97 @@
+src/main/ipc/handlers/index.ts
+  s_d8b2366061c670::t_d9caa50a4e47d3 42-43
+  s_d8b2366061c670::t_57d552930c201e 202-204
+src/main/db/migrate.ts
+  s_d8b2366061c670::t_72173eff769a74 38-43,45-50
+src/main/db/migrations/meta/_journal.json
+  s_d8b2366061c670::t_2d9f2c83cd0b44 67-73,76
+tests/unit/renderer/import.test.tsx
+  s_d8b2366061c670::t_a7ad8cfe673483 1-103
+src/main/import/institutions.ts
+  s_d8b2366061c670::t_26f3804a9cb400 1-4,7-11
+  s_d8b2366061c670::t_8fca847730792f 5-6
+src/main/ipc/handlers/services.ts
+  s_d8b2366061c670::t_57d552930c201e 95-97
+src/renderer/views/import/MatchAccounts.tsx
+  s_d8b2366061c670::t_633d66f703d204 1-104
+src/renderer/views/import/flow.ts
+  s_d8b2366061c670::t_633d66f703d204 1-123
+tests/e2e/import.spec.ts
+  s_d8b2366061c670::t_41218eec878dfc 1-43
+src/main/index.ts
+  s_d8b2366061c670::t_d9caa50a4e47d3 146
+  s_d8b2366061c670::t_65b0a584932bb9 19,31
+src/renderer/views/import/StepChips.tsx
+  s_d8b2366061c670::t_417a4ad566d75d 2-15,17-24
+  s_d8b2366061c670::t_80655817c4e824 1,16
+src/renderer/views/import/CategoryMapping.tsx
+  s_d8b2366061c670::t_417a4ad566d75d 1-45
+src/shared/types.ts
+  s_d8b2366061c670::t_35d5e0496f60c5 22,24-33,36-53
+  s_d8b2366061c670::t_4fad377c1d2414 23
+  s_d8b2366061c670::t_96d43fad0275a6 34-35
+tests/integration/import-commit.test.ts
+  s_d8b2366061c670::t_31d9b05f2a96bb 131
+  s_d8b2366061c670::t_228e900adf29d7 1-130,132-198
+tests/unit/ipc/handlers.test.ts
+  s_d8b2366061c670::t_57d552930c201e 75-76,122-123
+src/renderer/views/Import.tsx
+  s_d8b2366061c670::t_2c0ddd09d512e8 1
+  s_d8b2366061c670::t_633d66f703d204 2-70,72-102
+  s_d8b2366061c670::t_9d54aad12569ec 71
+src/renderer/views/import/format.ts
+  s_d8b2366061c670::t_417a4ad566d75d 1-24
+src/renderer/views/import/ColumnMapping.tsx
+  s_d8b2366061c670::t_417a4ad566d75d 1-55
+src/main/import/csv.ts
+  s_d8b2366061c670::t_26f3804a9cb400 111-114
+  s_d8b2366061c670::t_35d5e0496f60c5 50-55
+src/renderer/views/import/FileCard.tsx
+  s_d8b2366061c670::t_417a4ad566d75d 1-71
+tests/unit/db/migrate.test.ts
+  s_d8b2366061c670::t_80655817c4e824 10
+src/preload/index.ts
+  s_d8b2366061c670::t_57d552930c201e 75-76
+src/main/db/schema.ts
+  s_d8b2366061c670::t_2d9f2c83cd0b44 13-14,25
+src/main/import/preview.ts
+  s_d8b2366061c670::t_96d43fad0275a6 82-87,91
+  s_d8b2366061c670::t_26f3804a9cb400 1-8,10-31,33-81,88-90,92-99
+  s_d8b2366061c670::t_31d9b05f2a96bb 9,32
+src/main/db/migrations/0009_import_institutions.sql
+  s_d8b2366061c670::t_2d9f2c83cd0b44 1-22
+src/shared/schemas.ts
+  s_d8b2366061c670::t_35d5e0496f60c5 234-264
+  s_d8b2366061c670::t_26f3804a9cb400 265-267
+src/main/import/commit.ts
+  s_d8b2366061c670::t_31d9b05f2a96bb 161,163
+  s_d8b2366061c670::t_84ca85009372ed 1-116,144-151,155,160,168
+  s_d8b2366061c670::t_c1fe93d85ecce5 117-143,152-154,156-159,162,164-167
+src/main/services/index.ts
+  s_d8b2366061c670::t_d9caa50a4e47d3 88-91,171,377,405-406,408,1696,1866-1878
+  s_d8b2366061c670::t_ee4f49d942f00c 1879
+src/shared/features.ts
+  s_d8b2366061c670::t_57d552930c201e 130-131
+src/main/import/duplicates.ts
+  s_d8b2366061c670::t_26f3804a9cb400 1-70
+src/renderer/App.tsx
+  s_d8b2366061c670::t_2c0ddd09d512e8 16,170
+tests/integration/import-migration.test.ts
+  s_d8b2366061c670::t_c0c1eec5d9e978 1-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "075db7135968000037bc2df47e4d5547409b8db6",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
