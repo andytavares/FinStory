@@ -340,11 +340,10 @@ describe('Reports, Health, Settings, Categories', () => {
       ],
     });
     render(<Categories />);
-    // Names are editable inputs now, so assert on value rather than text.
-    await waitFor(() => expect(screen.getByLabelText('Name for Food')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Food')).toBeDefined());
     expect(screen.getByText(/historical totals still add up/)).toBeDefined();
     // Subcategories can be added inline from this screen.
-    expect(screen.getAllByText('+ Add subcategory').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('+ Subcategory').length).toBeGreaterThan(0);
   });
 
   it('adds a subcategory under a parent', async () => {
@@ -355,8 +354,8 @@ describe('Reports, Health, Settings, Categories', () => {
       'categories:create': { id: 'new' },
     });
     render(<Categories />);
-    await waitFor(() => screen.getByText('+ Add subcategory'));
-    fireEvent.click(screen.getByText('+ Add subcategory'));
+    await waitFor(() => screen.getByText('+ Subcategory'));
+    fireEvent.click(screen.getByText('+ Subcategory'));
     expect(screen.getByLabelText('New subcategory under Food')).toBeDefined();
   });
 
@@ -367,7 +366,9 @@ describe('Reports, Health, Settings, Categories', () => {
       ],
     });
     render(<Categories />);
-    await waitFor(() => expect(screen.getByText('Hide')).toBeDefined());
+    await waitFor(() => screen.getByLabelText('Actions for Food'));
+    fireEvent.click(screen.getByLabelText('Actions for Food'));
+    expect(screen.getByText('Hide')).toBeDefined();
     expect(screen.getByText('Merge')).toBeDefined();
   });
 });
@@ -548,21 +549,20 @@ describe('Accounts', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('Include Everyday Checking in day-to-day spending')).toBeDefined(),
     );
-    const savings = screen.getByLabelText(
-      'Include Rainy Day Savings in day-to-day spending',
-    ) as HTMLInputElement;
-    expect(savings.checked).toBe(false);
+    const savings = screen.getByLabelText('Include Rainy Day Savings in day-to-day spending');
+    expect(savings.getAttribute('aria-checked')).toBe('false');
     expect(
-      (screen.getByLabelText('Include Everyday Checking in day-to-day spending') as HTMLInputElement)
-        .checked,
-    ).toBe(true);
+      screen
+        .getByLabelText('Include Everyday Checking in day-to-day spending')
+        .getAttribute('aria-checked'),
+    ).toBe('true');
   });
 
   it('explains why savings should be excluded', async () => {
     installMoneyBridge({ 'institutions:list': [] });
     render(<Accounts />);
     await waitFor(() =>
-      expect(screen.getByText(/should not make those numbers look bigger/)).toBeDefined(),
+      expect(screen.getByText(/so they do not inflate runway/)).toBeDefined(),
     );
   });
 
@@ -621,7 +621,8 @@ describe('Accounts', () => {
     });
     render(<Accounts />);
     await waitFor(() => expect(screen.getByText('Chase')).toBeDefined());
-    expect(screen.getByText(/2 accounts/)).toBeDefined();
+    expect(screen.getByText('Net $12,847.00 across 2 accounts')).toBeDefined();
+    expect(screen.getByText('Synced just now')).toBeDefined();
   });
 
   it('offers reconnect only for an unhealthy institution', async () => {
@@ -631,7 +632,7 @@ describe('Accounts', () => {
       ],
     });
     render(<Accounts />);
-    await waitFor(() => expect(screen.getByText('Reconnect')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Sign in again')).toBeDefined());
   });
 
   it('surfaces a failure to start the connection', async () => {
@@ -667,6 +668,8 @@ describe('App shell navigation covers every area', () => {
       'institutions:list': [],
       'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
       'health:get': {
+        encryption: { databaseEncrypted: true, keysInKeychain: true },
+        updates: { version: '1.0.0' },
         contents: {
           institutions: 1,
           accounts: 1,
