@@ -107,7 +107,7 @@ export function RecurringCandidates({
                 disabled={busy === c.key}
                 onClick={() => void decide(c, 'recurring')}
                 aria-label={`Mark ${c.merchantName} recurring`}
-                className="border border-[var(--color-line)] px-3 py-1 hover:bg-[var(--color-surface-raised)] disabled:opacity-50"
+                className="btn"
               >
                 Yes, recurring
               </button>
@@ -116,14 +116,14 @@ export function RecurringCandidates({
                 disabled={busy === c.key}
                 onClick={() => void decide(c, 'not_recurring')}
                 aria-label={`Mark ${c.merchantName} not recurring`}
-                className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
+                className="btn"
               >
                 Not recurring
               </button>
               <button
                 type="button"
                 onClick={() => onOpenMerchant(c.merchantKey)}
-                className="text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+                className="btn"
               >
                 See transactions
               </button>

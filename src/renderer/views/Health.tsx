@@ -90,7 +90,7 @@ export function Health(): React.JSX.Element {
       <button
         type="button"
         onClick={() => void call('diagnostics:export', { destPath: '' })}
-        className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)]"
+        className="btn"
       >
         Export diagnostics
       </button>

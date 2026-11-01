@@ -39,7 +39,7 @@ export function Recurring({
             })
             .finally(() => setScanning(false));
         }}
-        className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)] disabled:opacity-40"
+        className="btn"
       >
         {scanning ? 'Scanning…' : 'Rescan'}
       </button>
@@ -185,18 +185,18 @@ function Row({
         <button
           type="button"
           onClick={() => onOpenMerchant(charge.merchantKey)}
-          className="hover:text-[var(--color-ink)]"
+          className="btn"
         >
           See transactions
         </button>
-        <button type="button" onClick={() => setRenaming(true)} className="hover:text-[var(--color-ink)]">
+        <button type="button" onClick={() => setRenaming(true)} className="btn">
           Rename
         </button>
         {charge.status === 'active' ? (
           <button
             type="button"
             onClick={() => void call('recurring:markNotRecurring', { id: charge.id }).then(onChanged)}
-            className="hover:text-[var(--color-ink)]"
+            className="btn"
           >
             Not recurring
           </button>

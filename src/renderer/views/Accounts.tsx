@@ -71,7 +71,7 @@ export function Accounts(): React.JSX.Element {
           type="button"
           disabled={busy}
           onClick={() => void connect()}
-          className="border border-[var(--color-line)] px-4 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-40"
+          className="btn"
         >
           {busy ? 'Connecting…' : 'Connect an account'}
         </button>
@@ -117,7 +117,7 @@ export function Accounts(): React.JSX.Element {
                   <button
                     type="button"
                     onClick={() => void call('institutions:reauth', { institutionId: i.id })}
-                    className="text-[12px] text-[var(--color-attention)]"
+                    className="btn text-[var(--color-attention)]"
                   >
                     Reconnect
                   </button>
@@ -129,7 +129,7 @@ export function Accounts(): React.JSX.Element {
                       institutions.refetch,
                     );
                   }}
-                  className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+                  className="btn"
                 >
                   Disconnect
                 </button>
@@ -197,7 +197,7 @@ export function Accounts(): React.JSX.Element {
           type="button"
           onClick={() => void sync()}
           disabled={syncing}
-          className="self-start text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
+          className="btn self-start"
         >
           {syncing ? 'Syncing…' : 'Sync now'}
         </button>

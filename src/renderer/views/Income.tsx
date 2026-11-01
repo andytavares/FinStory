@@ -16,14 +16,15 @@ export function Income({
     <button
       type="button"
       onClick={() => void call('analysis:refresh').then(refetch)}
-      className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+      className="btn"
     >
       Rescan
     </button>
   );
 
   const actions = (
-    <div className="flex gap-2">
+    // `contents` lets the open form wrap onto its own full-width row in the header.
+    <div className="contents">
       <AddIncomeSource onAdded={refetch} />
       {rescan}
     </div>
@@ -33,8 +34,8 @@ export function Income({
   if (!data || data.length === 0) {
     return (
       <div className="space-y-5">
-        <div className="flex items-baseline justify-between">
-          <h1 className="text-[20px]">Income</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="mr-auto text-[20px]">Income</h1>
           {actions}
         </div>
         <EmptyState
@@ -47,8 +48,8 @@ export function Income({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-[20px]">Income</h1>
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="mr-auto text-[20px]">Income</h1>
         {actions}
       </div>
       <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
@@ -62,11 +63,7 @@ export function Income({
               </p>
             </div>
             <Money minor={s.expectedAmountMinor} direction />
-            <button
-              type="button"
-              onClick={() => onOpenMerchant(s.merchantKey)}
-              className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-            >
+            <button type="button" onClick={() => onOpenMerchant(s.merchantKey)} className="btn">
               See deposits
             </button>
             {s.isUserConfirmed ? (
@@ -75,7 +72,7 @@ export function Income({
                 onClick={() => {
                   void call('income:clearOverride', { id: s.id }).then(refetch);
                 }}
-                className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+                className="btn"
               >
                 Unpin
               </button>
@@ -85,7 +82,7 @@ export function Income({
                 onClick={() => {
                   void call('income:confirm', { id: s.id }).then(refetch);
                 }}
-                className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+                className="btn"
               >
                 Confirm
               </button>

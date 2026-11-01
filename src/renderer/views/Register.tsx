@@ -182,14 +182,14 @@ export function Register({
                   categoryId: pendingRetro.categoryId,
                 }).then(() => setPendingRetro(null));
               }}
-              className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+              className="btn"
             >
               Apply to past too
             </button>
             <button
               type="button"
               onClick={() => setPendingRetro(null)}
-              className="px-3 py-1 text-[12px] text-[var(--color-ink-faint)]"
+              className="btn"
             >
               Going forward only
             </button>
@@ -285,7 +285,7 @@ export function Register({
                     type="button"
                     onClick={() => setEditing(editing === t.id ? null : t.id)}
                     aria-label={`Edit ${transactionName(t)}`}
-                    className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+                    className="btn"
                   >
                     {editing === t.id ? 'Close' : 'Edit'}
                   </button>

@@ -46,14 +46,14 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
           <button
             type="button"
             onClick={() => this.setState({ error: null, componentStack: null })}
-            className="border border-[var(--color-line)] px-4 py-2 text-[13px] hover:bg-[var(--color-surface-raised)]"
+            className="btn"
           >
             Try again
           </button>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="border border-[var(--color-line)] px-4 py-2 text-[13px] hover:bg-[var(--color-surface-raised)]"
+            className="btn"
           >
             Reload
           </button>

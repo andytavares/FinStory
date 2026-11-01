@@ -61,7 +61,7 @@ function RuleRow({ rule, onChanged }: { rule: AlertRuleView; onChanged: () => vo
             onClick={() => {
               void call('alertRules:delete', { id: rule.id }).then(onChanged);
             }}
-            className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            className="btn"
           >
             Delete
           </button>
@@ -146,7 +146,7 @@ function AddRule({ onCreated }: { onCreated: () => void }): React.JSX.Element {
           }).then(onCreated);
           setAmount('');
         }}
-        className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+        className="btn"
       >
         Add alert
       </button>
@@ -216,7 +216,7 @@ export function Alerts(): React.JSX.Element {
                     <button
                       type="button"
                       onClick={() => void call('alerts:dismiss', { alertId: a.id })}
-                      className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+                      className="btn"
                     >
                       Not a problem
                     </button>

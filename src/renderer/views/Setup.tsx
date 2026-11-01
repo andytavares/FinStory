@@ -138,7 +138,7 @@ export function Setup({
         type="button"
         disabled={!ready || saving}
         onClick={() => void save()}
-        className="mt-8 border border-[var(--color-line)] px-5 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-40"
+        className="btn mt-8"
       >
         {saving ? 'Saving…' : 'Save and continue'}
       </button>

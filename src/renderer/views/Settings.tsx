@@ -170,17 +170,17 @@ function ModelCheck(): React.JSX.Element {
 
   return (
     <div className="space-y-2 border border-[var(--color-line)] px-4 py-3">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-start gap-2">
         <button
           type="button"
           onClick={() => void run('test')}
           disabled={busy !== null}
-          className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-50"
+          className="btn"
         >
           {busy === 'test' ? 'Checking…' : 'Test the model'}
         </button>
+        <RecategorizeButton />
       </div>
-      <RecategorizeButton />
       {note && (
         <p role="status" className="text-[12px] text-[var(--color-ink-faint)]">
           {note}
@@ -232,14 +232,14 @@ export function Settings(): React.JSX.Element {
           <button
             type="button"
             onClick={() => void call('data:export', { destPath: '' })}
-            className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)]"
+            className="btn"
           >
             Back up
           </button>
           <button
             type="button"
             onClick={() => void call('data:import', { srcPath: '' })}
-            className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)]"
+            className="btn"
           >
             Restore
           </button>

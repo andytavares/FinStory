@@ -109,7 +109,7 @@ export function Overrides(): React.JSX.Element {
                       onClick={() => void clear(r)}
                       disabled={busy === r.id}
                       aria-label={`Undo override for ${r.label}`}
-                      className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
+                      className="btn"
                     >
                       {busy === r.id ? 'Undoing…' : 'Undo'}
                     </button>

@@ -151,11 +151,7 @@ function CategoryPicker({
               aria-label="New subcategory name"
               className="flex-1 border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px] outline-none"
             />
-            <button
-              type="button"
-              onClick={createSubcategory}
-              className="border border-[var(--color-line)] px-3 text-[12px]"
-            >
+            <button type="button" onClick={createSubcategory} className="btn">
               Create
             </button>
           </div>
@@ -242,7 +238,7 @@ export function TransactionEditor({
 
   return (
     <div className="space-y-3 text-[13px]">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 items-start gap-3">
         <CategoryPicker
           categories={categories}
           value={categoryId}
@@ -254,37 +250,39 @@ export function TransactionEditor({
           onCategoriesChanged={onCategoriesChanged}
         />
 
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">
-            Rename (imported as: {transaction.description})
-          </span>
-          <input
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setStatus('idle');
-            }}
-            // Shows what the name falls back to if this override is cleared.
-            placeholder={transactionName({ ...transaction, userMerchantName: null })}
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px] outline-none"
-          />
-        </label>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-[12px] text-[var(--color-ink-faint)]">
+              Rename (imported as: {transaction.description})
+            </span>
+            <input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setStatus('idle');
+              }}
+              // Shows what the name falls back to if this override is cleared.
+              placeholder={transactionName({ ...transaction, userMerchantName: null })}
+              className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px] outline-none"
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Recurring</span>
-          <select
-            value={recurring}
-            onChange={(e) => {
-              setRecurring(e.target.value);
-              setStatus('idle');
-            }}
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px]"
-          >
-            <option value="">Let Money decide</option>
-            <option value="recurring">This is recurring</option>
-            <option value="not_recurring">This is not recurring</option>
-          </select>
-        </label>
+          <label className="block">
+            <span className="text-[12px] text-[var(--color-ink-faint)]">Recurring</span>
+            <select
+              value={recurring}
+              onChange={(e) => {
+                setRecurring(e.target.value);
+                setStatus('idle');
+              }}
+              className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px]"
+            >
+              <option value="">Let Money decide</option>
+              <option value="recurring">This is recurring</option>
+              <option value="not_recurring">This is not recurring</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {name.trim() !== '' && (
@@ -337,16 +335,12 @@ export function TransactionEditor({
           type="button"
           disabled={!dirty || status === 'saving'}
           onClick={() => void save()}
-          className="border border-[var(--color-line)] px-4 py-1 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-40"
+          className="btn"
         >
           {status === 'saving' ? 'Saving…' : 'Save changes'}
         </button>
         {dirty && (
-          <button
-            type="button"
-            onClick={revert}
-            className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
-          >
+          <button type="button" onClick={revert} className="btn">
             Revert
           </button>
         )}
@@ -361,8 +355,8 @@ export function TransactionEditor({
       {pendingRetro && (
         <div className="border border-[var(--color-attention)] bg-[var(--color-ground)] p-3">
           <p className="text-[13px]">
-            This merchant will use that category from now on. Apply it to{' '}
-            {pendingRetro.count} past transaction{pendingRetro.count === 1 ? '' : 's'} as well?
+            This merchant will use that category from now on. Apply it to {pendingRetro.count} past
+            transaction{pendingRetro.count === 1 ? '' : 's'} as well?
             <span className="mt-1 block text-[12px] text-[var(--color-ink-faint)]">
               Anything you already corrected by hand is left alone.
             </span>
@@ -379,7 +373,7 @@ export function TransactionEditor({
                   onSaved?.();
                 });
               }}
-              className="border border-[var(--color-line)] px-3 py-1 text-[12px]"
+              className="btn"
             >
               Apply to past too
             </button>
@@ -389,7 +383,7 @@ export function TransactionEditor({
                 setPendingRetro(null);
                 onSaved?.();
               }}
-              className="px-3 py-1 text-[12px] text-[var(--color-ink-faint)]"
+              className="btn"
             >
               Going forward only
             </button>
@@ -399,4 +393,3 @@ export function TransactionEditor({
     </div>
   );
 }
-

@@ -68,7 +68,7 @@ export function Reports({
         type="button"
         disabled={generating !== null}
         onClick={() => void generate('weekly_digest')}
-        className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)] disabled:opacity-40"
+        className="btn"
       >
         Run weekly digest
       </button>
@@ -76,14 +76,14 @@ export function Reports({
         type="button"
         disabled={generating !== null}
         onClick={() => void generate('monthly_report')}
-        className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)] disabled:opacity-40"
+        className="btn"
       >
         Run monthly report
       </button>
       <button
         type="button"
         onClick={() => setCustomOpen((v) => !v)}
-        className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+        className="btn"
       >
         Custom range…
       </button>
@@ -132,7 +132,7 @@ export function Reports({
             ...(label.trim() ? { label: label.trim() } : {}),
           })
         }
-        className="border border-[var(--color-line)] px-3 py-1 text-[12px] disabled:opacity-40"
+        className="btn"
       >
         Generate
       </button>
@@ -204,7 +204,7 @@ export function Reports({
               type="button"
               onClick={() => void call('reports:delete', { id: r.id }).then(refetch)}
               aria-label={`Delete report from ${r.periodStart.slice(0, 10)}`}
-              className="px-4 text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+              className="btn"
             >
               Delete
             </button>

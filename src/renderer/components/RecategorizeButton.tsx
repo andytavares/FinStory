@@ -73,7 +73,7 @@ export function RecategorizeButton({ onDone }: { onDone?: () => void }): React.J
           type="button"
           onClick={() => void run()}
           disabled={busy}
-          className="flex items-center gap-2 border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4"
+          className="btn [&>svg]:h-4 [&>svg]:w-4"
         >
           <Sparkles aria-hidden />
           {busy ? 'Recategorizing…' : 'Recategorize with AI'}
@@ -83,7 +83,7 @@ export function RecategorizeButton({ onDone }: { onDone?: () => void }): React.J
             type="button"
             onClick={() => void stop()}
             disabled={stopping}
-            className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-50"
+            className="btn"
           >
             {stopping ? 'Stopping…' : 'Stop'}
           </button>

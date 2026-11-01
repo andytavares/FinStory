@@ -56,7 +56,7 @@ export function AddIncomeSource({ onAdded }: { onAdded: () => void }): React.JSX
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+        className="btn"
       >
         Add income
       </button>
@@ -64,7 +64,7 @@ export function AddIncomeSource({ onAdded }: { onAdded: () => void }): React.JSX
   }
 
   return (
-    <div className="space-y-3 border border-[var(--color-line)] bg-[var(--color-surface)] p-4 text-[13px]">
+    <div className="order-last basis-full space-y-3 border border-[var(--color-line)] bg-[var(--color-surface)] p-4 text-[13px]">
       <p className="eyebrow">Income the detector cannot see</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
@@ -139,7 +139,7 @@ export function AddIncomeSource({ onAdded }: { onAdded: () => void }): React.JSX
         <button
           type="button"
           onClick={() => void submit()}
-          className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)]"
+          className="btn"
         >
           Add
         </button>
@@ -149,7 +149,7 @@ export function AddIncomeSource({ onAdded }: { onAdded: () => void }): React.JSX
             setOpen(false);
             setError(null);
           }}
-          className="px-3 py-2 text-[13px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          className="btn"
         >
           Cancel
         </button>

@@ -134,14 +134,14 @@ export function Review(): React.JSX.Element {
                 });
                 setPendingRetro(null);
               }}
-              className="border border-[var(--color-line)] px-3 py-1 text-[12px] hover:bg-[var(--color-surface-raised)]"
+              className="btn"
             >
               Apply to past
             </button>
             <button
               type="button"
               onClick={() => setPendingRetro(null)}
-              className="px-3 py-1 text-[12px] text-[var(--color-ink-faint)]"
+              className="btn"
             >
               Going forward only
             </button>
@@ -174,7 +174,7 @@ export function Review(): React.JSX.Element {
               void recategorize(chosenCategory);
               setChosenCategory('');
             }}
-            className="border border-[var(--color-line)] px-3 py-1 text-[12px] disabled:opacity-40"
+            className="btn"
           >
             Apply
           </button>
@@ -184,7 +184,7 @@ export function Review(): React.JSX.Element {
               void call('review:dismissFlag', { transactionIds: [...selected] }).then(refetch);
               setSelected(new Set());
             }}
-            className="text-[12px] text-[var(--color-ink-faint)]"
+            className="btn"
           >
             Accept as guessed
           </button>
@@ -231,7 +231,7 @@ export function Review(): React.JSX.Element {
                   setEditing(editing === item.transaction.id ? null : item.transaction.id)
                 }
                 aria-label={`Edit ${transactionName(item.transaction)}`}
-                className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+                className="btn"
               >
                 {editing === item.transaction.id ? 'Close' : 'Edit'}
               </button>

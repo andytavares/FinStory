@@ -53,7 +53,7 @@ export function Categories(): React.JSX.Element {
           type="button"
           disabled={newName.trim().length === 0}
           onClick={add}
-          className="border border-[var(--color-line)] px-4 text-[13px] disabled:opacity-40"
+          className="btn"
         >
           Add
         </button>
@@ -117,7 +117,7 @@ function AddSubcategory({
           type="button"
           onClick={() => setOpen(true)}
           aria-label={`Add a subcategory under ${parentName}`}
-          className="px-4 py-2 text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          className="btn my-2 ml-4"
         >
           + Add subcategory
         </button>
@@ -143,14 +143,14 @@ function AddSubcategory({
         <button
           type="button"
           onClick={create}
-          className="border border-[var(--color-line)] px-3 text-[12px]"
+          className="btn"
         >
           Add
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="px-2 text-[12px] text-[var(--color-ink-faint)]"
+          className="btn"
         >
           Cancel
         </button>
@@ -239,7 +239,7 @@ function Row({
           <button
             type="button"
             onClick={() => setMerging(false)}
-            className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+            className="btn"
           >
             Cancel
           </button>
@@ -249,7 +249,7 @@ function Row({
           type="button"
           onClick={() => setMerging(true)}
           aria-label={`Merge ${category.name}`}
-          className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+          className="btn"
         >
           Merge
         </button>
@@ -263,7 +263,7 @@ function Row({
             hidden: !category.isHidden,
           }).then(onChanged);
         }}
-        className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+        className="btn"
       >
         {category.isHidden ? 'Show' : 'Hide'}
       </button>
@@ -280,7 +280,7 @@ function Row({
             .catch((e: { message?: string }) => setError(e.message ?? 'Could not delete'));
         }}
         aria-label={`Delete ${category.name}`}
-        className="text-[12px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
+        className="btn"
       >
         Delete
       </button>
@@ -328,14 +328,14 @@ function Row({
                 })
                 .catch((e: { message?: string }) => setError(e.message ?? 'Could not delete'));
             }}
-            className="border border-[var(--color-line)] px-3 py-1 text-[12px] disabled:opacity-40"
+            className="btn"
           >
             Move and delete
           </button>
           <button
             type="button"
             onClick={() => setDeleting(false)}
-            className="px-2 text-[12px] text-[var(--color-ink-faint)]"
+            className="btn"
           >
             Cancel
           </button>

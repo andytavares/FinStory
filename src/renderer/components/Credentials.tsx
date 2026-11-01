@@ -99,7 +99,7 @@ export function Credentials({
                 type="button"
                 disabled={busy || (values[field.key] ?? '').trim() === ''}
                 onClick={() => void save({ [field.key]: values[field.key] ?? '' })}
-                className="border border-[var(--color-line)] px-3 py-2 text-[13px] hover:bg-[var(--color-surface-raised)] disabled:opacity-50"
+                className="btn"
               >
                 Save
               </button>
@@ -109,7 +109,7 @@ export function Credentials({
                   disabled={busy}
                   onClick={() => void save({ [field.key]: '' }, [field.key])}
                   aria-label={`Remove ${field.label}`}
-                  className="px-3 py-2 text-[13px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-50"
+                  className="btn"
                 >
                   Remove
                 </button>
