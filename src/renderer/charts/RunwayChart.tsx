@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { moneyCompact } from '../lib/format';
+import { axisDay, axisMoney, moneyCompact } from '../lib/format';
 import {
   FLOOR_FILL,
   FLOOR_STROKE,
@@ -51,14 +51,14 @@ export function RunwayChart({
               <stop offset="1" stopColor={POSITIVE} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <XAxis dataKey="date" tick={LABEL_TICK} tickLine={false} axisLine={false} />
+          <XAxis dataKey="date" tick={LABEL_TICK} tickLine={false} axisLine={false} tickFormatter={axisDay} minTickGap={24} />
           <YAxis
             tick={VALUE_TICK}
             tickLine={false}
             axisLine={false}
             width={46}
             domain={[0, 'auto']}
-            tickFormatter={(v: number) => moneyCompact(v)}
+            tickFormatter={axisMoney}
           />
           <ReferenceArea y1={0} y2={floor} fill={FLOOR_FILL} stroke="none" />
           <ReferenceLine
@@ -85,7 +85,7 @@ export function RunwayChart({
               fill={GROUND}
               stroke={POSITIVE}
               strokeWidth={2}
-              label={{ value: label, position: 'top', fill: INK, fontSize: 11 }}
+              label={{ value: label, position: 'left', offset: 10, fill: INK, fontSize: 11 }}
             />
           )}
         </ComposedChart>

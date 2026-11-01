@@ -11,7 +11,7 @@ import {
   ReferenceLine,
   CartesianGrid,
 } from 'recharts';
-import { moneyCompact, money } from '../lib/format';
+import { axisMoney, axisPeriod, money } from '../lib/format';
 import { Segmented } from '../components/ui';
 import { trackAction } from '../lib/ipc';
 import { BarGradients } from './BarGradients';
@@ -103,13 +103,14 @@ export function SpendingOverTime({
               tick={LABEL_TICK}
               tickLine={false}
               axisLine={false}
+              tickFormatter={axisPeriod}
             />
             <YAxis
               tick={VALUE_TICK}
               tickLine={false}
               axisLine={false}
               width={46}
-              tickFormatter={(v: number) => moneyCompact(v)}
+              tickFormatter={axisMoney}
             />
             <Tooltip
               cursor={
