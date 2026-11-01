@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { UiActionId } from '@shared/features';
 
 /** Thin typed wrapper over the preload bridge. */
 export async function call<T>(channel: string, payload?: unknown): Promise<T> {
@@ -43,4 +44,9 @@ export function useQuery<T>(channel: string, payload?: unknown): Query<T> {
   }, [channel, key, nonce]);
 
   return { ...state, refetch: () => setNonce((n) => n + 1) };
+}
+
+/** Report a renderer-only action to the local usage log. Never fails the caller. */
+export function trackAction(feature: UiActionId): void {
+  void call('usage:action', { feature }).catch(() => {});
 }

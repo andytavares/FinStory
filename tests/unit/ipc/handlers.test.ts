@@ -69,6 +69,11 @@ const CONTRACT_CHANNELS = [
   'model:test',
   'categorization:rerun',
   'categorization:cancel',
+  'usage:view',
+  'usage:action',
+  'usage:summary',
+  'usage:recent',
+  'usage:export',
 ];
 
 describe('IPC wiring matches the contract', () => {
@@ -134,6 +139,9 @@ describe('IPC wiring matches the contract', () => {
       'data:export': { destPath: '/tmp/x', passphrase: 'correct horse' },
       'data:import': { srcPath: '/tmp/x', passphrase: 'correct horse' },
       'data:deleteAll': { confirmation: 'DELETE ALL MY DATA' },
+      'usage:view': { route: 'dashboard' },
+      'usage:action': { feature: 'ui:search' },
+      'usage:summary': { days: 7 },
     };
 
     const failures: string[] = [];

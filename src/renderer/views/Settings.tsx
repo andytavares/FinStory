@@ -214,6 +214,29 @@ function ModelCheck(): React.JSX.Element {
 }
 
 /** FR-048: erase everything and start over. The app restarts on the setup screen. */
+function UsageRetentionControl({ settings }: { settings: AppSettings }): React.JSX.Element {
+  const [retention, setRetention] = useState(settings.usageRetention);
+  const choose = (next: AppSettings['usageRetention']): void => {
+    setRetention(next);
+    void call('settings:update', { usageRetention: next });
+  };
+  return (
+    <div className="flex items-center gap-2 text-[13px]">
+      <span>Keep usage history:</span>
+      {(
+        [
+          ['365', '1 year'],
+          ['forever', 'Forever'],
+        ] as const
+      ).map(([value, label]) => (
+        <button key={value} type="button" aria-pressed={retention === value} onClick={() => choose(value)} className="btn">
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ResetData(): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
@@ -370,6 +393,7 @@ export function Settings(): React.JSX.Element {
       <section className="space-y-3">
         <p className="eyebrow">Your data</p>
         <BackupControls />
+        <UsageRetentionControl settings={s} />
         <p className="text-[12px] text-[var(--color-ink-faint)]">
           Everything lives on this machine. There is no copy anywhere else, so a backup is the only
           way to recover from a lost disk.

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, call } from '../lib/ipc';
+import { useQuery, call, trackAction } from '../lib/ipc';
 import { transactionName } from '../lib/name';
 import { RecurringChip } from '../components/RecurringChip';
 import { Money } from '../components/Money';
@@ -122,6 +122,7 @@ export function Register({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && trackAction('ui:search')}
           placeholder="Search merchants"
           aria-label="Search merchants"
           className="flex-1 border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px] outline-none placeholder:text-[var(--color-ink-faint)]"
@@ -138,7 +139,10 @@ export function Register({
             <button
               key={value}
               type="button"
-              onClick={() => setDirection(value)}
+              onClick={() => {
+                setDirection(value);
+                trackAction('ui:filter');
+              }}
               className={`px-3 text-[12px] ${
                 direction === value
                   ? 'bg-[var(--color-surface-raised)] text-[var(--color-ink)]'
@@ -283,7 +287,10 @@ export function Register({
                 <td className="px-2 py-2 text-right">
                   <button
                     type="button"
-                    onClick={() => setEditing(editing === t.id ? null : t.id)}
+                    onClick={() => {
+                      if (editing !== t.id) trackAction('ui:open-editor');
+                      setEditing(editing === t.id ? null : t.id);
+                    }}
                     aria-label={`Edit ${transactionName(t)}`}
                     className="btn"
                   >

@@ -34,6 +34,10 @@ import {
   transactionUpdateSchema,
   ruleUpdateSchema,
   ruleDeleteSchema,
+  usageViewSchema,
+  usageActionSchema,
+  usageSummarySchema,
+  usageRecentSchema,
 } from '@shared/schemas';
 import type { AppServices } from './services';
 
@@ -168,6 +172,13 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
     services.importData(p.srcPath, p.passphrase),
   );
   registry.handle('data:deleteAll', deleteAllSchema, () => services.deleteAllData());
+
+  // Usage tracking. These channels are not themselves tracked.
+  registry.handle('usage:view', usageViewSchema, (p) => services.recordView(p.route));
+  registry.handle('usage:action', usageActionSchema, (p) => services.recordAction(p.feature));
+  registry.handle('usage:summary', usageSummarySchema, (p) => services.usageSummary(p.days));
+  registry.handle('usage:recent', usageRecentSchema, (p) => services.recentUsage(p.limit));
+  registry.handle('usage:export', empty, () => services.exportUsage());
 
   registry.handle('analysis:refresh', empty, () => services.refreshAnalysis());
   registry.handle('overrides:list', empty, () => services.listOverrides());

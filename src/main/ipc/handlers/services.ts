@@ -69,6 +69,11 @@ export interface AppServices {
   exportDiagnostics(destPath: string): Promise<unknown>;
   getSettings(): Promise<unknown>;
   updateSettings(input: unknown): Promise<unknown>;
+  usageSummary(days: 7 | 30 | null): Promise<unknown>;
+  recentUsage(limit: number): Promise<unknown>;
+  exportUsage(): Promise<unknown>;
+  recordView(route: string): Promise<unknown>;
+  recordAction(feature: string): Promise<unknown>;
   exportData(destPath: string, passphrase: string): Promise<unknown>;
   importData(srcPath: string, passphrase: string): Promise<unknown>;
   deleteAllData(): Promise<unknown>;

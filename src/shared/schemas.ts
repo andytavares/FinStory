@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UI_ACTION_IDS, VIEW_IDS } from './features';
 
 /**
  * IPC payload schemas.
@@ -128,6 +129,7 @@ export const settingsUpdateSchema = z.object({
   ollamaModel: z.string().optional(),
   ollamaBaseUrl: z.string().optional(),
   timeZone: z.string().optional(),
+  usageRetention: z.enum(['365', 'forever']).optional(),
 });
 
 export const transactionUpdateSchema = z.object({
@@ -219,3 +221,8 @@ export const alertIdSchema = z.object({ alertId: z.string().min(1) });
 export const transactionIdsSchema = z.object({
   transactionIds: z.array(z.string().min(1)).min(1),
 });
+
+export const usageViewSchema = z.object({ route: z.enum(VIEW_IDS as [string, ...string[]]) });
+export const usageActionSchema = z.object({ feature: z.enum(UI_ACTION_IDS) });
+export const usageSummarySchema = z.object({ days: z.union([z.literal(7), z.literal(30), z.null()]) });
+export const usageRecentSchema = z.object({ limit: z.number().int().min(1).max(200).default(50) });

@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ollamaModel: '',
   ollamaBaseUrl: 'http://localhost:11434',
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  usageRetention: '365',
 };
 
 const SECRET_KEYS = new Set(['plaidClientId', 'plaidSecret', 'anthropicApiKey']);
@@ -46,6 +47,7 @@ export function mergeSettings(
     ollamaModel: update.ollamaModel ?? current.ollamaModel,
     ollamaBaseUrl: update.ollamaBaseUrl ?? current.ollamaBaseUrl,
     timeZone: update.timeZone ?? current.timeZone,
+    usageRetention: update.usageRetention ?? current.usageRetention,
   };
 }
 

@@ -222,6 +222,8 @@ export interface AppSettings {
   readonly ollamaModel: string;
   readonly ollamaBaseUrl: string;
   readonly timeZone: string;
+  /** How long usage history is kept: one year, or until the user erases it. */
+  readonly usageRetention: '365' | 'forever';
 }
 
 export type IpcErrorCode =

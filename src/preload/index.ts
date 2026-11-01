@@ -74,6 +74,11 @@ export const INVOKE_CHANNELS = [
   'rules:list',
   'rules:update',
   'rules:delete',
+  'usage:view',
+  'usage:action',
+  'usage:summary',
+  'usage:recent',
+  'usage:export',
 ] as const;
 
 const EVENT_CHANNELS = [
@@ -85,6 +90,7 @@ const EVENT_CHANNELS = [
   'institution:statusChanged',
   'health:degraded',
   'income:patternChanged',
+  'usage:event',
 ] as const;
 
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];

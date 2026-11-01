@@ -11,6 +11,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { moneyCompact, money } from '../lib/format';
+import { trackAction } from '../lib/ipc';
 
 /**
  * Spending over time (FR-065).
@@ -70,7 +71,10 @@ export function SpendingOverTime({
               <button
                 key={s}
                 type="button"
-                onClick={() => setShape(s)}
+                onClick={() => {
+                  setShape(s);
+                  trackAction('ui:chart-mode');
+                }}
                 aria-pressed={shape === s}
                 className={`px-2 py-0.5 ${
                   shape === s

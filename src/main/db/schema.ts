@@ -268,6 +268,20 @@ export const diagnosticEvents = sqliteTable(
   (t) => [index('diag_occurred_idx').on(t.occurredAt)],
 );
 
+export const usageEvents = sqliteTable(
+  'usage_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    occurredAt: text('occurred_at').notNull(),
+    // An id from the closed catalog in @shared/features — never free text.
+    feature: text('feature').notNull(),
+    kind: text('kind', { enum: ['action', 'view', 'background'] }).notNull(),
+    outcome: text('outcome', { enum: ['success', 'failure'] }).notNull(),
+    durationMs: integer('duration_ms'),
+  },
+  (t) => [index('usage_occurred_idx').on(t.occurredAt), index('usage_feature_idx').on(t.feature)],
+);
+
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

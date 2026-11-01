@@ -14,6 +14,7 @@ import {
   Undo2,
   ArrowLeft,
   ArrowRight,
+  BarChart3,
 } from 'lucide-react';
 import { Dashboard } from './views/Dashboard';
 import { Register } from './views/Register';
@@ -28,23 +29,11 @@ import { Overrides } from './views/Overrides';
 import { Alerts } from './views/Alerts';
 import { Setup } from './views/Setup';
 import { Accounts } from './views/Accounts';
-import { useQuery } from './lib/ipc';
+import { Usage } from './views/Usage';
+import { call, useQuery } from './lib/ipc';
 import type { SetupStatus } from '@shared/types';
 import { useNavigation } from './lib/navigation';
-
-type ViewId =
-  | 'dashboard'
-  | 'register'
-  | 'recurring'
-  | 'income'
-  | 'review'
-  | 'alerts'
-  | 'reports'
-  | 'health'
-  | 'overrides'
-  | 'categories'
-  | 'accounts'
-  | 'settings';
+import type { ViewId } from '@shared/features';
 
 const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboard }> = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -58,6 +47,7 @@ const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboa
   { id: 'overrides', label: 'Rules', Icon: Undo2 },
   { id: 'categories', label: 'Categories', Icon: Tags },
   { id: 'accounts', label: 'Accounts', Icon: Landmark },
+  { id: 'usage', label: 'Usage', Icon: BarChart3 },
   { id: 'settings', label: 'Settings', Icon: SettingsIcon },
 ];
 
@@ -68,6 +58,11 @@ export function App(): React.JSX.Element {
 
   const view = nav.current.view as ViewId;
   const setView = (next: ViewId): void => nav.navigate({ view: next });
+
+  // Every arrival on a screen, including the first and back/forward, is one usage event.
+  useEffect(() => {
+    void call('usage:view', { route: view }).catch(() => {});
+  }, [view]);
 
   // Standard back/forward chords, plus the mouse buttons some pointers have.
   useEffect(() => {
@@ -195,6 +190,7 @@ export function App(): React.JSX.Element {
           {view === 'overrides' && <Overrides />}
           {view === 'categories' && <Categories />}
           {view === 'accounts' && <Accounts />}
+          {view === 'usage' && <Usage />}
           {view === 'settings' && <Settings />}
         </div>
       </main>

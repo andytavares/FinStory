@@ -1,3 +1,5 @@
+import type { DatabaseHandle } from '@main/db/client';
+import { diagnosticEvents } from '@main/db/schema';
 import type { DiagnosticEvent } from './logger';
 
 /** Destination for diagnostic events. Implementations must not throw to callers. */
@@ -11,5 +13,27 @@ export class MemorySink implements DiagnosticSink {
 
   write(event: DiagnosticEvent): void {
     this.events.push(event);
+  }
+}
+
+/**
+ * Persists events to the `diagnostic_events` table. The logger has already
+ * validated every field against its enumerations, so no free text arrives here.
+ */
+export class DatabaseSink implements DiagnosticSink {
+  constructor(private readonly db: DatabaseHandle['db']) {}
+
+  write(event: DiagnosticEvent): void {
+    this.db
+      .insert(diagnosticEvents)
+      .values({
+        occurredAt: event.occurredAt,
+        eventType: event.type,
+        outcome: event.outcome,
+        subjectId: event.subjectId ?? null,
+        durationMs: event.durationMs ?? null,
+        errorCode: event.errorCode ?? null,
+      })
+      .run();
   }
 }

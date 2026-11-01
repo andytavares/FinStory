@@ -31,6 +31,8 @@ import type { CategorizationRecord } from '@main/categorization/corrections';
 import { buildExport, summarizeHealth } from '@main/diagnostics/export';
 import type { DiagnosticLogger } from '@main/diagnostics/logger';
 import { DEFAULT_SETTINGS, mergeSettings } from '@main/settings/index';
+import { UsageRecorder } from '@main/usage/recorder';
+import { recentUsage, usageCsv, usageSummary } from '@main/usage/queries';
 import { deleteAllData, exportBackup, restoreBackup } from '@main/data/backup';
 import {
   accessTokenAccount,
@@ -109,7 +111,11 @@ export class Services implements AppServices {
   private recategorizeCancelled = false;
   private recategorizeRunning = false;
 
-  constructor(private readonly deps: ServiceDeps) {}
+  readonly usage: UsageRecorder;
+
+  constructor(private readonly deps: ServiceDeps) {
+    this.usage = new UsageRecorder(deps.handle.db, deps.clock, deps.emit);
+  }
 
   private get db(): DatabaseHandle['db'] {
     return this.deps.handle.db;
@@ -1540,6 +1546,9 @@ export class Services implements AppServices {
       ...(map.has('ollamaModel') ? { ollamaModel: map.get('ollamaModel') as string } : {}),
       ...(map.has('ollamaBaseUrl') ? { ollamaBaseUrl: map.get('ollamaBaseUrl') as string } : {}),
       ...(map.has('timeZone') ? { timeZone: map.get('timeZone') as string } : {}),
+      ...(map.has('usageRetention')
+        ? { usageRetention: map.get('usageRetention') as AppSettings['usageRetention'] }
+        : {}),
     });
   }
 
@@ -1547,6 +1556,31 @@ export class Services implements AppServices {
     for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
       if (value !== undefined) await this.upsertSetting(key, String(value), false);
     }
+    return { ok: true };
+  }
+
+  async usageSummary(days: 7 | 30 | null): Promise<unknown> {
+    return usageSummary(this.db, days, this.deps.clock.now());
+  }
+
+  async recentUsage(limit: number): Promise<unknown> {
+    return recentUsage(this.db, limit);
+  }
+
+  async exportUsage(): Promise<unknown> {
+    const target = await this.chooseSavePath('money-usage.csv');
+    if (!target) return { ok: false };
+    writeFileSync(target, await usageCsv(this.db), 'utf8');
+    return { ok: true, path: target };
+  }
+
+  async recordView(route: string): Promise<unknown> {
+    await this.usage.record({ feature: `view:${route}`, kind: 'view', outcome: 'success' });
+    return { ok: true };
+  }
+
+  async recordAction(feature: string): Promise<unknown> {
+    await this.usage.record({ feature, kind: 'action', outcome: 'success' });
     return { ok: true };
   }
 

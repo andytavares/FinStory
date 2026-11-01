@@ -29,8 +29,9 @@ import { createPlaidClient } from './plaid/client';
 import { settings as settingsTable, institutions as institutionsTable, alertRules as alertRulesTable, merchantProfiles as merchantProfilesTable } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { DiagnosticLogger } from './diagnostics/logger';
-import { MemorySink } from './diagnostics/sink';
+import { DatabaseSink } from './diagnostics/sink';
 import { SystemClock } from '@shared/clock';
+import type { UsageRecorder } from './usage/recorder';
 
 /**
  * Application lifecycle.
@@ -45,6 +46,7 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let databaseHandle: DatabaseHandle | null = null;
 let syncNow: (() => Promise<SyncOutcome>) | null = null;
+let launchCatchUp: (() => Promise<SyncOutcome>) | null = null;
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
@@ -80,7 +82,7 @@ async function bootstrap(): Promise<void> {
   }
 
   const clock = new SystemClock();
-  const logger = new DiagnosticLogger(new MemorySink(), clock);
+  const logger = new DiagnosticLogger(new DatabaseSink(handle.db), clock);
 
   const readSetting = async (key: string): Promise<string | null> => {
     const rows = await handle.db.select().from(settingsTable).where(eq(settingsTable.key, key));
@@ -138,7 +140,7 @@ async function bootstrap(): Promise<void> {
   };
 
   /** Sync every connected institution. Called on launch, on a timer, and after linking. */
-  const runSync = async (): Promise<SyncOutcome> => {
+  const syncAll = async (): Promise<SyncOutcome> => {
     const rows = await handle.db.select().from(institutionsTable);
     if (rows.length === 0) return { ...EMPTY_SYNC, blocked: 'no_institutions' };
 
@@ -153,7 +155,12 @@ async function bootstrap(): Promise<void> {
 
     const store = new DrizzleSyncStore(handle, clock);
     const syncPipeline = await buildPipeline();
-    const engine = new SyncEngine({ store, clock, pipeline: syncPipeline });
+    const engine = new SyncEngine({
+      store,
+      clock,
+      pipeline: syncPipeline,
+      trackAlerts: (run) => services.usage.track('job:alerts', 'background', run),
+    });
 
     const sources = await Promise.all(
       rows.map(async (inst) => ({
@@ -180,7 +187,7 @@ async function bootstrap(): Promise<void> {
 
     // Rebuild the derived ledgers from what was just ingested. Without this the
     // recurring and income lists stay permanently empty.
-    await services.refreshAnalysis();
+    await refreshAnalysisJob();
 
     const outcome: SyncOutcome = {
       added: result.added,
@@ -197,6 +204,10 @@ async function bootstrap(): Promise<void> {
     return outcome;
   };
 
+  const runSync = (): Promise<SyncOutcome> => services.usage.track('job:sync', 'background', syncAll);
+  const refreshAnalysisJob = (): Promise<unknown> =>
+    services.usage.track('job:analysis', 'background', () => services.refreshAnalysis());
+
   const services = new Services({
     handle,
     userDataDir,
@@ -211,25 +222,36 @@ async function bootstrap(): Promise<void> {
   });
 
   syncNow = runSync;
+  void services.usage.prune(clock.now(), ((await readSetting('usageRetention')) ?? '365') as '365' | 'forever');
+  launchCatchUp = () => services.usage.track('job:catch-up', 'background', runSync);
 
   // Build the derived ledgers from whatever is already stored, so a database
   // imported before this pass existed is not left with empty lists.
-  void services.refreshAnalysis().catch(() => {
+  void refreshAnalysisJob().catch(() => {
     /* surfaced in the health view rather than blocking startup */
   });
 
   const registry = new IpcRegistry();
   registerHandlers(registry, services);
+  // usage:* channels are not tracked, or reading the usage screen would fill it.
+  const trackIpc = <T>(channel: string, run: () => Promise<T>): Promise<T> =>
+    channel.startsWith('usage:') ? run() : services.usage.track(channel, 'action', run);
   for (const channel of registry.channels()) {
-    ipcMain.handle(channel, async (_event, payload: unknown) => registry.invoke(channel, payload));
+    ipcMain.handle(channel, (_event, payload: unknown) =>
+      trackIpc(channel, () => registry.invoke(channel, payload)),
+    );
   }
   // Both channels close the database and replace its files; only a fresh start reopens one.
-  for (const channel of ['data:deleteAll', 'data:import'] as const) relaunchAfter(registry, channel);
+  for (const channel of ['data:deleteAll', 'data:import'] as const) {
+    relaunchAfter(registry, channel, services.usage);
+  }
 }
 
-function relaunchAfter(registry: IpcRegistry, channel: string): void {
+function relaunchAfter(registry: IpcRegistry, channel: string, usage: UsageRecorder): void {
   ipcMain.removeHandler(channel);
   ipcMain.handle(channel, async (_event, payload: unknown) => {
+    // Recorded first: the database is closed by the time the call returns.
+    await usage.record({ feature: channel, kind: 'action', outcome: 'success' });
     const result = await registry.invoke(channel, payload);
     if ((result as { ok?: boolean }).ok) {
       app.relaunch();
@@ -357,7 +379,7 @@ if (!app.requestSingleInstanceLock()) {
 
     // Catch up on launch, then poll. A gap of minutes and a gap of weeks are
     // the same call (research.md R2, R6).
-    void syncNow?.().catch(() => {
+    void launchCatchUp?.().catch(() => {
       /* surfaced in the health view rather than blocking startup */
     });
     syncTimer = setInterval(
