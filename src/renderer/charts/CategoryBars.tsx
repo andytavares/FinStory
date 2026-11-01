@@ -8,24 +8,24 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { moneyCompact, money } from '../lib/format';
+import { BarGradients } from './BarGradients';
+import {
+  BAR_HORIZONTAL_GRADIENT_ID,
+  GRID_STROKE,
+  LABEL_TICK,
+  TOOLTIP_CURSOR,
+  TOOLTIP_LABEL_STYLE,
+  TOOLTIP_STYLE,
+  VALUE_TICK,
+} from './theme';
 
 /**
  * Spending by category.
  *
  * One series — magnitude by category — so a single hue is correct and no legend
- * is needed; the title names it. #4897cd was validated against this app's dark
- * surface (#161e26) with the dataviz validator: passes lightness band, chroma
- * floor, and 3:1 contrast. Do not adjust it by eye.
- *
- * Bars are sorted largest first, which already answers "where did most of it
- * go" — a second colour for emphasis would encode a distinction the data does
- * not contain, and the muted variant failed the palette validator's chroma
- * floor anyway.
+ * is needed; the title names it. Bars are sorted largest first, which already
+ * answers "where did most of it go".
  */
-
-const SERIES = '#4897cd';
-const INK_FAINT = 'oklch(0.56 0.02 250)';
-const LINE = 'oklch(0.34 0.02 250)';
 
 export interface CategoryDatum {
   readonly categoryId: string;
@@ -79,7 +79,7 @@ export function CategoryBars({
 }): React.JSX.Element {
   if (data.length === 0) {
     return (
-      <p className="border border-dashed border-[var(--color-line)] px-4 py-8 text-center text-[13px] text-[var(--color-ink-faint)]">
+      <p className="rounded-[12px] border border-dashed border-[var(--color-line)] px-4 py-8 text-center text-[13px] text-[var(--color-ink-faint)]">
         Nothing to chart for this period.
       </p>
     );
@@ -91,7 +91,7 @@ export function CategoryBars({
 
   return (
     <figure className="m-0">
-      <figcaption className="mb-3 flex items-baseline justify-between text-[15px]">
+      <figcaption className="mb-3 flex items-center justify-between text-[13px] font-semibold">
         <span>{title}</span>
         {onSelect && (
           <span className="text-[12px] font-normal text-[var(--color-ink-faint)]">
@@ -113,36 +113,30 @@ export function CategoryBars({
             }}
             style={{ cursor: onSelect ? 'pointer' : 'default' }}
           >
-            <CartesianGrid stroke={LINE} horizontal={false} />
+            <BarGradients />
+            <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
             <XAxis
               type="number"
-              stroke={INK_FAINT}
+              tick={VALUE_TICK}
               tickLine={false}
               axisLine={false}
-              fontSize={11}
               tickFormatter={(v: number) => moneyCompact(v)}
             />
             <YAxis
               type="category"
               dataKey="categoryName"
-              stroke={INK_FAINT}
+              tick={LABEL_TICK}
               tickLine={false}
-              axisLine={{ stroke: LINE }}
-              fontSize={11}
+              axisLine={{ stroke: GRID_STROKE }}
               width={150}
             />
             <Tooltip
-              cursor={{ fill: 'oklch(0.27 0.02 250)' }}
-              contentStyle={{
-                background: 'oklch(0.23 0.02 250)',
-                border: `1px solid ${LINE}`,
-                borderRadius: 0,
-                fontSize: 12,
-              }}
-              labelStyle={{ color: INK_FAINT }}
+              cursor={TOOLTIP_CURSOR}
+              contentStyle={TOOLTIP_STYLE}
+              labelStyle={TOOLTIP_LABEL_STYLE}
               formatter={(v) => [money(Number(v)), 'Spent']}
             />
-            <Bar dataKey="magnitude" fill={SERIES} radius={[0, 4, 4, 0]} maxBarSize={18} />
+            <Bar dataKey="magnitude" fill={`url(#${BAR_HORIZONTAL_GRADIENT_ID})`} radius={[0, 5, 5, 0]} maxBarSize={18} />
           </BarChart>
         </ResponsiveContainer>
       </div>

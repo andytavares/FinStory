@@ -6,6 +6,8 @@ export interface Route {
   readonly categoryId?: string;
   readonly reportId?: string;
   readonly merchantKey?: string;
+  /** Free text from the top-bar search, applied by the Transactions view. */
+  readonly search?: string;
   readonly direction?: 'all' | 'in' | 'out';
 }
 
@@ -27,6 +29,7 @@ function sameRoute(a: Route, b: Route): boolean {
     a.categoryId === b.categoryId &&
     a.reportId === b.reportId &&
     a.merchantKey === b.merchantKey &&
+    a.search === b.search &&
     a.direction === b.direction
   );
 }

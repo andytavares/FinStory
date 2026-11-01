@@ -28,7 +28,9 @@ export const VIEW_LABELS = {
   categories: 'Categories',
   accounts: 'Accounts',
   usage: 'Usage',
+  import: 'Import',
   settings: 'Settings',
+  design: 'Design system',
 } as const;
 
 export type ViewId = keyof typeof VIEW_LABELS;
