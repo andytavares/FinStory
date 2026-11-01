@@ -4,6 +4,7 @@ import { Qualification } from '../components/Qualification';
 import { EmptyState } from '../components/EmptyState';
 import { TransactionEditor } from '../components/TransactionEditor';
 import { Button, PageHeader } from '../components/ui';
+import { money, relativeAge } from '../lib/format';
 import { DrillNote } from './transactions/DrillNote';
 import { downloadCsv } from './transactions/exportCsv';
 import { FilterRow, type Filters } from './transactions/FilterRow';
@@ -15,6 +16,8 @@ interface RegisterResponse extends Qualified {
   readonly totalCount: number;
   /** In this category but left out of the spending figure. */
   readonly excludedCount: number;
+  /** Only when the list is one account with a bank balance. */
+  readonly balance?: { currentMinor: number; asOf: string | null };
 }
 
 interface CategoryOption {
@@ -40,6 +43,12 @@ function registerQuery(filters: Filters, spendingOnly: boolean): Record<string, 
     limit: 200,
     offset: 0,
   };
+}
+
+function headerSub({ totalCount, balance }: RegisterResponse): string {
+  const count = `${totalCount} this period`;
+  // A balance is never shown without its age.
+  return balance ? `${count} · Balance ${money(balance.currentMinor)}, updated ${relativeAge(balance.asOf)}` : count;
 }
 
 function categoryNameOf(categories: readonly CategoryOption[]): (id: string) => string {
@@ -157,7 +166,7 @@ export function Register({
     <>
       <PageHeader
         title="Transactions"
-        {...(data && { sub: `${data.totalCount} this period` })}
+        {...(data && { sub: headerSub(data) })}
         actions={
           <Button onClick={() => downloadCsv(rows, categoryName)} disabled={rows.length === 0}>
             Export CSV

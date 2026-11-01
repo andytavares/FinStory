@@ -22,12 +22,14 @@ interface TransactionRowProps {
   readonly transaction: TransactionView;
   readonly categoryName: (categoryId: string) => string;
   readonly selection: Selection;
+  readonly showBalance: boolean;
 }
 
 function TransactionRow({
   transaction: t,
   categoryName,
   selection,
+  showBalance,
 }: TransactionRowProps): React.JSX.Element {
   const { id: selectedId, onSelect } = selection;
   return (
@@ -69,6 +71,11 @@ function TransactionRow({
       <td className="r">
         <Money minor={t.amountMinor} direction />
       </td>
+      {showBalance && (
+        <td className="r">
+          {t.runningBalanceMinor !== undefined && <Money minor={t.runningBalanceMinor} />}
+        </td>
+      )}
     </tr>
   );
 }
@@ -84,6 +91,7 @@ export function TransactionTable({
   categoryName,
   selection,
 }: TransactionTableProps): React.JSX.Element {
+  const showBalance = rows.some((t) => t.runningBalanceMinor !== undefined);
   return (
     <Card className="min-w-0 !px-1 !py-0">
       <Table>
@@ -93,6 +101,7 @@ export function TransactionTable({
             <th>Merchant</th>
             <th>Category</th>
             <th className="r">Amount</th>
+            {showBalance && <th className="r">Balance</th>}
           </tr>
         </thead>
         <tbody>
@@ -102,6 +111,7 @@ export function TransactionTable({
               transaction={t}
               categoryName={categoryName}
               selection={selection}
+              showBalance={showBalance}
             />
           ))}
         </tbody>
