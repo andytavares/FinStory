@@ -24,7 +24,7 @@ export function FileCard({ fileName, summary, onFile }: FileCardProps): React.JS
       <Eyebrow>File</Eyebrow>
       {fileName && (
         <div className="ds-row">
-          <MerchantMark name="Q" />
+          <MerchantMark name="Q" color="var(--color-cat-7)" />
           <div>
             <div style={{ fontWeight: 600 }}>{fileName}</div>
             {summary && <div className="ds-faint" style={{ fontSize: 11.5 }}>{summary}</div>}
