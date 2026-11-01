@@ -168,7 +168,9 @@ export const merchantRenameSchema = z.object({
 // non-empty string made every Export button in the UI fail validation.
 export const pathSchema = z.object({ destPath: z.string().default('') });
 export const importSchema = z.object({ srcPath: z.string().default('') });
-export const deleteAllSchema = z.object({ confirmation: z.literal('DELETE ALL MY DATA') });
+/** Typed by the user before everything is erased. */
+export const DELETE_ALL_CONFIRMATION = 'DELETE ALL MY DATA';
+export const deleteAllSchema = z.object({ confirmation: z.literal(DELETE_ALL_CONFIRMATION) });
 export const incomeAddSchema = z.object({
   accountId: z.string().min(1),
   merchantKey: z.string().optional(),

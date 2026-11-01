@@ -210,6 +210,14 @@ async function bootstrap(): Promise<void> {
   for (const channel of registry.channels()) {
     ipcMain.handle(channel, async (_event, payload: unknown) => registry.invoke(channel, payload));
   }
+  // The reset closes the database and deletes its files; only a fresh start reopens one.
+  ipcMain.removeHandler('data:deleteAll');
+  ipcMain.handle('data:deleteAll', async (_event, payload: unknown) => {
+    const result = await registry.invoke('data:deleteAll', payload);
+    app.relaunch();
+    app.exit(0);
+    return result;
+  });
 }
 
 function createWindow(): BrowserWindow {

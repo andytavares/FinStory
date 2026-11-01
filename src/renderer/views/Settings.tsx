@@ -3,6 +3,7 @@ import { useQuery, call } from '../lib/ipc';
 import { RecategorizeButton } from '../components/RecategorizeButton';
 import { Credentials } from '../components/Credentials';
 import type { AppSettings, SetupStatus } from '@shared/types';
+import { DELETE_ALL_CONFIRMATION } from '@shared/schemas';
 
 const ANTHROPIC_MODELS = [
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5', note: 'Fastest, lowest cost' },
@@ -195,6 +196,61 @@ function ModelCheck(): React.JSX.Element {
   );
 }
 
+/** FR-048: erase everything and start over. The app restarts on the setup screen. */
+function ResetData(): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="btn btn-danger">
+        Reset everything
+      </button>
+    );
+  }
+
+  const reset = (): void => {
+    setError(null);
+    void call('data:deleteAll', { confirmation: typed }).catch((e: { message?: string }) =>
+      setError(e.message ?? 'Could not reset'),
+    );
+  };
+
+  return (
+    <div className="space-y-2 border border-[var(--color-negative)] px-4 py-3 text-[13px]">
+      <p>
+        This erases every account, transaction, category change, setting and saved key on this
+        machine. It cannot be undone. Back up first if you want a copy.
+      </p>
+      <label className="block text-[12px] text-[var(--color-ink-faint)]">
+        Type {DELETE_ALL_CONFIRMATION} to confirm
+        <input
+          autoFocus
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          aria-label="Reset confirmation"
+          className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px]"
+        />
+      </label>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={reset}
+          disabled={typed !== DELETE_ALL_CONFIRMATION}
+          className="btn btn-danger"
+        >
+          Erase and restart
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="btn">
+          Cancel
+        </button>
+      </div>
+      {error && <p className="text-[12px] text-[var(--color-attention)]">{error}</p>}
+    </div>
+  );
+}
+
 export function Settings(): React.JSX.Element {
   const settings = useQuery<AppSettings>('settings:get');
   const status = useQuery<SetupStatus>('setup:status');
@@ -248,6 +304,7 @@ export function Settings(): React.JSX.Element {
           Everything lives on this machine. There is no copy anywhere else, so a backup is the only
           way to recover from a lost disk.
         </p>
+        <ResetData />
       </section>
 
       {status.data && (
