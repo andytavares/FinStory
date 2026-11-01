@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { call } from '../../lib/ipc';
-import type { ImportPreview, ImportResult } from '@shared/types';
+import type { ImportPreview, ImportProgress, ImportResult } from '@shared/types';
 
 export interface CsvColumnChoice {
   readonly date: number;
@@ -49,6 +49,22 @@ export function useImportFlow() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
+
+  // The import runs in the main process, so it outlives this view. Pick it up on open.
+  useEffect(() => {
+    const adopt = (next: ImportProgress | null | undefined): void => {
+      if (!next) return;
+      setProgress(next);
+      if (next.result) {
+        setResult(next.result);
+        setStep(5);
+      }
+      if (next.error) setError(next.error);
+    };
+    void call<ImportProgress | null>('import:status').then(adopt);
+    return window.money.on('import:progress', (payload) => adopt(payload as ImportProgress));
+  }, []);
 
   const guard = async (work: () => Promise<void>): Promise<void> => {
     setBusy(true);
@@ -105,6 +121,7 @@ export function useImportFlow() {
 
   return {
     file, preview, accounts, categories, step, result, error, busy,
+    running: progress?.running ? progress : null,
     openFile: async (picked: File) => load({ name: picked.name, text: await readText(picked) }, undefined),
     readWithMapping: (columns: CsvColumnChoice) => (file ? load(file, columns) : Promise.resolve()),
     chooseAccount,

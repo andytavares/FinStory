@@ -1,6 +1,6 @@
-import { PageHeader, Button, Card, Eyebrow } from '../components/ui';
+import { PageHeader, Button, Card, Eyebrow, ProgressBar } from '../components/ui';
 import { useQuery } from '../lib/ipc';
-import type { AccountRow, ImportPreview } from '@shared/types';
+import type { AccountRow, ImportPreview, ImportProgress } from '@shared/types';
 import { ColumnMapping } from './import/ColumnMapping';
 import type { MoneyCategory } from './import/CategoryMapping';
 import { FileCard } from './import/FileCard';
@@ -54,6 +54,24 @@ function CheckCard({
   );
 }
 
+function ProgressCard({ progress }: { progress: ImportProgress }): React.JSX.Element {
+  const { processed, total } = progress;
+  const status =
+    total === 0
+      ? 'Getting ready…'
+      : processed < total
+        ? `Sorting ${processed.toLocaleString('en-US')} of ${plural(total, 'transaction')}…`
+        : 'Saving…';
+  return (
+    <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Eyebrow>Importing</Eyebrow>
+      <ProgressBar value={total ? processed / total : 0} label="Import progress" />
+      <div>{status}</div>
+      <div className="ds-faint">You can leave this screen. The import keeps going, and this page shows where it is.</div>
+    </Card>
+  );
+}
+
 export function Import({
   onViewTransactions,
 }: {
@@ -75,7 +93,9 @@ export function Import({
         sub="Bring in history from before you connected your bank"
       />
       <StepChips step={step} />
-      {step === 5 && flow.result ? (
+      {flow.running ? (
+        <ProgressCard progress={flow.running} />
+      ) : step === 5 && flow.result ? (
         <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <h3 className="ds-card-title">Imported {plural(flow.result.imported, 'transaction')}</h3>
           <div className="ds-faint">

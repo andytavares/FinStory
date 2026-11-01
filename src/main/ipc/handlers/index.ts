@@ -201,6 +201,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
 
   registry.handle('import:preview', importPreviewSchema, (p) => services.previewImport(p));
   registry.handle('import:commit', importCommitSchema, (p) => services.commitImport(p));
+  registry.handle('import:status', empty, () => services.importStatus());
 
   // The only caller of /transactions/refresh, and only on user request (R2).
   registry.handle('sync:now', empty, async () => {
