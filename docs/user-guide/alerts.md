@@ -20,7 +20,7 @@ If Money was closed when the event happened, the alert says "detected later, whi
 
 ## Dismiss an alert
 
-Click **Dismiss**. The alert stays in the list, dimmed.
+Click **Dismiss**. The alert leaves the list, and the count in the header goes down by one.
 
 ## Change what you get told about
 

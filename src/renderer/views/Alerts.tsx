@@ -39,48 +39,44 @@ function AlertText({ alert }: { alert: AlertView }): React.JSX.Element {
 
 function AlertRow({ alert, onDismissed, onOpen }: AlertRowProps): React.JSX.Element {
   return (
-    <div
-      className={`flex items-center gap-3 border-b border-[var(--color-line)] py-2.5 last:border-b-0 ${alert.dismissed ? 'opacity-50' : ''}`}
-    >
+    <div className="flex items-center gap-3 border-b border-[var(--color-line)] py-2.5 last:border-b-0">
       <AlertText alert={alert} />
       {alert.merchantName && (
         <Button size="sm" onClick={() => onOpen(alert.merchantName as string)}>
           Open
         </Button>
       )}
-      {!alert.dismissed && (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => void call('alerts:dismiss', { alertId: alert.id }).then(onDismissed)}
-        >
-          Dismiss
-        </Button>
-      )}
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => void call('alerts:dismiss', { alertId: alert.id }).then(onDismissed)}
+      >
+        Dismiss
+      </Button>
     </div>
   );
 }
 
 /** FR-032, FR-033: alert history, and per-rule configuration. */
 export function Alerts({ onOpenMerchant }: { onOpenMerchant: (merchantName: string) => void }): React.JSX.Element {
-  const alerts = useQuery<AlertView[]>('alerts:list', { includeDismissed: true, limit: 100 });
+  const alerts = useQuery<AlertView[]>('alerts:list', { limit: 100 });
   const rules = useQuery<AlertRuleView[]>('alertRules:list');
   const [creating, setCreating] = useState(false);
-  const fresh = (alerts.data ?? []).filter((a) => !a.dismissed).length;
+  const open = (alerts.data ?? []).filter((a) => !a.dismissed);
 
   return (
     <div className="space-y-3.5">
-      <PageHeader title="Alerts" sub={fresh > 0 ? `${fresh} new` : ''} />
+      <PageHeader title="Alerts" sub={open.length > 0 ? `${open.length} new` : ''} />
       <div className="ds-grid" style={{ gridTemplateColumns: '1fr 1.1fr' }}>
         <Card title="Recent">
           {alerts.loading && <p className="text-[var(--color-ink-faint)]">Loading…</p>}
-          {alerts.data?.length === 0 && (
+          {alerts.data && open.length === 0 && (
             <EmptyState
               title="Nothing has needed your attention"
               detail="Large purchases, duplicate charges, and new subscriptions show up here as they happen."
             />
           )}
-          {alerts.data?.map((a) => <AlertRow key={a.id} alert={a} onDismissed={alerts.refetch} onOpen={onOpenMerchant} />)}
+          {open.map((a) => <AlertRow key={a.id} alert={a} onDismissed={alerts.refetch} onOpen={onOpenMerchant} />)}
         </Card>
         <Card
           title="What you get told about"

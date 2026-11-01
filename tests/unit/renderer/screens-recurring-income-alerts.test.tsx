@@ -167,6 +167,28 @@ describe('Alerts', () => {
     expect(onOpenMerchant).toHaveBeenCalledWith('Apple Store');
   });
 
+  it('removes an alert from the list once it is dismissed', async () => {
+    let dismissed = false;
+    const invoke = vi.fn((channel: string) => {
+      if (channel === 'alerts:dismiss') dismissed = true;
+      if (channel === 'alerts:list') {
+        return Promise.resolve([
+          { ...ALERT, dismissed },
+          { ...ALERT, id: 'a0', merchantName: 'Old Gym', dismissed: true },
+        ]);
+      }
+      return Promise.resolve(channel === 'alertRules:list' ? RULES : { ok: true });
+    });
+    Object.defineProperty(globalThis.window, 'money', { configurable: true, value: { invoke, on: () => () => {} } });
+    render(<Alerts onOpenMerchant={() => {}} />);
+
+    expect(await screen.findByText(/Apple Store charged/)).toBeDefined();
+    expect(screen.queryByText(/Old Gym/)).toBeNull();
+    fireEvent.click(screen.getByText('Dismiss'));
+    await waitFor(() => expect(screen.queryByText(/Apple Store charged/)).toBeNull());
+    expect(screen.getByText('Nothing has needed your attention')).toBeDefined();
+  });
+
   it('dismissing an alert calls dismiss for that alert', async () => {
     const invoke = alerts();
     fireEvent.click(await screen.findByText('Dismiss'));
