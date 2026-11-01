@@ -142,7 +142,7 @@ export const recurringCharges = sqliteTable('recurring_charges', {
   id: text('id').primaryKey(),
   merchantKey: text('merchant_key').notNull(),
   currentAmountMinor: integer('current_amount_minor').notNull(),
-  cadence: text('cadence', { enum: ['weekly', 'monthly', 'quarterly', 'annual'] }).notNull(),
+  cadence: text('cadence', { enum: ['weekly', 'biweekly', 'semimonthly', 'monthly', 'quarterly', 'annual'] }).notNull(),
   firstSeenDate: text('first_seen_date').notNull(),
   lastSeenDate: text('last_seen_date').notNull(),
   cumulativePaidMinor: integer('cumulative_paid_minor').notNull().default(0),

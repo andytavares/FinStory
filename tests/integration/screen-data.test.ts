@@ -482,6 +482,25 @@ describe('Data for the redesigned screens', () => {
     expect(queue.rows[0]?.transaction.categorySource).toBe('model');
   });
 
+  it('serves the dashboard and recurring list when a charge is biweekly', async () => {
+    await handle.db.insert(schema.recurringCharges).values({
+      id: 'rc_bi',
+      merchantKey: 'cleaner',
+      currentAmountMinor: -6_000,
+      cadence: 'biweekly',
+      firstSeenDate: '2026-06-05',
+      lastSeenDate: '2026-08-28',
+      cumulativePaidMinor: -42_000,
+      status: 'active',
+      detectedAt: NOW.toISOString(),
+      userAcknowledged: false,
+    });
+    const rows = (await services.listRecurring()) as Array<{ id: string; nextExpectedDate: string; yearlyCostMinor: number }>;
+    expect(rows.find((r) => r.id === 'rc_bi')).toMatchObject({ nextExpectedDate: '2026-09-11', yearlyCostMinor: 156_000 });
+    const dashboard = (await services.dashboard(RANGE)) as { upcomingRecurring: Array<{ date: string }> };
+    expect(dashboard.upcomingRecurring.map((c) => c.date)).toContain('2026-09-11');
+  });
+
   it('describes each recurring charge with its next date and yearly cost', async () => {
     const rows = (await services.listRecurring()) as Array<{
       id: string;
