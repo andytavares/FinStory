@@ -97,12 +97,42 @@ export interface OllamaModel {
 }
 
 /** List models that can chat, for the settings picker. Embedding-only models are left out. */
-export async function listOllamaModels(baseUrl = DEFAULT_OLLAMA_URL): Promise<OllamaModel[]> {
-  const response = await ollamaFetch(baseUrl.replace(/\/$/, ''), '/api/tags');
+export async function listOllamaModels(
+  baseUrl = DEFAULT_OLLAMA_URL,
+  signal?: AbortSignal,
+): Promise<OllamaModel[]> {
+  const response = await ollamaFetch(baseUrl.replace(/\/$/, ''), '/api/tags', signal ? { signal } : undefined);
   const body = (await response.json()) as {
     models?: Array<{ name: string; size: number; capabilities?: string[] }>;
   };
   return (body.models ?? [])
     .filter((m) => !m.capabilities || m.capabilities.includes('completion'))
     .map((m) => ({ name: m.name, sizeBytes: m.size }));
+}
+
+export interface OllamaDetection {
+  readonly running: boolean;
+  readonly version?: string;
+  readonly models: string[];
+}
+
+const DETECT_TIMEOUT_MS = 2000;
+
+/** Asks a local Ollama who it is. Never throws and never waits longer than the timeout. */
+export async function detectOllama(
+  baseUrl = DEFAULT_OLLAMA_URL,
+  timeoutMs = DETECT_TIMEOUT_MS,
+): Promise<OllamaDetection> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  const base = baseUrl.replace(/\/$/, '');
+  try {
+    const [versionResponse, models] = await Promise.all([
+      ollamaFetch(base, '/api/version', { signal }),
+      listOllamaModels(base, signal),
+    ]);
+    const { version } = (await versionResponse.json()) as { version?: string };
+    return { running: true, ...(version ? { version } : {}), models: models.map((m) => m.name) };
+  } catch {
+    return { running: false, models: [] };
+  }
 }

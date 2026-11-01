@@ -61,6 +61,7 @@ export const transactionQuerySchema = z.object({
   minAmountMinor: minorUnits.optional(),
   maxAmountMinor: minorUnits.optional(),
   accountIds: z.array(z.string()).optional(),
+  needsReviewOnly: z.boolean().default(false),
   confirmationStatus: z.enum(['all', 'confirmed', 'unconfirmed']).default('all'),
   limit: z.number().int().min(1).max(500).default(100),
   offset: z.number().int().min(0).default(0),

@@ -71,6 +71,7 @@ const CHANNELS: Record<string, ReadonlyArray<readonly [string, string]>> = {
     ['income:override', 'Income: override'],
     ['income:add', 'Income: add'],
     ['income:clearOverride', 'Income: clear override'],
+    ['income:history', 'Income: six-month history'],
   ],
   Corrections: [
     ['review:queue', 'Review: queue'],
@@ -108,6 +109,7 @@ const CHANNELS: Record<string, ReadonlyArray<readonly [string, string]>> = {
     ['reports:get', 'Reports: open'],
     ['reports:generate', 'Reports: generate'],
     ['reports:delete', 'Reports: delete'],
+    ['reports:exportPdf', 'Reports: save as PDF'],
   ],
   'Data and settings': [
     ['health:get', 'Health: load'],
@@ -115,6 +117,7 @@ const CHANNELS: Record<string, ReadonlyArray<readonly [string, string]>> = {
     ['settings:get', 'Settings: load'],
     ['settings:update', 'Settings: save'],
     ['models:listOllama', 'Models: list Ollama'],
+    ['setup:detectOllama', 'Setup: detect Ollama'],
     ['data:export', 'Data: back up'],
     ['data:import', 'Data: restore'],
     ['data:deleteAll', 'Data: erase everything'],

@@ -1,3 +1,4 @@
+import { recordSyncAttempt } from '@main/sync/record-attempt';
 import { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { assertEncryptionAvailable, EncryptionUnavailableError } from './secrets/availability';
@@ -204,7 +205,8 @@ async function bootstrap(): Promise<void> {
     return outcome;
   };
 
-  const runSync = (): Promise<SyncOutcome> => services.usage.track('job:sync', 'background', syncAll);
+  const runSync = (): Promise<SyncOutcome> =>
+    services.usage.track('job:sync', 'background', () => recordSyncAttempt(logger, syncAll));
   const refreshAnalysisJob = (): Promise<unknown> =>
     services.usage.track('job:analysis', 'background', () => services.refreshAnalysis());
 
@@ -219,6 +221,11 @@ async function bootstrap(): Promise<void> {
     describeModel,
     sync: () => runSync(),
     emit: (channel, payload) => mainWindow?.webContents.send(channel, payload),
+    appVersion: app.getVersion(),
+    printToPdf: async () => {
+      if (!mainWindow) throw new Error('The window is not open');
+      return mainWindow.webContents.printToPDF({ printBackground: true });
+    },
   });
 
   syncNow = runSync;

@@ -113,6 +113,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('income:override', incomeOverrideSchema, (p) => services.overrideIncome(p));
   registry.handle('income:add', incomeAddSchema, (p) => services.addIncomeSource(p));
   registry.handle('income:clearOverride', idSchema, (p) => services.clearIncomeOverride(p.id));
+  registry.handle('income:history', empty, () => services.incomeHistory());
 
   // Corrections
   registry.handle('review:queue', z.object({ limit: z.number().default(100), offset: z.number().default(0) }), (p) =>
@@ -160,12 +161,14 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   );
   registry.handle('reports:generate', reportGenerateSchema, (p) => services.generateReport(p));
   registry.handle('reports:delete', idSchema, (p) => services.deleteReport(p.id));
+  registry.handle('reports:exportPdf', idSchema, (p) => services.exportReportPdf(p));
 
   // Diagnostics, settings, data
   registry.handle('health:get', empty, () => services.health());
   registry.handle('diagnostics:export', pathSchema, (p) => services.exportDiagnostics(p.destPath));
   registry.handle('settings:get', empty, () => services.getSettings());
   registry.handle('models:listOllama', empty, () => services.listOllamaModels());
+  registry.handle('setup:detectOllama', empty, () => services.detectOllama());
   registry.handle('settings:update', settingsUpdateSchema, (p) => services.updateSettings(p));
   registry.handle('data:export', exportSchema, (p) => services.exportData(p.destPath, p.passphrase));
   registry.handle('data:import', importSchema, (p) =>

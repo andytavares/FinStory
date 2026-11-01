@@ -43,6 +43,8 @@ export interface TransactionView {
   readonly postedDate: string;
   readonly categoryId: string;
   readonly confidence: number;
+  /** Who set the category. Null when it has none. */
+  readonly categorySource?: 'user' | 'rule' | 'model' | 'local_history' | null;
   readonly needsReview: boolean;
   readonly isInternalTransfer: boolean;
   /** Display-only; never summed or compared by the renderer (FR-085). */
@@ -224,6 +226,8 @@ export interface AppSettings {
   readonly timeZone: string;
   /** How long usage history is kept: one year, or until the user erases it. */
   readonly usageRetention: '365' | 'forever';
+  /** When the last backup finished. Null until the first one. */
+  readonly lastBackupAt: string | null;
 }
 
 export type IpcErrorCode =
@@ -258,4 +262,46 @@ export interface MerchantRuleView {
   readonly transactionCount: number;
   /** Charges of this merchant the rule does not control. */
   readonly oneOffCount: number;
+}
+
+/** Dashboard additions. Money out is positive in every series. */
+export interface DashboardKpis {
+  readonly spent: { thisMonthMinor: number; seriesMinor: number[] };
+  readonly income: {
+    thisMonthMinor: number;
+    seriesMinor: number[];
+    nextDeposit: { date: string; amountMinor: number; merchantName: string } | null;
+  };
+  readonly recurring: { monthlyMinor: number; count: number; candidateCount: number };
+  readonly safeToSpendPerDayMinor: number | null;
+}
+
+export interface DashboardExtras {
+  readonly kpis: DashboardKpis;
+  readonly upcomingRecurring: Array<{ merchantName: string; date: string; amountMinor: number }>;
+  readonly runwaySeries: { points: Array<{ date: string; balanceMinor: number }>; floorMinor: number } | null;
+  readonly whereItWent: Array<{ groupId: string; name: string; spentMinor: number }>;
+}
+
+export interface ReviewSuggestion {
+  readonly categoryId: string;
+  readonly name: string;
+}
+
+export interface IncomeMonth {
+  readonly month: string;
+  readonly incomeMinor: number;
+  readonly spendingMinor: number;
+}
+
+export interface SyncHistoryEntry {
+  readonly at: string;
+  readonly ok: boolean;
+  readonly durationMs: number | null;
+}
+
+export interface OllamaDetection {
+  readonly running: boolean;
+  readonly version?: string;
+  readonly models: string[];
 }

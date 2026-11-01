@@ -18,7 +18,7 @@ export function Money({
   direction?: boolean;
   className?: string;
 }): React.JSX.Element {
-  if (!direction) {
+  if (!direction || minor === 0) {
     return <span className={`numeric ${className}`}>{magnitude ? spend(minor) : money(minor)}</span>;
   }
 

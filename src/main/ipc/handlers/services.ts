@@ -33,6 +33,7 @@ export interface AppServices {
   overrideIncome(input: unknown): Promise<unknown>;
   addIncomeSource(input: unknown): Promise<unknown>;
   clearIncomeOverride(id: string): Promise<unknown>;
+  incomeHistory(): Promise<unknown>;
 
   reviewQueue(page: unknown): Promise<unknown>;
   recategorize(input: unknown): Promise<unknown>;
@@ -64,6 +65,7 @@ export interface AppServices {
   getReport(id: string): Promise<unknown>;
   generateReport(input: unknown): Promise<unknown>;
   deleteReport(id: string): Promise<unknown>;
+  exportReportPdf(input: unknown): Promise<unknown>;
 
   health(): Promise<unknown>;
   exportDiagnostics(destPath: string): Promise<unknown>;
@@ -78,6 +80,7 @@ export interface AppServices {
   importData(srcPath: string, passphrase: string): Promise<unknown>;
   deleteAllData(): Promise<unknown>;
   listOllamaModels(): Promise<unknown>;
+  detectOllama(): Promise<unknown>;
   refreshAnalysis(): Promise<unknown>;
   syncNow(): Promise<unknown>;
   listOverrides(): Promise<unknown>;

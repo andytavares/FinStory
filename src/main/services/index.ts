@@ -1,5 +1,5 @@
 import { app, dialog, shell } from 'electron';
-import { and, desc, eq, gte, isNull, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -9,8 +9,29 @@ import type { AppServices } from '@main/ipc/handlers/services';
 import { IpcFailure } from '@main/ipc/registry';
 import { assessCompleteness, type Completeness, type InstitutionState } from '@main/plaid/health';
 import { breakdownByCategory, spendingTotalMinor } from '@main/analysis/spending';
-import type { SpendingTransaction } from '@main/analysis/spending';
 import { projectBalance } from '@main/analysis/income';
+import {
+  daysUntil,
+  monthlyTotals,
+  monthRange,
+  MONTHS_SHOWN,
+  runwaySeries,
+  safeToSpendPerDayMinor,
+  spendByGroup,
+  type DatedTransaction,
+  type Runway,
+} from '@main/analysis/dashboard-kpis';
+import {
+  monthlyCostMinor,
+  nextExpectedDate,
+  upcomingCharges,
+  yearlyCostMinor,
+} from '@main/analysis/recurring-schedule';
+import { dailySpending, reportHeadline, reportSpentMinor } from '@main/reports/headline';
+import { kpiSeries, presentReportContent, reportPdfName } from '@main/reports/detail';
+import { categorySpend } from '@main/categories/spend';
+import { suggestCategoryIds } from '@main/categorization/suggestions';
+import { syncHistory } from '@main/diagnostics/sync-history';
 import { buildMonthlyReport, buildWeeklyDigest } from '@main/analysis/reports';
 import { runAnalysisPass } from '@main/analysis/pass';
 import { findRecurringCandidates } from '@main/analysis/recurring-candidates';
@@ -37,12 +58,13 @@ import { deleteAllData, exportBackup, restoreBackup } from '@main/data/backup';
 import {
   accessTokenAccount,
   CREDENTIAL_ACCOUNTS,
+  DATABASE_KEY_ACCOUNT,
   type CredentialKey,
   type SecretStore,
 } from '@main/secrets/secret-store';
 import type { Clock } from '@shared/clock';
 import type { AppSettings } from '@shared/types';
-import { listOllamaModels } from '@main/categorization/ollama';
+import { detectOllama, listOllamaModels } from '@main/categorization/ollama';
 import { explainModelError } from '@main/categorization/errors';
 import { createPlaidClient, type PlaidEnvironment } from '@main/plaid/client';
 import { exchangePublicToken, pollForPublicToken, startHostedLink } from '@main/plaid/link';
@@ -101,6 +123,10 @@ export interface ServiceDeps {
   readonly sync: () => Promise<SyncOutcome>;
   /** Push an event to the renderer. Progress on long jobs, nothing else. */
   readonly emit: (channel: string, payload: unknown) => void;
+  /** Shown on the Health screen. */
+  readonly appVersion?: string;
+  /** Renders the window as a PDF. Supplied by the main process, which owns the window. */
+  readonly printToPdf?: () => Promise<Buffer>;
 }
 
 type TransactionRow = typeof t.transactions.$inferSelect;
@@ -386,6 +412,7 @@ export class Services implements AppServices {
       .filter((x) => x.amountMinor > 0 && !x.isInternalTransfer)
       .reduce((a, x) => a + x.amountMinor, 0);
     const spendingMinor = spendingTotalMinor(transactions);
+    const runway = await this.runway();
 
     return {
       balances: accounts.map((a) => ({
@@ -402,8 +429,61 @@ export class Services implements AppServices {
         ...completeness,
       },
       whatChanged: [],
-      runway: await this.runway(),
+      runway,
+      ...(await this.dashboardExtras(runway)),
       ...completeness,
+    };
+  }
+
+  /** Headline figures, the runway curve, upcoming charges and the last 30 days by group. */
+  private async dashboardExtras(runway: Runway): Promise<Record<string, unknown>> {
+    const now = this.deps.clock.now();
+    const months = monthRange(now, MONTHS_SHOWN - 1);
+    const [dated, recent, sources, charges, names, parents, candidates] = await Promise.all([
+      this.spendingIn(months.start, monthRange(now).end),
+      this.spendingIn(new Date(now.getTime() - BURN_WINDOW_DAYS * 86_400_000).toISOString(), now.toISOString()),
+      this.db.select().from(t.incomeSources),
+      this.db.select().from(t.recurringCharges),
+      this.merchantDisplayNames(),
+      this.categoryParents(),
+      this.recurringCandidates(),
+    ]);
+    const totals = monthlyTotals(dated, now);
+    const active = charges.filter((c) => c.status === 'active');
+    const nextSource = sources
+      .filter((s) => s.isActive && new Date(s.nextExpectedDate) > now)
+      .sort((a, b) => a.nextExpectedDate.localeCompare(b.nextExpectedDate))[0];
+    return {
+      kpis: {
+        spent: { thisMonthMinor: totals[totals.length - 1]?.spendingMinor ?? 0, seriesMinor: totals.map((m) => m.spendingMinor) },
+        income: {
+          thisMonthMinor: totals[totals.length - 1]?.incomeMinor ?? 0,
+          seriesMinor: totals.map((m) => m.incomeMinor),
+          nextDeposit: nextSource
+            ? {
+                date: new Date(nextSource.nextExpectedDate).toISOString(),
+                amountMinor: nextSource.expectedAmountMinor,
+                merchantName: names.get(nextSource.merchantKey) ?? nextSource.merchantKey,
+              }
+            : null,
+        },
+        recurring: {
+          monthlyMinor: active.reduce((a, c) => a + monthlyCostMinor(c.currentAmountMinor, c.cadence), 0),
+          count: active.length,
+          candidateCount: (candidates as unknown[]).length,
+        },
+        safeToSpendPerDayMinor: safeToSpendPerDayMinor(runway, now),
+      },
+      upcomingRecurring: upcomingCharges(
+        active.map((c) => ({
+          merchantName: names.get(c.merchantKey) ?? c.merchantKey,
+          date: nextExpectedDate(c.lastSeenDate, c.cadence),
+          amountMinor: Math.abs(c.currentAmountMinor),
+        })),
+        now.toISOString().slice(0, 10),
+      ),
+      runwaySeries: runwaySeries(runway, now),
+      whereItWent: spendByGroup(breakdownByCategory(recent).rows, await this.categoryNames(), parents),
     };
   }
 
@@ -462,6 +542,8 @@ export class Services implements AppServices {
       periodStart?: string;
       periodEnd?: string;
       categoryIds?: string[];
+      accountIds?: string[];
+      needsReviewOnly?: boolean;
       merchantKey?: string;
       direction?: 'all' | 'in' | 'out';
       minAmountMinor?: number;
@@ -470,20 +552,29 @@ export class Services implements AppServices {
       limit: number;
       offset: number;
     };
-    const [rows, live, completeness, aliases, everydayIds, recurringKeys] = await Promise.all([
+    const [rows, live, completeness, aliases, everydayIds, recurringKeys, parents] = await Promise.all([
       this.transactionsIn(q.periodStart, q.periodEnd),
       this.liveCategorizations(),
       this.completeness(),
       this.merchantAliases(),
       this.everydayAccountIds(),
       this.activeRecurringKeys(),
+      this.categoryParents(),
     ]);
 
     let filtered = rows;
     if (q.categoryIds?.length) {
+      // A top-level category stands for its subcategories too.
       const wanted = new Set(q.categoryIds);
-      filtered = filtered.filter((r) => wanted.has(live.get(r.id)?.categoryId ?? ''));
+      const inWanted = (categoryId: string): boolean =>
+        wanted.has(categoryId) || wanted.has(parents.get(categoryId) ?? '');
+      filtered = filtered.filter((r) => inWanted(live.get(r.id)?.categoryId ?? ''));
     }
+    if (q.accountIds?.length) {
+      const accountIds = new Set(q.accountIds);
+      filtered = filtered.filter((r) => accountIds.has(r.accountId));
+    }
+    if (q.needsReviewOnly) filtered = filtered.filter((r) => live.get(r.id)?.needsReview ?? true);
     if (q.merchantKey) {
       const needle = q.merchantKey.toLowerCase();
       filtered = filtered.filter(
@@ -536,6 +627,7 @@ export class Services implements AppServices {
           postedDate: r.postedDate,
           categoryId: c?.categoryId ?? UNCATEGORIZABLE,
           confidence: c?.confidence ?? 0,
+          categorySource: c?.source ?? null,
           needsReview: c?.needsReview ?? true,
           isInternalTransfer: r.isInternalTransfer,
           originalCurrency: r.originalCurrency,
@@ -589,9 +681,17 @@ export class Services implements AppServices {
       expectedAmountMinor: r.expectedAmountMinor,
       cadence: r.cadence,
       nextExpectedDate: r.nextExpectedDate,
+      daysUntilNext: daysUntil(new Date(r.nextExpectedDate), this.deps.clock.now()),
       detectionConfidence: r.detectionConfidence,
       isUserConfirmed: r.isUserConfirmed,
     }));
+  }
+
+  /** Income and spending for each of the last six months. Spending is positive. */
+  async incomeHistory(): Promise<unknown> {
+    const now = this.deps.clock.now();
+    const rows = await this.spendingIn(monthRange(now, MONTHS_SHOWN - 1).start, monthRange(now).end);
+    return monthlyTotals(rows, now);
   }
 
   async confirmIncome(id: string): Promise<unknown> {
@@ -674,13 +774,15 @@ export class Services implements AppServices {
 
   async reviewQueue(page: unknown): Promise<unknown> {
     const { limit, offset } = page as { limit: number; offset: number };
-    const [live, txs, aliases, categoryNames, recurringKeys] = await Promise.all([
+    const [live, txs, aliases, categoryNames, recurringKeys, profiles] = await Promise.all([
       this.liveCategorizations(),
       this.db.select().from(t.transactions),
       this.merchantAliases(),
       this.categoryNames(),
       this.activeRecurringKeys(),
+      this.db.select().from(t.merchantProfiles),
     ]);
+    const distributions = new Map(profiles.map((p) => [p.merchantKey, p.categoryDistribution]));
     const byId = new Map(txs.map((x) => [x.id, x]));
     const flagged = [...live.values()].filter((c) => c.needsReview && !c.isConfirmed);
 
@@ -704,6 +806,7 @@ export class Services implements AppServices {
               postedDate: tx.postedDate,
               categoryId: c.categoryId,
               confidence: c.confidence,
+              categorySource: c.source,
               needsReview: true,
               isInternalTransfer: tx.isInternalTransfer,
               originalCurrency: tx.originalCurrency,
@@ -713,6 +816,9 @@ export class Services implements AppServices {
             // The name, because an identifier is not a name. The model quotes
             // taxonomy ids back in its reasoning, so that text is cleaned too.
             guessCategoryName: categoryNames.get(c.categoryId) ?? c.categoryId,
+            suggestions: suggestCategoryIds(c.categoryId, distributions.get(tx.merchantKey ?? '')).map(
+              (categoryId) => ({ categoryId, name: categoryNames.get(categoryId) ?? categoryId }),
+            ),
             confidence: c.confidence,
             reasoning: c.reasoning ? humanizeCategoryIds(c.reasoning, categoryNames) : null,
           },
@@ -849,10 +955,16 @@ export class Services implements AppServices {
   // ---- Categories ----------------------------------------------------------
 
   async listCategories(): Promise<unknown> {
-    const [categories, categorizations] = await Promise.all([
+    const month = monthRange(this.deps.clock.now());
+    const [categories, categorizations, monthRows] = await Promise.all([
       this.db.select().from(t.categories),
       this.db.select().from(t.categorizations).where(isNull(t.categorizations.supersededBy)),
+      this.spendingIn(month.start, month.end),
     ]);
+    const spend = categorySpend(
+      breakdownByCategory(monthRows).rows,
+      new Map(categories.map((c) => [c.id, c.parentId])),
+    );
     const usage = new Map<string, number>();
     for (const c of categorizations) {
       usage.set(c.categoryId, (usage.get(c.categoryId) ?? 0) + 1);
@@ -865,6 +977,10 @@ export class Services implements AppServices {
       ...c,
       usageCount: usage.get(c.id) ?? 0,
       childCount: childCount.get(c.id) ?? 0,
+      /** This month's spending in this category alone, positive. */
+      spentMinor: spend.direct.get(c.id) ?? 0,
+      /** This month's spending in this category and its subcategories, positive. */
+      rolledUpSpentMinor: spend.rolledUp.get(c.id) ?? 0,
       // Only an unused, childless, non-system category can be deleted; anything
       // else would orphan history or break reconciliation.
       // Anything can be deleted; whether it needs a destination first is the
@@ -1057,6 +1173,9 @@ export class Services implements AppServices {
       firstSeenDate: r.firstSeenDate,
       cumulativePaidMinor: r.cumulativePaidMinor,
       status: r.status,
+      nextExpectedDate: nextExpectedDate(r.lastSeenDate, r.cadence),
+      monthlyCostMinor: monthlyCostMinor(r.currentAmountMinor, r.cadence),
+      yearlyCostMinor: yearlyCostMinor(r.currentAmountMinor, r.cadence),
       amountChanges: changes
         .filter((c) => c.recurringChargeId === r.id)
         .map((c) => ({
@@ -1295,9 +1414,20 @@ export class Services implements AppServices {
       .select()
       .from(t.periodReports)
       .orderBy(desc(t.periodReports.periodStart));
-    return rows.map((r) => {
-      const content = JSON.parse(r.content) as { totalSpendingMinor?: number; savingsRate?: number };
+    const contents = rows.map((r) => JSON.parse(r.content) as { totalSpendingMinor?: number; savingsRate?: number });
+    const spent = contents.map((c) => reportSpentMinor(c));
+    const dated = rows.length
+      ? await this.spendingIn(
+          rows.reduce((a, r) => (r.periodStart < a ? r.periodStart : a), rows[0]?.periodStart ?? ''),
+          rows.reduce((a, r) => (r.periodEnd > a ? r.periodEnd : a), ''),
+        )
+      : [];
+    return rows.map((r, index) => {
+      const content = contents[index] ?? {};
+      const others = rows.flatMap((o, i) => (i !== index && o.type === r.type ? [spent[i] ?? 0] : []));
       return {
+        headline: reportHeadline(spent[index] ?? 0, others),
+        series: dailySpending(r.periodStart, r.periodEnd, dated),
         id: r.id,
         type: r.type,
         label: r.label,
@@ -1453,7 +1583,33 @@ export class Services implements AppServices {
     const rows = await this.db.select().from(t.periodReports).where(eq(t.periodReports.id, id));
     const row = rows[0];
     if (!row) throw new IpcFailure('INTERNAL', 'Report not found', false);
-    return { ...row, content: JSON.parse(row.content) };
+    const content = JSON.parse(row.content) as Parameters<typeof presentReportContent>[0];
+    const [transactions, aliases, merchantNames, sameType] = await Promise.all([
+      this.db.select().from(t.transactions).where(inArray(t.transactions.id, content.largestPurchases?.map((p) => p.id) ?? [])),
+      this.merchantAliases(),
+      this.merchantDisplayNames(),
+      this.db.select().from(t.periodReports).where(eq(t.periodReports.type, row.type)),
+    ]);
+    return {
+      ...row,
+      content: presentReportContent(content, {
+        transactions: new Map(transactions.map((tx) => [tx.id, tx])),
+        aliases,
+        merchantNames,
+      }),
+      kpiSeries: kpiSeries(sameType, row),
+    };
+  }
+
+  async exportReportPdf(input: unknown): Promise<unknown> {
+    const { id } = input as { id: string };
+    const row = (await this.db.select().from(t.periodReports).where(eq(t.periodReports.id, id)))[0];
+    if (!row) throw new IpcFailure('INTERNAL', 'Report not found', false);
+    if (!this.deps.printToPdf) throw new IpcFailure('INTERNAL', 'Printing is not available', false);
+    const target = await this.chooseSavePath(reportPdfName(row));
+    if (!target) return { ok: false };
+    writeFileSync(target, await this.deps.printToPdf());
+    return { ok: true, path: target };
   }
 
   // ---- Diagnostics, settings, data -----------------------------------------
@@ -1479,6 +1635,13 @@ export class Services implements AppServices {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
 
     return {
+      categorization: await this.deps.describeModel(),
+      encryption: {
+        databaseEncrypted: true,
+        keysInKeychain: (await this.deps.store.get(DATABASE_KEY_ACCOUNT)) !== null,
+      },
+      updates: { version: this.deps.appVersion ?? 'unknown' },
+      syncHistory: syncHistory(events),
       contents: {
         institutions: institutions.length,
         accounts: accounts.length,
@@ -1549,6 +1712,7 @@ export class Services implements AppServices {
       ...(map.has('usageRetention')
         ? { usageRetention: map.get('usageRetention') as AppSettings['usageRetention'] }
         : {}),
+      ...(map.has('lastBackupAt') ? { lastBackupAt: map.get('lastBackupAt') as string } : {}),
     });
   }
 
@@ -1594,6 +1758,7 @@ export class Services implements AppServices {
       destDir: target,
       passphrase,
     });
+    await this.upsertSetting('lastBackupAt', this.deps.clock.now().toISOString(), false);
     return { ok: true, path: result.databasePath };
   }
 
@@ -1620,6 +1785,11 @@ export class Services implements AppServices {
       institutionIds: institutions.map((row) => row.id),
     });
     return { ok: true, requiresRestart: true };
+  }
+
+  /** Whether Ollama answers at the saved address, within two seconds. */
+  async detectOllama(): Promise<unknown> {
+    return detectOllama((await this.readPlainSetting('ollamaBaseUrl')) ?? undefined);
   }
 
   /** Installed Ollama chat models, for the settings picker. Throws the explained reason on failure. */
@@ -2271,7 +2441,7 @@ export class Services implements AppServices {
     return new Map(rows.map((r) => [r.id, r.parentId]));
   }
 
-  private async runway(): Promise<unknown> {
+  private async runway(): Promise<Runway> {
     const [sources, accounts] = await Promise.all([
       this.db.select().from(t.incomeSources),
       this.db.select().from(t.accounts),
@@ -2280,9 +2450,10 @@ export class Services implements AppServices {
       .filter((a) => a.isEveryday)
       .reduce((a, x) => a + (x.currentBalanceMinor ?? 0), 0);
 
+    const dailyBurnMinor = await this.dailyBurn();
     const projection = projectBalance({
       currentBalanceMinor,
-      dailyBurnMinor: await this.dailyBurn(),
+      dailyBurnMinor,
       asOf: this.deps.clock.now(),
       incomeSources: sources.map((s) => ({
         id: s.id,
@@ -2303,6 +2474,7 @@ export class Services implements AppServices {
       currentBalanceMinor,
       projectedMinor: projection.projectedMinor,
       floorMinor: BALANCE_FLOOR_MINOR,
+      dailyBurnMinor,
       nextIncomeDate: projection.nextIncomeDate?.toISOString() ?? null,
       reason: projection.reason,
     };
@@ -2317,7 +2489,7 @@ export class Services implements AppServices {
     return Math.round(Math.abs(recent.reduce((a, r) => a + r.amountMinor, 0)) / BURN_WINDOW_DAYS);
   }
 
-  private async spendingIn(start: string, end: string): Promise<SpendingTransaction[]> {
+  private async spendingIn(start: string, end: string): Promise<DatedTransaction[]> {
     const [allRows, live, everydayIds] = await Promise.all([
       this.transactionsIn(start, end),
       this.liveCategorizations(),
@@ -2332,6 +2504,7 @@ export class Services implements AppServices {
       isInternalTransfer: r.isInternalTransfer,
       reversesTransactionId: r.reversesTransactionId,
       userExcluded: r.userExcluded,
+      postedDate: r.postedDate,
     }));
   }
 
