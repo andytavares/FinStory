@@ -66,6 +66,8 @@ export const INVOKE_CHANNELS = [
   'data:export',
   'data:import',
   'data:deleteAll',
+  'update:install',
+  'app:version',
   'analysis:refresh',
   'sync:now',
   'model:status',
@@ -96,6 +98,7 @@ const EVENT_CHANNELS = [
   'health:degraded',
   'income:patternChanged',
   'usage:event',
+  'update:ready',
 ] as const;
 
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];

@@ -22,14 +22,24 @@ import { registerHandlers } from './ipc/handlers/index';
 import { Services, type ModelDescription } from './services/index';
 import { CategorizationPipeline } from './categorization/pipeline';
 import { loadMerchantProfiles } from './categorization/profiles';
-import { buildClassifier, DEFAULT_ANTHROPIC_MODEL, type ModelProvider } from './categorization/factory';
+import {
+  buildClassifier,
+  DEFAULT_ANTHROPIC_MODEL,
+  type ModelProvider,
+} from './categorization/factory';
 import { taxonomyPromptList } from './db/seed-categories';
 import { EMPTY_SYNC, type SyncOutcome } from '@main/sync/outcome';
 import { SyncEngine, type SyncPage } from './sync/engine';
 import { DrizzleSyncStore } from './sync/store';
 import { createPlaidClient } from './plaid/client';
-import { settings as settingsTable, alertRules as alertRulesTable, merchantProfiles as merchantProfilesTable } from './db/schema';
+import {
+  settings as settingsTable,
+  alertRules as alertRulesTable,
+  merchantProfiles as merchantProfilesTable,
+} from './db/schema';
 import { eq } from 'drizzle-orm';
+import electronUpdater from 'electron-updater';
+import { startUpdates, installUpdate } from './updates';
 import { DiagnosticLogger } from './diagnostics/logger';
 import { DatabaseSink } from './diagnostics/sink';
 import { SystemClock } from '@shared/clock';
@@ -49,6 +59,7 @@ let tray: Tray | null = null;
 let databaseHandle: DatabaseHandle | null = null;
 let syncNow: (() => Promise<SyncOutcome>) | null = null;
 let launchCatchUp: (() => Promise<SyncOutcome>) | null = null;
+let trackUpdateCheck: ((run: () => Promise<unknown>) => Promise<unknown>) | undefined;
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
@@ -113,7 +124,9 @@ async function bootstrap(): Promise<void> {
         confidenceThreshold: threshold,
         localOnly: built.localOnly,
         // Read fresh each build: the user can delete categories at any time.
-        validCategoryIds: new Set(categories.filter((c) => c.mergedIntoId === null).map((c) => c.id)),
+        validCategoryIds: new Set(
+          categories.filter((c) => c.mergedIntoId === null).map((c) => c.id),
+        ),
       },
     );
     loadMerchantProfiles(await handle.db.select().from(merchantProfilesTable), pipeline);
@@ -170,7 +183,8 @@ async function bootstrap(): Promise<void> {
         cursor: inst.syncCursor,
         fetch: async (cursor: string | null) => {
           const accessToken = await secretStore.get(accessTokenAccount(inst.id));
-          if (!accessToken) throw new Error(`No access token in the Keychain for ${inst.institutionName}`);
+          if (!accessToken)
+            throw new Error(`No access token in the Keychain for ${inst.institutionName}`);
           const response = await client.transactionsSync({
             access_token: accessToken,
             ...(cursor ? { cursor } : {}),
@@ -230,7 +244,10 @@ async function bootstrap(): Promise<void> {
   });
 
   syncNow = runSync;
-  void services.usage.prune(clock.now(), ((await readSetting('usageRetention')) ?? '365') as '365' | 'forever');
+  void services.usage.prune(
+    clock.now(),
+    ((await readSetting('usageRetention')) ?? '365') as '365' | 'forever',
+  );
   launchCatchUp = () => services.usage.track('job:catch-up', 'background', runSync);
 
   // Build the derived ledgers from whatever is already stored, so a database
@@ -253,6 +270,15 @@ async function bootstrap(): Promise<void> {
   for (const channel of ['data:deleteAll', 'data:import'] as const) {
     relaunchAfter(registry, channel, services.usage);
   }
+  ipcMain.handle('app:version', () => trackIpc('app:version', async () => app.getVersion()));
+  ipcMain.handle('update:install', () =>
+    trackIpc('update:install', async () =>
+      installUpdate(electronUpdater.autoUpdater, () => {
+        isQuitting = true;
+      }),
+    ),
+  );
+  trackUpdateCheck = (run) => services.usage.track('job:update-check', 'background', run);
 }
 
 function relaunchAfter(registry: IpcRegistry, channel: string, usage: UsageRecorder): void {
@@ -343,67 +369,78 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow?.focus();
   });
 
-  app.whenReady().then(async () => {
-    // Gate startup on encryption. Constitution VII: fail loudly rather than
-    // writing an unencrypted financial database.
-    try {
-      await assertEncryptionAvailable(new ElectronSecretBackend());
-    } catch (error) {
-      if (error instanceof EncryptionUnavailableError) {
-        dialog.showErrorBox('Money cannot start', error.message);
+  app.whenReady().then(
+    async () => {
+      // Gate startup on encryption. Constitution VII: fail loudly rather than
+      // writing an unencrypted financial database.
+      try {
+        await assertEncryptionAvailable(new ElectronSecretBackend());
+      } catch (error) {
+        if (error instanceof EncryptionUnavailableError) {
+          dialog.showErrorBox('Money cannot start', error.message);
+        }
+        app.quit();
+        return;
       }
-      app.quit();
-      return;
-    }
 
-    // Launch at login so background sync resumes without the user thinking
-    // about it. The window stays hidden until asked for.
-    // Compose the application. Everything below this point is real wiring:
-    // without it the process runs but no IPC channel is answered.
-    try {
-      await bootstrap();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'The local database could not be opened.';
-      // A native dialog can be missed or dismissed; show the reason in a window
-      // too, so the failure is never a silent blank screen.
-      dialog.showErrorBox('Money could not start', message);
-      const failureWindow = new BrowserWindow({ width: 620, height: 320, show: true });
-      void failureWindow.loadURL(
-        `data:text/html;charset=utf-8,${encodeURIComponent(
-          `<body style="background:#0d151c;color:#e8eaed;font:13px system-ui;padding:32px">
+      // Launch at login so background sync resumes without the user thinking
+      // about it. The window stays hidden until asked for.
+      // Compose the application. Everything below this point is real wiring:
+      // without it the process runs but no IPC channel is answered.
+      try {
+        await bootstrap();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'The local database could not be opened.';
+        // A native dialog can be missed or dismissed; show the reason in a window
+        // too, so the failure is never a silent blank screen.
+        dialog.showErrorBox('Money could not start', message);
+        const failureWindow = new BrowserWindow({ width: 620, height: 320, show: true });
+        void failureWindow.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(
+            `<body style="background:#0d151c;color:#e8eaed;font:13px system-ui;padding:32px">
              <h1 style="font-size:16px;margin:0 0 12px">Money could not start</h1>
              <p style="color:#8b95a1;margin:0 0 16px">Your data has not been changed.</p>
              <pre style="white-space:pre-wrap;background:#161e26;padding:12px;border:1px solid #2a3441">${message.replace(/[<>&]/g, '')}</pre>
            </body>`,
-        )}`,
+          )}`,
+        );
+        return;
+      }
+
+      app.setLoginItemSettings({ openAtLogin: true });
+      mainWindow = createWindow();
+      tray = createTray();
+
+      if (app.isPackaged) {
+        startUpdates({
+          updater: electronUpdater.autoUpdater,
+          send: (channel, payload) => mainWindow?.webContents.send(channel, payload),
+          track: trackUpdateCheck,
+        });
+      }
+
+      // Catch up on launch, then poll. A gap of minutes and a gap of weeks are
+      // the same call (research.md R2, R6).
+      void launchCatchUp?.().catch(() => {
+        /* surfaced in the health view rather than blocking startup */
+      });
+      syncTimer = setInterval(
+        () => {
+          void syncNow?.().catch(() => {});
+        },
+        60 * 60 * 1000,
       );
-      return;
-    }
 
-    app.setLoginItemSettings({ openAtLogin: true });
-    mainWindow = createWindow();
-    tray = createTray();
-
-    // Catch up on launch, then poll. A gap of minutes and a gap of weeks are
-    // the same call (research.md R2, R6).
-    void launchCatchUp?.().catch(() => {
-      /* surfaced in the health view rather than blocking startup */
-    });
-    syncTimer = setInterval(
-      () => {
-        void syncNow?.().catch(() => {});
-      },
-      60 * 60 * 1000,
-    );
-
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
-      else mainWindow?.show();
-    });
-  }, () => {
-    app.quit();
-  });
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
+        else mainWindow?.show();
+      });
+    },
+    () => {
+      app.quit();
+    },
+  );
 
   app.on('before-quit', () => {
     isQuitting = true;

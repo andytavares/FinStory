@@ -121,6 +121,8 @@ const CHANNELS: Record<string, ReadonlyArray<readonly [string, string]>> = {
     ['data:export', 'Data: back up'],
     ['data:import', 'Data: restore'],
     ['data:deleteAll', 'Data: erase everything'],
+    ['app:version', 'App: version'],
+    ['update:install', 'Updates: restart to install'],
     ['analysis:refresh', 'Analysis: refresh'],
     ['sync:now', 'Sync: now'],
     ['model:status', 'Model: status'],

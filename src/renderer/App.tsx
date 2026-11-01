@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { UpdateToast } from './components/UpdateToast';
 import { Dashboard } from './views/Dashboard';
 import { Register } from './views/Register';
 import { Recurring } from './views/Recurring';
@@ -129,51 +130,58 @@ export function App(): React.JSX.Element {
   const crumb = [LABELS.get(view) ?? '', route.categoryId].filter(Boolean).join(' · ');
 
   return (
-    <AppShell
-      groups={NAV_GROUPS}
-      view={view}
-      crumb={crumb}
-      history={nav}
-      onSelect={setView}
-      onSearch={(search) => nav.navigate({ view: 'register', search })}
-    >
-      {view === 'dashboard' && (
-        <Dashboard onDrill={drill} onReconnect={() => setView('accounts')} />
-      )}
-      {view === 'register' && (
-        <Register
-          key={`${route.categoryId ?? 'all'}-${route.merchantKey ?? ''}-${route.search ?? ''}`}
-          initialCategoryId={route.categoryId ?? null}
-          initialMerchantKey={route.search ?? route.merchantKey ?? null}
-        />
-      )}
-      {view === 'recurring' && (
-        <Recurring
-          onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
-        />
-      )}
-      {view === 'income' && (
-        <Income onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })} />
-      )}
-      {view === 'review' && <Review />}
-      {view === 'alerts' && (
-        <Alerts onOpenMerchant={(search) => nav.navigate({ view: 'register', search })} />
-      )}
-      {view === 'reports' && (
-        <Reports
-          openReportId={route.reportId ?? null}
-          onOpenReport={(reportId) => nav.navigate({ view: 'reports', reportId })}
-          onCloseReport={nav.back}
-        />
-      )}
-      {view === 'usage' && <Usage />}
-      {view === 'import' && <Import onViewTransactions={() => nav.navigate({ view: 'register' })} />}
-      {view === 'health' && <Health />}
-      {view === 'overrides' && <Overrides />}
-      {view === 'categories' && <Categories />}
-      {view === 'accounts' && <Accounts />}
-      {view === 'settings' && <Settings />}
-      {import.meta.env.DEV && view === 'design' && <DesignSystem />}
-    </AppShell>
+    <>
+      <AppShell
+        groups={NAV_GROUPS}
+        view={view}
+        crumb={crumb}
+        history={nav}
+        onSelect={setView}
+        onSearch={(search) => nav.navigate({ view: 'register', search })}
+      >
+        {view === 'dashboard' && (
+          <Dashboard onDrill={drill} onReconnect={() => setView('accounts')} />
+        )}
+        {view === 'register' && (
+          <Register
+            key={`${route.categoryId ?? 'all'}-${route.merchantKey ?? ''}-${route.search ?? ''}`}
+            initialCategoryId={route.categoryId ?? null}
+            initialMerchantKey={route.search ?? route.merchantKey ?? null}
+          />
+        )}
+        {view === 'recurring' && (
+          <Recurring
+            onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
+          />
+        )}
+        {view === 'income' && (
+          <Income
+            onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
+          />
+        )}
+        {view === 'review' && <Review />}
+        {view === 'alerts' && (
+          <Alerts onOpenMerchant={(search) => nav.navigate({ view: 'register', search })} />
+        )}
+        {view === 'reports' && (
+          <Reports
+            openReportId={route.reportId ?? null}
+            onOpenReport={(reportId) => nav.navigate({ view: 'reports', reportId })}
+            onCloseReport={nav.back}
+          />
+        )}
+        {view === 'usage' && <Usage />}
+        {view === 'import' && (
+          <Import onViewTransactions={() => nav.navigate({ view: 'register' })} />
+        )}
+        {view === 'health' && <Health />}
+        {view === 'overrides' && <Overrides />}
+        {view === 'categories' && <Categories />}
+        {view === 'accounts' && <Accounts />}
+        {view === 'settings' && <Settings />}
+        {import.meta.env.DEV && view === 'design' && <DesignSystem />}
+      </AppShell>
+      <UpdateToast />
+    </>
   );
 }

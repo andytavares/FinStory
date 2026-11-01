@@ -108,8 +108,8 @@ Apple ID and an app-specific password.
 3. Open <https://github.com/andytavares/FinStory/actions>. The **Release** workflow starts
    for the new tag. It takes about 10–20 minutes, most of it waiting for Apple's notarization.
 4. When it passes, open <https://github.com/andytavares/FinStory/releases>. The release is a
-   **draft** with three files: `Money-<version>-arm64.dmg`, `Money-<version>-arm64-mac.zip`,
-   and `latest-mac.yml`.
+   **draft** with these files: `Money-<version>-arm64.dmg`, `Money-<version>-arm64-mac.zip`,
+   `latest-mac.yml`, and a `.blockmap` file for each of the two archives.
 5. Click **Edit** on the draft, write the release notes, and click **Publish release**.
    Installed copies of Money see the update within 6 hours, or at their next launch.
 

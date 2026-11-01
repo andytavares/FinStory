@@ -7,7 +7,15 @@ files:
   - out/**/*
   - package.json
 mac:
-  target: [dmg]
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
   category: public.app-category.finance
-win:
-  target: [nsis]
+  hardenedRuntime: true
+publish:
+  provider: github
+  owner: andytavares
+  repo: FinStory
+  releaseType: draft

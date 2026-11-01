@@ -8,6 +8,11 @@ The premise: every budgeting tool that requires effort gets abandoned. This one 
 user who does nothing after setup still gets accurate, complete spending intelligence. Behaviour
 changes through visibility, not discipline.
 
+## Install
+
+Download the latest `.dmg` (Apple Silicon) from the
+[Releases page](https://github.com/andytavares/FinStory/releases). Installed copies update themselves.
+
 ## What it does
 
 - **Captures** every transaction from connected banks, cards, and payment apps automatically.
@@ -26,7 +31,7 @@ These are enforced, not aspirational — each has tests behind it.
 
 | Constraint | How it holds |
 |---|---|
-| Your data stays on your machine | SQLCipher-encrypted database; app refuses to start if OS encryption is unavailable rather than writing plaintext |
+| Your data stays on your machine | database encrypted with better-sqlite3-multiple-ciphers' default cipher (ChaCha20-Poly1305); app refuses to start if OS encryption is unavailable rather than writing plaintext |
 | No secret reaches the UI | All credentials live in the main process; the built renderer bundle is scanned for secrets in CI |
 | Totals always reconcile | One canonical spending predicate; category totals asserted equal to transaction totals to the cent |
 | Money is never a float | Integer minor units end to end |
@@ -36,7 +41,7 @@ These are enforced, not aspirational — each has tests behind it.
 
 ## Stack
 
-Electron 44 · React 19 · TypeScript · SQLite via SQLCipher · Drizzle ORM · Plaid · Claude ·
+Electron 44 · React 19 · TypeScript · SQLite via better-sqlite3-multiple-ciphers · Drizzle ORM · Plaid · Claude ·
 Vitest · Playwright
 
 ## Running it
@@ -55,6 +60,10 @@ npm run package        # installers
 Setup needs a Plaid account (the free Trial plan covers this — see `docs/plaid-setup.md`) and
 optionally an Anthropic API key. Without the key the app runs in local-only categorization mode:
 nothing leaves your machine, at the cost of a larger review queue.
+
+## Release
+
+See `docs/releasing.md`.
 
 ## Documentation
 
