@@ -13,6 +13,7 @@ src/renderer/lib/categoryColor.ts
   s_d8b2366061c670::t_8155df2812b0b4 1-14
 src/renderer/charts/SpendingOverTime.tsx
   s_d8b2366061c670::t_926cd3388b851c 6,15,17-29,35-36,60,69,75-77,82-86,99-100,103,105,108,111,117-118,120-121,127-129,131,133-134,139-146,151,153
+  s_d8b2366061c670::t_c6553814c60a91 78-81
 src/renderer/components/ui/PageHeader.tsx
   s_d8b2366061c670::t_8155df2812b0b4 1-17
 src/renderer/charts/CategoryDonut.tsx
@@ -62,6 +63,8 @@ src/renderer/components/ui/Card.tsx
   s_d8b2366061c670::t_8155df2812b0b4 1-28
 src/renderer/App.tsx
   s_d8b2366061c670::t_3130d4d58027e4 20-22,24-66,69-70,77,128-129,131-162,165-174
+  s_d8b2366061c670::t_f3e9e74bf79562 163
+  s_d8b2366061c670::t_3134e02a6c68de 17,164
 src/renderer/design-system.css
   s_d8b2366061c670::t_b5185bd41f9e9d 1-333
 src/renderer/main.tsx
@@ -72,6 +75,8 @@ tests/unit/renderer/ui.test.tsx
   s_d8b2366061c670::t_6743cd1a3ea8e1 1-132
 src/renderer/components/ui/Table.tsx
   s_d8b2366061c670::t_8155df2812b0b4 1-6
+src/shared/features.ts
+  s_d8b2366061c670::t_3134e02a6c68de 31,33
 ---
 {
   "schema_version": "authorship/3.0.0",
