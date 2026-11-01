@@ -22,11 +22,44 @@ function spentDelta({ kpis, now, period }: Props): { text: string; tone: 'pos' |
   };
 }
 
+function IncomeTile({ kpis, period }: Pick<Props, 'kpis' | 'period'>): React.JSX.Element {
+  const deposit = kpis.income.nextDeposit;
+  return (
+    <Stat
+      label={`Income this ${period}`}
+      value={money(kpis.income.currentMinor)}
+      delta={
+        deposit
+          ? `Next: ${money(deposit.amountMinor)} on ${shortDate(deposit.date)}`
+          : 'No deposit expected yet'
+      }
+      series={kpis.income.seriesMinor}
+      color="var(--color-positive)"
+    />
+  );
+}
+
+function SafeToSpendTile({
+  safe,
+  floorMinor,
+}: {
+  safe: number | null;
+  floorMinor: number;
+}): React.JSX.Element {
+  return (
+    <Stat
+      label="Safe to spend / day"
+      value={safe === null ? '—' : money(safe)}
+      delta={safe === null ? 'Needs a known payday' : `Keeps you above ${money(floorMinor)}`}
+      tone={safe === null ? 'faint' : 'pos'}
+      color="var(--color-attention)"
+    />
+  );
+}
+
 export function KpiTiles(props: Props): React.JSX.Element {
   const { kpis, floorMinor } = props;
   const spent = spentDelta(props);
-  const deposit = kpis.income.nextDeposit;
-  const safe = kpis.safeToSpendPerDayMinor;
   return (
     <div className="ds-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
       <Stat
@@ -37,13 +70,7 @@ export function KpiTiles(props: Props): React.JSX.Element {
         series={kpis.spent.seriesMinor}
         color="var(--color-accent)"
       />
-      <Stat
-        label={`Income this ${props.period}`}
-        value={money(kpis.income.currentMinor)}
-        delta={deposit ? `Next: ${money(deposit.amountMinor)} on ${shortDate(deposit.date)}` : 'No deposit expected yet'}
-        series={kpis.income.seriesMinor}
-        color="var(--color-positive)"
-      />
+      <IncomeTile kpis={kpis} period={props.period} />
       <Stat
         label="Recurring / month"
         value={money(kpis.recurring.monthlyMinor)}
@@ -51,13 +78,7 @@ export function KpiTiles(props: Props): React.JSX.Element {
         series={kpis.recurring.seriesMinor}
         color="var(--color-cat-6)"
       />
-      <Stat
-        label="Safe to spend / day"
-        value={safe === null ? '—' : money(safe)}
-        delta={safe === null ? 'Needs a known payday' : `Keeps you above ${money(floorMinor)}`}
-        tone={safe === null ? 'faint' : 'pos'}
-        color="var(--color-attention)"
-      />
+      <SafeToSpendTile safe={kpis.safeToSpendPerDayMinor} floorMinor={floorMinor} />
     </div>
   );
 }

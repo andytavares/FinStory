@@ -53,7 +53,7 @@ export function Income({
         <div className="ds-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
           <div className="space-y-3.5">
             {sources.map((s) => (
-              <SourceCard key={s.id} source={s} onChanged={refetch} onOpenMerchant={onOpenMerchant} />
+              <SourceCard key={s.id} source={s} actions={{ onChanged: refetch, onOpenMerchant }} />
             ))}
           </div>
           <Card title="Deposits vs spending">

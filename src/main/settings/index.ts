@@ -34,22 +34,19 @@ export function isSecretKey(key: string): boolean {
   return SECRET_KEYS.has(key);
 }
 
+/** Each key takes the update when it has one, else the current value; the two numeric ones are clamped. */
 export function mergeSettings(
   current: AppSettings,
   update: Partial<AppSettings>,
 ): AppSettings {
+  const merged: Record<string, unknown> = {};
+  for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]) {
+    merged[key] = update[key] ?? current[key];
+  }
   return {
+    ...(merged as unknown as AppSettings),
     confidenceThreshold: clamp(update.confidenceThreshold ?? current.confidenceThreshold, 0, 1),
     pollIntervalMinutes: clamp(update.pollIntervalMinutes ?? current.pollIntervalMinutes, 15, 1440),
-    categorizationMode: update.categorizationMode ?? current.categorizationMode,
-    modelProvider: update.modelProvider ?? current.modelProvider,
-    anthropicModel: update.anthropicModel ?? current.anthropicModel,
-    anthropicWorkspaceId: update.anthropicWorkspaceId ?? current.anthropicWorkspaceId,
-    ollamaModel: update.ollamaModel ?? current.ollamaModel,
-    ollamaBaseUrl: update.ollamaBaseUrl ?? current.ollamaBaseUrl,
-    timeZone: update.timeZone ?? current.timeZone,
-    usageRetention: update.usageRetention ?? current.usageRetention,
-    lastBackupAt: update.lastBackupAt ?? current.lastBackupAt,
   };
 }
 

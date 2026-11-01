@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { call } from '../../lib/ipc';
 import { TextInput } from '../../components/ui';
-import type { CategoryRow } from './types';
+import type { CategoryRow, RenameState } from './types';
+
+interface CategoryNameProps {
+  readonly category: CategoryRow;
+  readonly rename: RenameState;
+  readonly onChanged: () => void;
+}
 
 /** Name text; while `editing`, an input that saves on Enter or blur. Ids are stable, so a rename is display-only. */
 export function CategoryName({
   category,
-  editing,
-  onDone,
+  rename,
   onChanged,
-}: {
-  category: CategoryRow;
-  editing: boolean;
-  onDone: () => void;
-  onChanged: () => void;
-}): React.JSX.Element {
+}: CategoryNameProps): React.JSX.Element {
+  const { editing, onDone } = rename;
   const [name, setName] = useState(category.name);
   if (!editing) return <span>{category.name}</span>;
 

@@ -30,10 +30,7 @@ export function RecategorizeButton({
   variant = 'card',
 }: {
   onDone?: () => void;
-  /**
-   * `compact` is for a page header: a "Sort these with AI" button, unresolved only, status as a caption.
-   * `card` is for Settings: the scope switch and a "Run" button, with the progress bar below.
-   */
+  /** `compact`: page-header button, unresolved only, status as caption. `card`: Settings scope switch, "Run" and progress bar. */
   variant?: 'card' | 'compact';
 }): React.JSX.Element {
   const compact = variant === 'compact';

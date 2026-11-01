@@ -1,11 +1,7 @@
 import { spendingTotalMinor, type SpendingTransaction } from './spending';
 
-/**
- * Figures the dashboard and the income screen read at a glance.
- *
- * Pure over passed-in data. Months are calendar months in UTC and money out is
- * reported as a positive amount, like `trends:overTime`.
- */
+// Figures the dashboard and income screen read at a glance. Pure over passed-in data.
+// Months are calendar months in UTC; money out is a positive amount, like `trends:overTime`.
 
 export interface DatedTransaction extends SpendingTransaction {
   readonly postedDate: string;
@@ -74,10 +70,9 @@ export function periodSpan(now: Date, period: DashboardPeriod, count = MONTHS_SH
 /** Oldest first, ending with the bucket of `now`. */
 export function periodTotals(
   transactions: readonly DatedTransaction[],
-  now: Date,
-  period: DashboardPeriod,
-  count = MONTHS_SHOWN,
+  series: { now: Date; period: DashboardPeriod; count?: number },
 ): PeriodTotals[] {
+  const { now, period, count = MONTHS_SHOWN } = series;
   return Array.from({ length: count }, (_, index) => {
     const start = isoDay(bucketStart(now, period, count - 1 - index));
     const end = isoDay(bucketStart(now, period, count - 2 - index));
@@ -98,7 +93,7 @@ export function monthlyTotals(
   now: Date,
   months = MONTHS_SHOWN,
 ): MonthTotals[] {
-  return periodTotals(transactions, now, 'month', months).map(({ start, ...totals }) => ({
+  return periodTotals(transactions, { now, period: 'month', count: months }).map(({ start, ...totals }) => ({
     month: start.slice(0, 7),
     ...totals,
   }));
@@ -111,10 +106,7 @@ export interface RecurringSpan {
   readonly active: boolean;
 }
 
-/**
- * Monthly recurring cost for each of the last `months` months, oldest first.
- * A charge counts from the month it was first seen; an inactive one stops after its last-seen month.
- */
+/** Monthly recurring cost per month, oldest first. A charge counts from its first-seen month; an inactive one stops after its last-seen month. */
 export function recurringSeries(charges: readonly RecurringSpan[], now: Date, months = MONTHS_SHOWN): number[] {
   return Array.from({ length: months }, (_, index) => {
     const start = isoDay(bucketStart(now, 'month', months - 1 - index));

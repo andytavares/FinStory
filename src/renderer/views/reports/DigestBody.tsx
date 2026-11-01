@@ -4,6 +4,22 @@ import { spend } from '../../lib/format';
 import { rollUp } from './rollUp';
 import type { DigestContent } from './detailTypes';
 
+function WorthNoticing({ claims }: { claims: DigestContent['deviations'] }): React.JSX.Element {
+  return (
+    <Card title="Worth noticing">
+      <ul className="ds-muted m-0 mt-2 flex list-none flex-col gap-1 p-0">
+        {claims.map((d) => (
+          <li key={d.categoryId}>
+            <span className="text-[var(--color-ink)]">{d.categoryName}</span> was{' '}
+            {d.multiple ? `${d.multiple.toFixed(1)}×` : ''} {d.direction} your normal range at{' '}
+            <span className="ds-num">{spend(d.actualMinor)}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export function DigestBody({ content }: { content: DigestContent }): React.JSX.Element {
   if (!content.hadActivity) {
     return (
@@ -19,19 +35,7 @@ export function DigestBody({ content }: { content: DigestContent }): React.JSX.E
 
   return (
     <>
-      {claims.length > 0 && (
-        <Card title="Worth noticing">
-          <ul className="ds-muted m-0 mt-2 flex list-none flex-col gap-1 p-0">
-            {claims.map((d) => (
-              <li key={d.categoryId}>
-                <span className="text-[var(--color-ink)]">{d.categoryName}</span> was{' '}
-                {d.multiple ? `${d.multiple.toFixed(1)}×` : ''} {d.direction} your normal range at{' '}
-                <span className="ds-num">{spend(d.actualMinor)}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
+      {claims.length > 0 && <WorthNoticing claims={claims} />}
       <Card>
         <CategoryBars data={rollUp(content.categoryTotals)} title="Spending this period" />
       </Card>

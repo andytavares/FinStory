@@ -21,6 +21,25 @@ function SyncHistoryCard({ data }: { data: HealthData }): React.JSX.Element {
   );
 }
 
+function EmptyNotes({ contents }: { contents: HealthData['contents'] }): React.JSX.Element {
+  return (
+    <>
+      {contents.transactions === 0 && (
+          <p className="ds-faint mt-3 text-[12px]">
+            Nothing has been imported yet, which is why every screen is empty. Use Sync now on the
+            Accounts screen — it reports exactly what Plaid said.
+          </p>
+        )}
+        {contents.transactions > 0 && contents.transactionsInEverydayAccounts === 0 && (
+          <p className="ds-faint mt-3 text-[12px]">
+            Every imported transaction sits in an account not marked day-to-day, so spending totals
+            read zero. Turn accounts back on under Accounts.
+          </p>
+        )}
+    </>
+  );
+}
+
 /** An empty dashboard has two causes: nothing was imported, or it all sits in an excluded account. */
 function StoredCard({ data }: { data: HealthData }): React.JSX.Element {
   const { contents, metrics } = data;
@@ -43,18 +62,7 @@ function StoredCard({ data }: { data: HealthData }): React.JSX.Element {
           </ListRow>
         ))}
       </ListRows>
-      {contents.transactions === 0 && (
-        <p className="ds-faint mt-3 text-[12px]">
-          Nothing has been imported yet, which is why every screen is empty. Use Sync now on the
-          Accounts screen — it reports exactly what Plaid said.
-        </p>
-      )}
-      {contents.transactions > 0 && contents.transactionsInEverydayAccounts === 0 && (
-        <p className="ds-faint mt-3 text-[12px]">
-          Every imported transaction sits in an account not marked day-to-day, so spending totals
-          read zero. Turn accounts back on under Accounts.
-        </p>
-      )}
+      <EmptyNotes contents={contents} />
     </Card>
   );
 }

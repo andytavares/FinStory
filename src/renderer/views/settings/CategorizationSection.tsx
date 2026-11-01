@@ -23,10 +23,7 @@ export function CategorizationSection({ settings }: { settings: AppSettings }): 
     update({ modelProvider: next });
   };
 
-  /**
-   * Categorization falls back to local heuristics on any model error, so a bad
-   * key looks like a good one. This calls the model for real and prints the answer.
-   */
+  /** Categorization falls back to heuristics on any model error, so a bad key looks good; this calls the model for real. */
   const test = async (): Promise<void> => {
     setTesting(true);
     setNote(null);
@@ -77,15 +74,13 @@ export function CategorizationSection({ settings }: { settings: AppSettings }): 
   );
 }
 
-function OllamaStatus({
-  models,
-  version,
-  checking,
-}: {
-  models: Query<OllamaModel[]>;
-  version: string | undefined;
-  checking: boolean;
-}): React.JSX.Element {
+interface OllamaStatusProps {
+  readonly models: Query<OllamaModel[]>;
+  readonly version: string | undefined;
+  readonly checking: boolean;
+}
+
+function OllamaStatus({ models, version, checking }: OllamaStatusProps): React.JSX.Element {
   if (models.error) return <Chip tone="bad">{models.error}</Chip>;
   if (models.loading || checking) return <Chip>Checking Ollama…</Chip>;
   return <Chip tone="ok" dot="var(--color-positive)">{version ? `Ollama ${version} running` : 'Ollama running'}</Chip>;

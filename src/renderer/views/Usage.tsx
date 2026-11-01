@@ -10,17 +10,23 @@ type Period = '7' | '30' | 'all';
 
 const PERIOD_DAYS: Record<Period, 7 | 30 | null> = { '7': 7, '30': 30, all: null };
 
+const PERIOD_OPTIONS: readonly { value: Period; label: string }[] = [
+  { value: '7', label: '7 days' },
+  { value: '30', label: '30 days' },
+  { value: 'all', label: 'All' },
+];
+
+function exportCsv(setMessage: (message: string | null) => void): void {
+  void call<{ ok: boolean; path?: string }>('usage:export')
+    .then((r) => setMessage(r.ok ? 'Exported.' : null))
+    .catch((e: { message?: string }) => setMessage(e.message ?? 'That did not work'));
+}
+
 export function Usage(): React.JSX.Element {
   const [period, setPeriod] = useState<Period>('30');
   const days = PERIOD_DAYS[period];
   const summary = useQuery<UsageSummary>('usage:summary', { days });
   const [message, setMessage] = useState<string | null>(null);
-
-  const exportCsv = (): void => {
-    void call<{ ok: boolean; path?: string }>('usage:export')
-      .then((r) => setMessage(r.ok ? 'Exported.' : null))
-      .catch((e: { message?: string }) => setMessage(e.message ?? 'That did not work'));
-  };
 
   const s = summary.data;
   return (
@@ -35,13 +41,9 @@ export function Usage(): React.JSX.Element {
               label="Period"
               value={period}
               onChange={setPeriod}
-              options={[
-                { value: '7', label: '7 days' },
-                { value: '30', label: '30 days' },
-                { value: 'all', label: 'All' },
-              ]}
+              options={PERIOD_OPTIONS}
             />
-            <Button onClick={exportCsv}>Export CSV</Button>
+            <Button onClick={() => exportCsv(setMessage)}>Export CSV</Button>
           </>
         }
       />

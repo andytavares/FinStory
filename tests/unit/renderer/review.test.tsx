@@ -5,26 +5,28 @@ import { Review } from '@renderer/views/Review';
 
 afterEach(cleanup);
 
+const reviewTransaction = (id: string, name: string) => ({
+  id,
+  amountMinor: -1500,
+  merchantName: name,
+  merchantKey: name.toLowerCase(),
+  description: name.toUpperCase(),
+  postedDate: '2026-10-31',
+  categoryId: 'groceries',
+  confidence: 0.5,
+  needsReview: true,
+  isInternalTransfer: false,
+  isRecurring: false,
+  originalCurrency: null,
+  originalAmountMinor: null,
+  userMerchantName: null,
+  userNote: null,
+  userExcluded: false,
+  userRecurringOverride: null,
+});
+
 const item = (id: string, name: string, over: Record<string, unknown> = {}) => ({
-  transaction: {
-    id,
-    amountMinor: -1500,
-    merchantName: name,
-    merchantKey: name.toLowerCase(),
-    description: name.toUpperCase(),
-    postedDate: '2026-10-31',
-    categoryId: 'groceries',
-    confidence: 0.5,
-    needsReview: true,
-    isInternalTransfer: false,
-    isRecurring: false,
-    originalCurrency: null,
-    originalAmountMinor: null,
-    userMerchantName: null,
-    userNote: null,
-    userExcluded: false,
-    userRecurringOverride: null,
-  },
+  transaction: reviewTransaction(id, name),
   guessCategoryId: 'groceries',
   guessCategoryName: 'Groceries',
   suggestions: [

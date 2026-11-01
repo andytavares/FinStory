@@ -17,16 +17,14 @@ function nextDepositLine(source: IncomeSourceView): string {
   return `${date} · ${days === 0 ? 'today' : `in ${days} day${days === 1 ? '' : 's'}`}`;
 }
 
+interface SourceCardProps {
+  readonly source: IncomeSourceView;
+  readonly actions: { onChanged: () => void; onOpenMerchant: (merchantKey: string) => void };
+}
+
 /** One income source: next deposit, status, and the confirm / see / not-income actions. */
-export function SourceCard({
-  source,
-  onChanged,
-  onOpenMerchant,
-}: {
-  source: IncomeSourceView;
-  onChanged: () => void;
-  onOpenMerchant: (merchantKey: string) => void;
-}): React.JSX.Element {
+export function SourceCard({ source, actions }: SourceCardProps): React.JSX.Element {
+  const { onChanged, onOpenMerchant } = actions;
   const run = (channel: string): void => void call(channel, { id: source.id }).then(onChanged);
   return (
     <Card>
@@ -34,7 +32,10 @@ export function SourceCard({
         <MerchantMark name={source.merchantName} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{source.merchantName}</div>
-          <div className="ds-caption">{CADENCE_LABEL[source.cadence] ?? source.cadence} · {accountLabel(source.accountName, source.accountMask)}</div>
+          <div className="ds-caption">
+            {CADENCE_LABEL[source.cadence] ?? source.cadence} ·{' '}
+            {accountLabel(source.accountName, source.accountMask)}
+          </div>
         </div>
         {source.isUserConfirmed ? (
           <Chip tone="ok">Confirmed</Chip>
@@ -45,11 +46,20 @@ export function SourceCard({
       <div className="ds-row mt-3.5 items-end">
         <div>
           <Eyebrow>Next deposit</Eyebrow>
-          <Money minor={source.expectedAmountMinor} direction className="ds-num block text-[22px] font-semibold" />
+          <Money
+            minor={source.expectedAmountMinor}
+            direction
+            className="ds-num block text-[22px] font-semibold"
+          />
           <div className="ds-caption">{nextDepositLine(source)}</div>
         </div>
         <div className="ml-auto">
-          <Sparkline values={Array(8).fill(source.expectedAmountMinor) as number[]} color="var(--color-positive)" width={180} height={40} />
+          <Sparkline
+            values={Array(8).fill(source.expectedAmountMinor) as number[]}
+            color="var(--color-positive)"
+            width={180}
+            height={40}
+          />
         </div>
       </div>
       <div className="ds-row mt-3">
@@ -61,7 +71,12 @@ export function SourceCard({
         <Button size="sm" onClick={() => onOpenMerchant(source.merchantKey)}>
           See deposits
         </Button>
-        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => run('income:clearOverride')}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto"
+          onClick={() => run('income:clearOverride')}
+        >
           Not income
         </Button>
       </div>

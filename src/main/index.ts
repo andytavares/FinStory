@@ -154,19 +154,40 @@ async function bootstrap(): Promise<void> {
     return { provider, model, localOnly: built.localOnly, reason: built.reason };
   };
 
+  /** The Plaid client, or null while the credentials are missing. */
+  const plaidClient = async (): Promise<ReturnType<typeof createPlaidClient> | null> => {
+    const clientId = await readSecret('plaidClientId');
+    const secret = await readSecret('plaidSecret');
+    if (!clientId || !secret) return null;
+    const environment = (await readSetting('plaidEnv')) === 'production' ? 'production' : 'sandbox';
+    return createPlaidClient({ clientId, secret, environment });
+  };
+
+  type PlaidInstitution = Awaited<ReturnType<typeof selectPlaidInstitutions>>[number];
+  const plaidSource = (inst: PlaidInstitution, client: ReturnType<typeof createPlaidClient>) => ({
+    institutionId: inst.id,
+    cursor: inst.syncCursor,
+    fetch: async (cursor: string | null) => {
+      const accessToken = await secretStore.get(accessTokenAccount(inst.id));
+      if (!accessToken)
+        throw new Error(`No access token in the Keychain for ${inst.institutionName}`);
+      const response = await client.transactionsSync({
+        access_token: accessToken,
+        ...(cursor ? { cursor } : {}),
+      });
+      // Plaid's Transaction type carries more fields than ingestion reads;
+      // the shape is structurally compatible with PlaidTransactionLike.
+      return response.data as unknown as SyncPage;
+    },
+  });
+
   /** Sync every connected institution. Called on launch, on a timer, and after linking. */
   const syncAll = async (): Promise<SyncOutcome> => {
     const rows = await selectPlaidInstitutions(handle.db);
     if (rows.length === 0) return { ...EMPTY_SYNC, blocked: 'no_institutions' };
 
-    const clientId = await readSecret('plaidClientId');
-    const secret = await readSecret('plaidSecret');
-    if (!clientId || !secret) return { ...EMPTY_SYNC, blocked: 'no_credentials' };
-    const client = createPlaidClient({
-      clientId,
-      secret,
-      environment: (await readSetting('plaidEnv')) === 'production' ? 'production' : 'sandbox',
-    });
+    const client = await plaidClient();
+    if (!client) return { ...EMPTY_SYNC, blocked: 'no_credentials' };
 
     const store = new DrizzleSyncStore(handle, clock);
     const syncPipeline = await buildPipeline();
@@ -177,24 +198,7 @@ async function bootstrap(): Promise<void> {
       trackAlerts: (run) => services.usage.track('job:alerts', 'background', run),
     });
 
-    const sources = await Promise.all(
-      rows.map(async (inst) => ({
-        institutionId: inst.id,
-        cursor: inst.syncCursor,
-        fetch: async (cursor: string | null) => {
-          const accessToken = await secretStore.get(accessTokenAccount(inst.id));
-          if (!accessToken)
-            throw new Error(`No access token in the Keychain for ${inst.institutionName}`);
-          const response = await client.transactionsSync({
-            access_token: accessToken,
-            ...(cursor ? { cursor } : {}),
-          });
-          // Plaid's Transaction type carries more fields than ingestion reads;
-          // the shape is structurally compatible with PlaidTransactionLike.
-          return response.data as unknown as SyncPage;
-        },
-      })),
-    );
+    const sources = rows.map((inst) => plaidSource(inst, client));
 
     const result = await engine.run(sources);
     for (const failure of result.failures) {
@@ -205,17 +209,7 @@ async function bootstrap(): Promise<void> {
     // recurring and income lists stay permanently empty.
     await refreshAnalysisJob();
 
-    const outcome: SyncOutcome = {
-      added: result.added,
-      updated: result.updated,
-      removed: result.removed,
-      skipped: result.skipped,
-      institutionCount: rows.length,
-      failures: result.failures.map((f) => f.message),
-      modelFailures: syncPipeline.modelFailures,
-      modelError: syncPipeline.lastModelError,
-      blocked: null,
-    };
+    const outcome = syncOutcome(result, rows.length, syncPipeline);
     mainWindow?.webContents.send('sync:complete', outcome);
     return outcome;
   };
@@ -361,6 +355,59 @@ function createTray(): Tray {
 
 // One instance only: two processes writing one SQLite database is a corruption
 // risk, and two schedulers would double every alert.
+function syncOutcome(
+  result: Awaited<ReturnType<SyncEngine['run']>>,
+  institutionCount: number,
+  pipeline: CategorizationPipeline,
+): SyncOutcome {
+  return {
+    added: result.added,
+    updated: result.updated,
+    removed: result.removed,
+    skipped: result.skipped,
+    institutionCount,
+    failures: result.failures.map((f) => f.message),
+    modelFailures: pipeline.modelFailures,
+    modelError: pipeline.lastModelError,
+    blocked: null,
+  };
+}
+
+/** Gate startup on encryption (constitution VII): fail loudly rather than write an unencrypted database. */
+async function encryptionAvailable(): Promise<boolean> {
+  try {
+    await assertEncryptionAvailable(new ElectronSecretBackend());
+    return true;
+  } catch (error) {
+    if (error instanceof EncryptionUnavailableError) {
+      dialog.showErrorBox('Money cannot start', error.message);
+    }
+    app.quit();
+    return false;
+  }
+}
+
+/** A native dialog can be missed or dismissed, so also show the reason in a window: never a silent blank screen. */
+const HTML_UNSAFE = /[<>&]/g;
+
+function failurePageHtml(message: string): string {
+  const safe = message.replace(HTML_UNSAFE, '');
+  return [
+    '<body style="background:#0d151c;color:#e8eaed;font:13px system-ui;padding:32px">',
+    '<h1 style="font-size:16px;margin:0 0 12px">Money could not start</h1>',
+    '<p style="color:#8b95a1;margin:0 0 16px">Your data has not been changed.</p>',
+    `<pre style="white-space:pre-wrap;background:#161e26;padding:12px;border:1px solid #2a3441">${safe}</pre>`,
+    '</body>',
+  ].join('\n');
+}
+
+function showStartupFailure(error: unknown): void {
+  const message = error instanceof Error ? error.message : 'The local database could not be opened.';
+  dialog.showErrorBox('Money could not start', message);
+  const failureWindow = new BrowserWindow({ width: 620, height: 320, show: true });
+  void failureWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(failurePageHtml(message))}`);
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -371,43 +418,16 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(
     async () => {
-      // Gate startup on encryption. Constitution VII: fail loudly rather than
-      // writing an unencrypted financial database.
-      try {
-        await assertEncryptionAvailable(new ElectronSecretBackend());
-      } catch (error) {
-        if (error instanceof EncryptionUnavailableError) {
-          dialog.showErrorBox('Money cannot start', error.message);
-        }
-        app.quit();
-        return;
-      }
-
-      // Launch at login so background sync resumes without the user thinking
-      // about it. The window stays hidden until asked for.
-      // Compose the application. Everything below this point is real wiring:
-      // without it the process runs but no IPC channel is answered.
+      if (!(await encryptionAvailable())) return;
+      // Everything below is real wiring: without it no IPC channel is answered.
       try {
         await bootstrap();
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'The local database could not be opened.';
-        // A native dialog can be missed or dismissed; show the reason in a window
-        // too, so the failure is never a silent blank screen.
-        dialog.showErrorBox('Money could not start', message);
-        const failureWindow = new BrowserWindow({ width: 620, height: 320, show: true });
-        void failureWindow.loadURL(
-          `data:text/html;charset=utf-8,${encodeURIComponent(
-            `<body style="background:#0d151c;color:#e8eaed;font:13px system-ui;padding:32px">
-             <h1 style="font-size:16px;margin:0 0 12px">Money could not start</h1>
-             <p style="color:#8b95a1;margin:0 0 16px">Your data has not been changed.</p>
-             <pre style="white-space:pre-wrap;background:#161e26;padding:12px;border:1px solid #2a3441">${message.replace(/[<>&]/g, '')}</pre>
-           </body>`,
-          )}`,
-        );
+        showStartupFailure(error);
         return;
       }
 
+      // Launch at login so background sync resumes; the window stays hidden until asked for.
       app.setLoginItemSettings({ openAtLogin: true });
       mainWindow = createWindow();
       tray = createTray();

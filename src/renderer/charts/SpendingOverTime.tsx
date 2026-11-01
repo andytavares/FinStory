@@ -76,18 +76,18 @@ export function SpendingOverTime({
             <span className="text-[var(--color-ink-faint)]">Click a period to open it</span>
           )}
           {showShapeToggle && (
-          <Segmented
-            label="Chart shape"
-            value={shape}
-            onChange={(next) => {
-              setShape(next);
-              trackAction('ui:chart-mode');
-            }}
-            options={[
-              { value: 'bars', label: 'Bars' },
-              { value: 'line', label: 'Line' },
-            ]}
-          />
+            <Segmented
+              label="Chart shape"
+              value={shape}
+              onChange={(next) => {
+                setShape(next);
+                trackAction('ui:chart-mode');
+              }}
+              options={[
+                { value: 'bars', label: 'Bars' },
+                { value: 'line', label: 'Line' },
+              ]}
+            />
           )}
         </span>
       </figcaption>
@@ -119,9 +119,7 @@ export function SpendingOverTime({
             />
             <Tooltip
               cursor={
-                shape === 'line'
-                  ? { stroke: GRID_STROKE, strokeDasharray: '3 3' }
-                  : TOOLTIP_CURSOR
+                shape === 'line' ? { stroke: GRID_STROKE, strokeDasharray: '3 3' } : TOOLTIP_CURSOR
               }
               contentStyle={TOOLTIP_STYLE}
               labelStyle={TOOLTIP_LABEL_STYLE}

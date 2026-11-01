@@ -51,6 +51,71 @@ const DASHBOARD = {
   },
 };
 
+const CAFE_PARIS_ROW = {
+  id: 't1',
+  amountMinor: -4312,
+  merchantName: 'Cafe Paris',
+  description: 'CAFE PARIS',
+  postedDate: '2026-08-29',
+  categoryId: 'dining',
+  confidence: 0.9,
+  needsReview: false,
+  isInternalTransfer: false,
+  originalCurrency: 'EUR',
+  originalAmountMinor: 4000,
+  userMerchantName: null,
+  userNote: null,
+  userExcluded: false,
+  userRecurringOverride: null,
+};
+
+const CHASE_WITH_TWO_ACCOUNTS = {
+  id: 'i1',
+  institutionName: 'Chase',
+  status: 'healthy',
+  lastSyncedAt: new Date().toISOString(),
+  accountCount: 2,
+  accounts: [
+    {
+      id: 'a1',
+      name: 'Everyday Checking',
+      mask: '4321',
+      type: 'depository',
+      subtype: 'checking',
+      currentBalanceMinor: 84_700,
+      balanceAsOf: new Date().toISOString(),
+      isEveryday: true,
+    },
+    {
+      id: 'a2',
+      name: 'Rainy Day Savings',
+      mask: '9911',
+      type: 'depository',
+      subtype: 'savings',
+      currentBalanceMinor: 1_200_000,
+      balanceAsOf: new Date().toISOString(),
+      isEveryday: false,
+    },
+  ],
+};
+
+const HEALTH_BASE = {
+      categorization: { provider: 'ollama', model: 'llama3.1:8b', localOnly: true, reason: 'ok' },
+      encryption: { databaseEncrypted: true, keysInKeychain: true },
+      updates: { version: '1.0.0' },
+      syncHistory: [],
+      contents: {
+        institutions: 1,
+        accounts: 1,
+        everydayAccounts: 1,
+        transactions: 12,
+        transactionsInEverydayAccounts: 12,
+        transactionsThisMonth: 4,
+        categorized: 10,
+        uncategorizable: 2,
+      },
+};
+
 describe('Dashboard', () => {
   beforeEach(() => installMoneyBridge({ 'dashboard:get': DASHBOARD }));
 
@@ -111,23 +176,7 @@ describe('Register', () => {
     const bridge = {
       'transactions:query': {
         rows: [
-          {
-            id: 't1',
-            amountMinor: -4312,
-            merchantName: 'Cafe Paris',
-            description: 'CAFE PARIS',
-            postedDate: '2026-08-29',
-            categoryId: 'dining',
-            confidence: 0.9,
-            needsReview: false,
-            isInternalTransfer: false,
-            originalCurrency: 'EUR',
-            originalAmountMinor: 4000,
-            userMerchantName: null,
-            userNote: null,
-            userExcluded: false,
-            userRecurringOverride: null,
-          },
+          CAFE_PARIS_ROW,
         ],
         totalCount: 1,
         dataComplete: true,
@@ -244,20 +293,7 @@ describe('Reports, Health, Settings, Categories', () => {
   it('shows per-account sync status and the redaction promise', async () => {
     installMoneyBridge({
       'health:get': {
-        categorization: { provider: 'ollama', model: 'llama3.1:8b', localOnly: true, reason: 'ok' },
-        encryption: { databaseEncrypted: true, keysInKeychain: true },
-        updates: { version: '1.0.0' },
-        syncHistory: [],
-        contents: {
-          institutions: 1,
-          accounts: 1,
-          everydayAccounts: 1,
-          transactions: 12,
-          transactionsInEverydayAccounts: 12,
-          transactionsThisMonth: 4,
-          categorized: 10,
-          uncategorizable: 2,
-        },
+        ...HEALTH_BASE,
         perAccount: [
           {
             institutionId: 'i1',
@@ -552,35 +588,7 @@ describe('Accounts', () => {
   it('lists connected institutions with their sync age', async () => {
     installMoneyBridge({
       'institutions:list': [
-        {
-          id: 'i1',
-          institutionName: 'Chase',
-          status: 'healthy',
-          lastSyncedAt: new Date().toISOString(),
-          accountCount: 2,
-          accounts: [
-            {
-              id: 'a1',
-              name: 'Everyday Checking',
-              mask: '4321',
-              type: 'depository',
-              subtype: 'checking',
-              currentBalanceMinor: 84_700,
-              balanceAsOf: new Date().toISOString(),
-              isEveryday: true,
-            },
-            {
-              id: 'a2',
-              name: 'Rainy Day Savings',
-              mask: '9911',
-              type: 'depository',
-              subtype: 'savings',
-              currentBalanceMinor: 1_200_000,
-              balanceAsOf: new Date().toISOString(),
-              isEveryday: false,
-            },
-          ],
-        },
+        CHASE_WITH_TWO_ACCOUNTS,
       ],
     });
     render(<Accounts />);
@@ -609,63 +617,52 @@ describe('Accounts', () => {
   });
 });
 
+const SHELL_BRIDGE = {
+  'setup:status': {
+    plaidConfigured: true,
+    plaidClientIdConfigured: true,
+    plaidSecretConfigured: true,
+    plaidEnv: 'sandbox' as const,
+    categorizationConfigured: true,
+    accountCount: 1,
+    encryptionAvailable: true,
+  },
+  'dashboard:get': DASHBOARD,
+  'recurring:list': [],
+  'income:list': [],
+  'review:queue': { rows: [], totalCount: 0 },
+  'reports:list': [],
+  'alerts:list': [],
+  'alertRules:list': [],
+  'categories:list': [],
+  'institutions:list': [],
+  'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
+  'health:get': {
+    ...HEALTH_BASE,
+    perAccount: [],
+    metrics: {
+      syncDurationMsP50: null,
+      transactionsProcessed: 0,
+      localResolutionRate: null,
+      droppedDiagnosticEvents: 0,
+    },
+  },
+  'settings:get': {
+    confidenceThreshold: 0.8,
+    pollIntervalMinutes: 60,
+    categorizationMode: 'hybrid',
+    modelProvider: 'anthropic',
+    anthropicModel: 'claude-haiku-4-5',
+    ollamaModel: '',
+    ollamaBaseUrl: 'http://localhost:11434',
+    timeZone: 'America/New_York',
+  },
+  'models:listOllama': [],
+};
+
 describe('App shell navigation covers every area', () => {
   it('routes to each view without error', async () => {
-    installMoneyBridge({
-      'setup:status': {
-        plaidConfigured: true,
-        plaidClientIdConfigured: true,
-        plaidSecretConfigured: true,
-        plaidEnv: 'sandbox' as const,
-        categorizationConfigured: true,
-        accountCount: 1,
-        encryptionAvailable: true,
-      },
-      'dashboard:get': DASHBOARD,
-      'recurring:list': [],
-      'income:list': [],
-      'review:queue': { rows: [], totalCount: 0 },
-      'reports:list': [],
-      'alerts:list': [],
-      'alertRules:list': [],
-      'categories:list': [],
-      'institutions:list': [],
-      'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
-      'health:get': {
-        categorization: { provider: 'ollama', model: 'llama3.1:8b', localOnly: true, reason: 'ok' },
-        encryption: { databaseEncrypted: true, keysInKeychain: true },
-        updates: { version: '1.0.0' },
-        syncHistory: [],
-        contents: {
-          institutions: 1,
-          accounts: 1,
-          everydayAccounts: 1,
-          transactions: 12,
-          transactionsInEverydayAccounts: 12,
-          transactionsThisMonth: 4,
-          categorized: 10,
-          uncategorizable: 2,
-        },
-        perAccount: [],
-        metrics: {
-          syncDurationMsP50: null,
-          transactionsProcessed: 0,
-          localResolutionRate: null,
-          droppedDiagnosticEvents: 0,
-        },
-      },
-      'settings:get': {
-        confidenceThreshold: 0.8,
-        pollIntervalMinutes: 60,
-        categorizationMode: 'hybrid',
-        modelProvider: 'anthropic',
-        anthropicModel: 'claude-haiku-4-5',
-        ollamaModel: '',
-        ollamaBaseUrl: 'http://localhost:11434',
-        timeZone: 'America/New_York',
-      },
-      'models:listOllama': [],
-    });
+    installMoneyBridge(SHELL_BRIDGE);
     render(<App />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Dashboard' })).toBeDefined());
 

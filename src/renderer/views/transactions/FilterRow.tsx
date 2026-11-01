@@ -33,7 +33,10 @@ const DIRECTIONS = [
 function Totals({ rows }: { rows: readonly TransactionView[] }): React.JSX.Element {
   const counted = rows.filter((t) => !t.isInternalTransfer);
   const sum = (keep: (minor: number) => boolean): number =>
-    counted.map((t) => t.amountMinor).filter(keep).reduce((a, b) => a + b, 0);
+    counted
+      .map((t) => t.amountMinor)
+      .filter(keep)
+      .reduce((a, b) => a + b, 0);
   return (
     <span className="ds-num ml-auto">
       <span className="ds-pos">{signedMoney(sum((m) => m > 0))}</span>{' '}
@@ -43,21 +46,56 @@ function Totals({ rows }: { rows: readonly TransactionView[] }): React.JSX.Eleme
   );
 }
 
-export function FilterRow({
-  filters,
-  onChange,
-  accounts,
-  categories,
-  needsReviewCount,
-  rows,
-}: {
-  filters: Filters;
-  onChange: (patch: Partial<Filters>) => void;
-  accounts: readonly AccountRow[];
-  categories: readonly CategoryOption[];
-  needsReviewCount: number;
-  rows: readonly TransactionView[];
-}): React.JSX.Element {
+interface FilterRowProps {
+  readonly filter: {
+    readonly value: Filters;
+    readonly onChange: (patch: Partial<Filters>) => void;
+  };
+  /** What the account and category menus offer. */
+  readonly choices: {
+    readonly accounts: readonly AccountRow[];
+    readonly categories: readonly CategoryOption[];
+  };
+  /** What the current filters matched. */
+  readonly results: {
+    readonly rows: readonly TransactionView[];
+    readonly needsReviewCount: number;
+  };
+}
+
+function FilterMenus({
+  filter,
+  choices,
+}: Pick<FilterRowProps, 'filter' | 'choices'>): React.JSX.Element {
+  const { value: filters, onChange } = filter;
+  const { accounts, categories } = choices;
+  return (
+    <>
+      <FilterMenu
+        labels={{ title: 'Account', any: 'All' }}
+        choice={{ value: filters.accountId, onChange: (accountId) => onChange({ accountId }) }}
+        options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+      />
+      <FilterMenu
+        labels={{ title: 'Category', any: 'Any' }}
+        choice={{ value: filters.categoryId, onChange: (categoryId) => onChange({ categoryId }) }}
+        options={assignableCategories(categories).map((c) => ({ value: c.id, label: c.label }))}
+      />
+      <FilterMenu
+        labels={{ title: '', any: 'All dates' }}
+        choice={{
+          value: filters.period?.key ?? null,
+          onChange: (key) => onChange({ period: key ? periodFor(key) : null }),
+        }}
+        options={PERIOD_OPTIONS}
+      />
+    </>
+  );
+}
+
+export function FilterRow({ filter, choices, results }: FilterRowProps): React.JSX.Element {
+  const { value: filters, onChange } = filter;
+  const { rows, needsReviewCount } = results;
   return (
     <div className="ds-row flex-wrap">
       <Segmented
@@ -69,27 +107,7 @@ export function FilterRow({
           trackAction('ui:filter');
         }}
       />
-      <FilterMenu
-        label="Account"
-        anyLabel="All"
-        value={filters.accountId}
-        onChange={(accountId) => onChange({ accountId })}
-        options={accounts.map((a) => ({ value: a.id, label: a.name }))}
-      />
-      <FilterMenu
-        label="Category"
-        anyLabel="Any"
-        value={filters.categoryId}
-        onChange={(categoryId) => onChange({ categoryId })}
-        options={assignableCategories(categories).map((c) => ({ value: c.id, label: c.label }))}
-      />
-      <FilterMenu
-        label=""
-        anyLabel="All dates"
-        value={filters.period?.key ?? null}
-        onChange={(key) => onChange({ period: key ? periodFor(key) : null })}
-        options={PERIOD_OPTIONS}
-      />
+      <FilterMenus filter={filter} choices={choices} />
       <Chip
         role="switch"
         aria-checked={filters.needsReviewOnly}

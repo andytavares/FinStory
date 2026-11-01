@@ -1,8 +1,4 @@
-import {
-  BAR_FADED_GRADIENT_ID,
-  BAR_GRADIENT_ID,
-  BAR_HORIZONTAL_GRADIENT_ID,
-} from './theme';
+import { BAR_FADED_GRADIENT_ID, BAR_GRADIENT_ID, BAR_HORIZONTAL_GRADIENT_ID } from './theme';
 
 /** The #8aa2ff to #4e6be8 bar fills; rendered once inside each bar chart. */
 export function BarGradients(): React.JSX.Element {

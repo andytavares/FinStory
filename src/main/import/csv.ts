@@ -17,28 +17,37 @@ const ALIASES: Record<keyof CsvColumnMapping, string[]> = {
   checkNumber: ['check #', 'check number', 'num', 'ref'],
 };
 
+/** Reads a quoted field body from `start`, past the opening quote. `next` is the index after the closing quote. */
+function readQuoted(text: string, start: number): { value: string; next: number } {
+  let value = '';
+  let i = start;
+  for (; i < text.length; i += 1) {
+    if (text[i] !== '"') value += text[i];
+    else if (text[i + 1] === '"') {
+      value += '"';
+      i += 1;
+    } else return { value, next: i + 1 };
+  }
+  return { value, next: i };
+}
+
 /** RFC 4180: quoted commas, doubled quotes and CRLF. */
 function splitRecords(text: string): string[][] {
   const records: string[][] = [];
   let row: string[] = [];
   let field = '';
-  let quoted = false;
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
-    if (quoted) {
-      if (char !== '"') field += char;
-      else if (text[i + 1] === '"') {
-        field += '"';
-        i += 1;
-      } else quoted = false;
-    } else if (char === '"') quoted = true;
-    else if (char === ',') {
+    if (char === '"') {
+      const quoted = readQuoted(text, i + 1);
+      field += quoted.value;
+      i = quoted.next - 1;
+    } else if (char === ',') {
       row.push(field);
       field = '';
     } else if (char === '\n' || char === '\r') {
       if (char === '\r' && text[i + 1] === '\n') i += 1;
-      row.push(field);
-      records.push(row);
+      records.push([...row, field]);
       row = [];
       field = '';
     } else field += char;
@@ -79,15 +88,17 @@ function readAmount(row: string[], mapping: CsvColumnMapping): number | null | '
   return debit === '' && credit === '' ? null : Math.abs(inflow) - Math.abs(outflow);
 }
 
+function unreadableAmount(row: string[], mapping: CsvColumnMapping, rowNumber: number): string {
+  const raw = cell(row, mapping.amount ?? mapping.debit ?? mapping.credit);
+  return `Row ${rowNumber}: unreadable amount '${raw}', skipped`;
+}
+
 function toTransaction(row: string[], mapping: CsvColumnMapping, rowNumber: number): ImportedTransaction | string {
   const rawDate = cell(row, mapping.date);
   const date = parseDate(rawDate);
   if (!date) return `Row ${rowNumber}: unreadable date '${rawDate}', skipped`;
   const amount = readAmount(row, mapping);
-  if (amount === null || amount === 'invalid') {
-    const raw = cell(row, mapping.amount ?? mapping.debit ?? mapping.credit);
-    return `Row ${rowNumber}: unreadable amount '${raw}', skipped`;
-  }
+  if (amount === null || amount === 'invalid') return unreadableAmount(row, mapping, rowNumber);
   return {
     accountLabel: cell(row, mapping.account) || DEFAULT_ACCOUNT,
     date,

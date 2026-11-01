@@ -28,6 +28,47 @@ export interface RunwayPoint {
 
 const GRADIENT_ID = 'ds-runway-gradient';
 
+const X_AXIS = {
+  dataKey: 'date',
+  tick: LABEL_TICK,
+  tickLine: false,
+  axisLine: false,
+  tickFormatter: axisDay,
+  minTickGap: 24,
+} as const;
+
+const Y_AXIS = {
+  tick: VALUE_TICK,
+  tickLine: false,
+  axisLine: false,
+  width: 46,
+  domain: [0, 'auto'],
+  tickFormatter: axisMoney,
+} as const;
+
+const BALANCE_AREA = {
+  dataKey: 'balance',
+  type: 'linear',
+  stroke: POSITIVE,
+  strokeWidth: 2,
+  fill: `url(#${GRADIENT_ID})`,
+  dot: false,
+  isAnimationActive: false,
+} as const;
+
+function floorLabel(floor: number) {
+  return {
+    value: `floor ${moneyCompact(floor)}`,
+    position: 'insideBottomLeft',
+    fill: FLOOR_TEXT,
+    fontSize: 10,
+  } as const;
+}
+
+function endLabel(label: string) {
+  return { value: label, position: 'left', offset: 10, fill: INK, fontSize: 11 } as const;
+}
+
 export function RunwayChart({
   points,
   floor,
@@ -51,32 +92,19 @@ export function RunwayChart({
               <stop offset="1" stopColor={POSITIVE} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <XAxis dataKey="date" tick={LABEL_TICK} tickLine={false} axisLine={false} tickFormatter={axisDay} minTickGap={24} />
-          <YAxis
-            tick={VALUE_TICK}
-            tickLine={false}
-            axisLine={false}
-            width={46}
-            domain={[0, 'auto']}
-            tickFormatter={axisMoney}
-          />
+          <XAxis {...X_AXIS} />
+          <YAxis {...Y_AXIS} />
           <ReferenceArea y1={0} y2={floor} fill={FLOOR_FILL} stroke="none" />
           <ReferenceLine
             y={floor}
             stroke={FLOOR_STROKE}
             strokeDasharray="3 4"
-            label={{ value: `floor ${moneyCompact(floor)}`, position: 'insideBottomLeft', fill: FLOOR_TEXT, fontSize: 10 }}
+            label={floorLabel(floor)}
           />
-          <Area
-            dataKey="balance"
-            type="linear"
-            stroke={POSITIVE}
-            strokeWidth={2}
-            fill={`url(#${GRADIENT_ID})`}
-            dot={false}
-            isAnimationActive={false}
-          />
-          {first && <ReferenceDot x={first.date} y={first.balance} r={4} fill={POSITIVE} stroke="none" />}
+          <Area {...BALANCE_AREA} />
+          {first && (
+            <ReferenceDot x={first.date} y={first.balance} r={4} fill={POSITIVE} stroke="none" />
+          )}
           {last && (
             <ReferenceDot
               x={last.date}
@@ -85,7 +113,7 @@ export function RunwayChart({
               fill={GROUND}
               stroke={POSITIVE}
               strokeWidth={2}
-              label={{ value: label, position: 'left', offset: 10, fill: INK, fontSize: 11 }}
+              label={endLabel(label)}
             />
           )}
         </ComposedChart>

@@ -6,7 +6,38 @@ import { Button, Card, PageHeader } from '../components/ui';
 import { BankCard } from './accounts/BankCard';
 import type { InstitutionSummary } from '@shared/types';
 
+interface LinkSession {
+  hostedLinkUrl: string;
+  linkToken: string;
+}
+
+interface LinkResult {
+  pending?: boolean;
+  accountsAdded?: number;
+}
+
 type LinkState = 'idle' | 'opening' | 'waiting' | 'importing' | 'done';
+
+/** Poll until the user finishes in the browser; `pending` is not an error. Null on timeout. */
+async function pollForLink(linkToken: string): Promise<number | null> {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const result = await call<LinkResult>('link:complete', { linkToken });
+    if (!result.pending) return result.accountsAdded ?? 0;
+  }
+  return null;
+}
+
+function messageOf(error: unknown, fallback: string): string {
+  return (error as { message?: string }).message ?? fallback;
+}
+
+function netSummary(list: InstitutionSummary[] | null): string | null {
+  if (!list || list.length === 0) return null;
+  const accounts = list.flatMap((i) => i.accounts);
+  const netMinor = accounts.reduce((sum, a) => sum + (a.currentBalanceMinor ?? 0), 0);
+  return `Net ${money(netMinor)} across ${accounts.length} account${accounts.length === 1 ? '' : 's'}`;
+}
 
 /** FR-001: connect accounts. Hosted Link opens in the browser (research.md R1). */
 export function Accounts(): React.JSX.Element {
@@ -28,7 +59,7 @@ export function Accounts(): React.JSX.Element {
       });
       institutions.refetch();
     } catch (e) {
-      setSyncNote({ text: (e as { message?: string }).message ?? 'Sync failed', bad: true });
+      setSyncNote({ text: messageOf(e, 'Sync failed'), bad: true });
     } finally {
       setSyncing(false);
     }
@@ -38,42 +69,28 @@ export function Accounts(): React.JSX.Element {
     setError(null);
     setState('opening');
     try {
-      const session = await call<{ hostedLinkUrl: string; linkToken: string }>('link:start');
+      const session = await call<LinkSession>('link:start');
       window.open(session.hostedLinkUrl, '_blank');
       setState('waiting');
 
-      // Poll until the user finishes in the browser. `pending` is not an error.
-      for (let attempt = 0; attempt < 120; attempt += 1) {
-        await new Promise((r) => setTimeout(r, 3000));
-        const result = await call<{ pending?: boolean; accountsAdded?: number }>('link:complete', {
-          linkToken: session.linkToken,
-        });
-        if (result.pending) continue;
+      const accountsAdded = await pollForLink(session.linkToken);
+      if (accountsAdded === null) {
+        setError('Timed out waiting for the connection to finish.');
+        setState('idle');
+      } else {
         setState('importing');
-        setAdded(result.accountsAdded ?? 0);
+        setAdded(accountsAdded);
         setState('done');
-        return;
       }
-      setError('Timed out waiting for the connection to finish.');
-      setState('idle');
     } catch (e) {
-      setError((e as { message?: string }).message ?? 'Could not start the connection');
+      setError(messageOf(e, 'Could not start the connection'));
       setState('idle');
     }
   };
 
   const busy = state === 'opening' || state === 'waiting' || state === 'importing';
   const list = institutions.data;
-  const accountCount = list?.reduce((n, i) => n + i.accounts.length, 0) ?? 0;
-  const netMinor = list?.reduce(
-    (sum, i) => sum + i.accounts.reduce((s, a) => s + (a.currentBalanceMinor ?? 0), 0),
-    0,
-  );
-
-  const summary =
-    list && list.length > 0
-      ? `Net ${money(netMinor ?? 0)} across ${accountCount} account${accountCount === 1 ? '' : 's'}`
-      : null;
+  const summary = netSummary(list);
 
   return (
     <>

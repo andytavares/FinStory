@@ -147,6 +147,76 @@ export interface ServiceDeps {
 
 type TransactionRow = typeof t.transactions.$inferSelect;
 
+interface ReviewContext {
+  readonly aliases: Parameters<typeof resolveMerchantName>[1];
+  readonly categoryNames: ReadonlyMap<string, string>;
+  readonly recurringKeys: Parameters<typeof isRecurringRow>[1];
+  readonly distributions: ReadonlyMap<string, string>;
+  readonly accountLabels: ReadonlyMap<string, { accountName: string; accountMask: string | null }>;
+}
+
+function reviewTransaction(
+  c: CategorizationRecord,
+  tx: TransactionRow,
+  context: ReviewContext,
+) {
+  const { aliases, recurringKeys, accountLabels } = context;
+  return {
+    id: tx.id,
+    amountMinor: tx.amountMinor,
+    merchantName: resolveMerchantName(tx, aliases),
+    merchantKey: tx.merchantKey,
+    isRecurring: isRecurringRow(tx, recurringKeys),
+    description: tx.description,
+    userMerchantName: tx.userMerchantName,
+    userNote: tx.userNote,
+    userExcluded: tx.userExcluded,
+    userRecurringOverride: tx.userRecurringOverride,
+    postedDate: tx.postedDate,
+    categoryId: c.categoryId,
+    confidence: c.confidence,
+    categorySource: c.source,
+    needsReview: true,
+    isInternalTransfer: tx.isInternalTransfer,
+    originalCurrency: tx.originalCurrency,
+    originalAmountMinor: tx.originalAmountMinor,
+    ...accountLabels.get(tx.accountId),
+  };
+}
+
+function reviewItem(
+  c: CategorizationRecord & { reasoning: string | null },
+  tx: TransactionRow,
+  context: ReviewContext,
+) {
+  const { categoryNames, distributions } = context;
+  return {
+    transaction: reviewTransaction(c, tx, context),
+    guessCategoryId: c.categoryId,
+    // The name, because an identifier is not a name. The model quotes
+    // taxonomy ids back in its reasoning, so that text is cleaned too.
+    guessCategoryName: categoryNames.get(c.categoryId) ?? c.categoryId,
+    suggestions: suggestCategoryIds(c.categoryId, distributions.get(tx.merchantKey ?? '')).map((categoryId) => ({
+      categoryId,
+      name: categoryNames.get(categoryId) ?? categoryId,
+    })),
+    confidence: c.confidence,
+    reasoning: c.reasoning ? humanizeCategoryIds(c.reasoning, categoryNames) : null,
+  };
+}
+
+function countOf(counts: ReadonlyMap<string, number>, id: string): number {
+  return counts.get(id) ?? 0;
+}
+
+function cashFlowOf(transactions: Parameters<typeof spendingTotalMinor>[0]) {
+  const incomeMinor = transactions
+    .filter((x) => x.amountMinor > 0 && !x.isInternalTransfer)
+    .reduce((a, x) => a + x.amountMinor, 0);
+  const spendingMinor = spendingTotalMinor(transactions);
+  return { incomeMinor, spendingMinor, netMinor: incomeMinor + spendingMinor };
+}
+
 export class Services implements AppServices {
   private pendingLinkToken: string | null = null;
   /** Set by cancelRecategorize; read by the loop between transactions. */
@@ -278,20 +348,19 @@ export class Services implements AppServices {
     const { accessToken, itemId } = await exchangePublicToken(client, publicToken);
     const fetched = await fetchItemAccounts(client, accessToken);
 
-    const institutionId = `inst_${uuid().slice(0, 8)}`;
-    await this.deps.store.set(accessTokenAccount(institutionId), accessToken);
-    await this.db.insert(t.institutions).values({
-      id: institutionId,
-      plaidItemId: itemId,
-      accessTokenEncrypted: '',
-      institutionName: fetched.institutionName,
-      syncCursor: null,
-      status: 'healthy',
-      lastSyncedAt: null,
-      lastAttemptedSyncAt: null,
-      createdAt: this.deps.clock.now().toISOString(),
-    });
-    for (const a of fetched.accounts) {
+    const institutionId = await this.saveLinkedItem(accessToken, itemId, fetched);
+
+    this.pendingLinkToken = null;
+    // Null cursor means a full historical backfill on this first sync (FR-004).
+    await this.deps.sync();
+    return { institutionId, accountsAdded: fetched.accounts.length };
+  }
+
+  private async saveLinkedAccounts(
+    institutionId: string,
+    accounts: Awaited<ReturnType<typeof fetchItemAccounts>>['accounts'],
+  ): Promise<void> {
+    for (const a of accounts) {
       await this.db.insert(t.accounts).values({
         id: `acct_${uuid().slice(0, 8)}`,
         institutionId,
@@ -307,11 +376,28 @@ export class Services implements AppServices {
         isEveryday: isEverydayAccount(a.type, a.subtype),
       });
     }
+  }
 
-    this.pendingLinkToken = null;
-    // Null cursor means a full historical backfill on this first sync (FR-004).
-    await this.deps.sync();
-    return { institutionId, accountsAdded: fetched.accounts.length };
+  private async saveLinkedItem(
+    accessToken: string,
+    itemId: string,
+    fetched: Awaited<ReturnType<typeof fetchItemAccounts>>,
+  ): Promise<string> {
+    const institutionId = `inst_${uuid().slice(0, 8)}`;
+    await this.deps.store.set(accessTokenAccount(institutionId), accessToken);
+    await this.db.insert(t.institutions).values({
+      id: institutionId,
+      plaidItemId: itemId,
+      accessTokenEncrypted: '',
+      institutionName: fetched.institutionName,
+      syncCursor: null,
+      status: 'healthy',
+      lastSyncedAt: null,
+      lastAttemptedSyncAt: null,
+      createdAt: this.deps.clock.now().toISOString(),
+    });
+    await this.saveLinkedAccounts(institutionId, fetched.accounts);
+    return institutionId;
   }
 
   /** Build a Plaid client from the stored, sealed credentials. */
@@ -431,10 +517,6 @@ export class Services implements AppServices {
     ]);
 
     const breakdown = breakdownByCategory(transactions);
-    const incomeMinor = transactions
-      .filter((x) => x.amountMinor > 0 && !x.isInternalTransfer)
-      .reduce((a, x) => a + x.amountMinor, 0);
-    const spendingMinor = spendingTotalMinor(transactions);
     const runway = await this.runway();
 
     return {
@@ -446,7 +528,7 @@ export class Services implements AppServices {
         currentBalanceMinor: a.currentBalanceMinor,
         balanceAsOf: a.balanceAsOf,
       })),
-      cashFlowMinor: { incomeMinor, spendingMinor, netMinor: incomeMinor + spendingMinor },
+      cashFlowMinor: cashFlowOf(transactions),
       categoryBreakdown: {
         ...this.namedRows(breakdown, names, parents, uncounted),
         ...completeness,
@@ -471,7 +553,7 @@ export class Services implements AppServices {
       this.categoryParents(),
       this.recurringCandidates(),
     ]);
-    const totals = periodTotals(dated, now, period);
+    const totals = periodTotals(dated, { now, period });
     const active = charges.filter((c) => c.status === 'active');
     const nextSource = sources
       .filter((s) => s.isActive && new Date(s.nextExpectedDate) > now)
@@ -822,45 +904,12 @@ export class Services implements AppServices {
     const distributions = new Map(profiles.map((p) => [p.merchantKey, p.categoryDistribution]));
     const byId = new Map(txs.map((x) => [x.id, x]));
     const flagged = [...live.values()].filter((c) => c.needsReview && !c.isConfirmed);
+    const context = { aliases, categoryNames, recurringKeys, distributions, accountLabels };
 
     return {
       rows: flagged.slice(offset, offset + limit).flatMap((c) => {
         const tx = byId.get(c.transactionId);
-        if (!tx) return [];
-        return [
-          {
-            transaction: {
-              id: tx.id,
-              amountMinor: tx.amountMinor,
-              merchantName: resolveMerchantName(tx, aliases),
-              merchantKey: tx.merchantKey,
-              isRecurring: isRecurringRow(tx, recurringKeys),
-              description: tx.description,
-              userMerchantName: tx.userMerchantName,
-              userNote: tx.userNote,
-              userExcluded: tx.userExcluded,
-              userRecurringOverride: tx.userRecurringOverride,
-              postedDate: tx.postedDate,
-              categoryId: c.categoryId,
-              confidence: c.confidence,
-              categorySource: c.source,
-              needsReview: true,
-              isInternalTransfer: tx.isInternalTransfer,
-              originalCurrency: tx.originalCurrency,
-              originalAmountMinor: tx.originalAmountMinor,
-              ...accountLabels.get(tx.accountId),
-            },
-            guessCategoryId: c.categoryId,
-            // The name, because an identifier is not a name. The model quotes
-            // taxonomy ids back in its reasoning, so that text is cleaned too.
-            guessCategoryName: categoryNames.get(c.categoryId) ?? c.categoryId,
-            suggestions: suggestCategoryIds(c.categoryId, distributions.get(tx.merchantKey ?? '')).map(
-              (categoryId) => ({ categoryId, name: categoryNames.get(categoryId) ?? categoryId }),
-            ),
-            confidence: c.confidence,
-            reasoning: c.reasoning ? humanizeCategoryIds(c.reasoning, categoryNames) : null,
-          },
-        ];
+        return tx ? [reviewItem(c, tx, context)] : [];
       }),
       totalCount: flagged.length,
     };
@@ -931,7 +980,7 @@ export class Services implements AppServices {
       patch['userMerchantName'] = p.userMerchantName;
     }
     if (p.userMerchantName !== undefined && merchantKey) {
-      await setMerchantName(this.db, merchantKey, p.userMerchantName, at);
+      await setMerchantName(this.db, { merchantKey, displayName: p.userMerchantName }, at);
     }
     if (p.userNote !== undefined) patch['userNote'] = p.userNote;
     if (p.userExcluded !== undefined) patch['userExcluded'] = p.userExcluded;
@@ -1013,17 +1062,17 @@ export class Services implements AppServices {
     }
     return categories.map((c) => ({
       ...c,
-      usageCount: usage.get(c.id) ?? 0,
-      childCount: childCount.get(c.id) ?? 0,
+      usageCount: countOf(usage, c.id),
+      childCount: countOf(childCount, c.id),
       /** This month's spending in this category alone, positive. */
-      spentMinor: spend.direct.get(c.id) ?? 0,
+      spentMinor: countOf(spend.direct, c.id),
       /** This month's spending in this category and its subcategories, positive. */
-      rolledUpSpentMinor: spend.rolledUp.get(c.id) ?? 0,
+      rolledUpSpentMinor: countOf(spend.rolledUp, c.id),
       // Only an unused, childless, non-system category can be deleted; anything
       // else would orphan history or break reconciliation.
       // Anything can be deleted; whether it needs a destination first is the
       // question the UI asks.
-      needsReassignment: (usage.get(c.id) ?? 0) > 0 || (childCount.get(c.id) ?? 0) > 0,
+      needsReassignment: countOf(usage, c.id) > 0 || countOf(childCount, c.id) > 0,
     }));
   }
 
@@ -1159,7 +1208,11 @@ export class Services implements AppServices {
   /** Rename a merchant everywhere it appears. */
   async renameMerchant(input: unknown): Promise<unknown> {
     const p = input as { merchantKey: string; displayName: string | null };
-    await setMerchantName(this.db, p.merchantKey, p.displayName, this.deps.clock.now().toISOString());
+    await setMerchantName(
+      this.db,
+      { merchantKey: p.merchantKey, displayName: p.displayName },
+      this.deps.clock.now().toISOString(),
+    );
     return { ok: true };
   }
 
@@ -1170,10 +1223,10 @@ export class Services implements AppServices {
   async updateRule(input: unknown): Promise<unknown> {
     const p = input as { merchantKey: string; displayName?: string | null; categoryId?: string | null };
     const at = this.deps.clock.now().toISOString();
-    if (p.displayName !== undefined) await setMerchantName(this.db, p.merchantKey, p.displayName, at);
+    if (p.displayName !== undefined) await setMerchantName(this.db, { merchantKey: p.merchantKey, displayName: p.displayName }, at);
     if (p.categoryId === undefined) return { updated: 0, skippedOneOffs: 0 };
     if (p.categoryId === null) {
-      await setRuleCategory(this.db, p.merchantKey, null, at);
+      await setRuleCategory(this.db, { merchantKey: p.merchantKey, categoryId: null }, at);
       return { updated: 0, skippedOneOffs: 0 };
     }
     return this.setCategoryRule(p.merchantKey, p.categoryId);
@@ -1191,8 +1244,8 @@ export class Services implements AppServices {
   ): Promise<{ updated: number; skippedOneOffs: number }> {
     const at = this.deps.clock.now().toISOString();
     this.deps.pipeline.confirmCategory(merchantKey, categoryId);
-    await setRuleCategory(this.db, merchantKey, categoryId, at);
-    return applyRuleCategory(this.db, merchantKey, categoryId, at);
+    await setRuleCategory(this.db, { merchantKey, categoryId }, at);
+    return applyRuleCategory(this.db, { merchantKey, categoryId }, at);
   }
 
   async listRecurring(): Promise<unknown> {

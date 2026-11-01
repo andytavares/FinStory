@@ -39,15 +39,7 @@ function tx(over: Partial<StoredTransaction> = {}): StoredTransaction {
   } as StoredTransaction;
 }
 
-describe('DrizzleSyncStore against a real database', () => {
-  let dir: string;
-  let handle: DatabaseHandle;
-  let store: InstanceType<typeof DrizzleSyncStore>;
-
-  beforeEach(async () => {
-    dir = mkdtempSync(join(tmpdir(), 'money-store-'));
-    handle = await openDatabase(dir, new MemorySecretStore());
-    runMigrations(handle, MIGRATIONS);
+async function seedLedger(handle: DatabaseHandle): Promise<void> {
     await handle.db.insert(schema.categories).values([
       { id: 'dining', name: 'Dining', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
     ]);
@@ -74,6 +66,18 @@ describe('DrizzleSyncStore against a real database', () => {
       balanceAsOf: NOW.toISOString(),
       isEveryday: true,
     });
+}
+
+describe('DrizzleSyncStore against a real database', () => {
+  let dir: string;
+  let handle: DatabaseHandle;
+  let store: InstanceType<typeof DrizzleSyncStore>;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'money-store-'));
+    handle = await openDatabase(dir, new MemorySecretStore());
+    runMigrations(handle, MIGRATIONS);
+    await seedLedger(handle);
     store = new DrizzleSyncStore(handle, new TestClock(NOW));
   });
 

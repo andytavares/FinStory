@@ -1,10 +1,7 @@
 import { Card } from '../../components/ui';
 import type { ModelProvider } from '@shared/types';
 
-/**
- * The three options differ in exactly one way that matters: what leaves this
- * machine (FR-061). The full disclosure is each option's accessible description.
- */
+/** The options differ in one way that matters: what leaves this machine (FR-061). Full disclosure is the accessible description. */
 const OPTIONS: ReadonlyArray<{
   id: ModelProvider;
   title: string;

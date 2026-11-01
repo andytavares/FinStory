@@ -26,10 +26,18 @@ function optionalText(value: unknown): string | null {
   return value === undefined ? null : String(value);
 }
 
+function postedDate(node: OfxNode): string | null {
+  const d = String(node.DTPOSTED ?? '');
+  return parseDate(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+}
+
+function payeeOf(node: OfxNode): string {
+  return String(node.NAME ?? node.PAYEE?.NAME ?? node.MEMO ?? '');
+}
+
 /** A transaction, or a warning when its date or amount cannot be read. */
 function toTransaction(node: OfxNode, label: string): ImportedTransaction | string {
-  const d = String(node.DTPOSTED ?? '');
-  const date = parseDate(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+  const date = postedDate(node);
   const amount = Number(node.TRNAMT);
   if (!date || node.TRNAMT === undefined || !Number.isFinite(amount)) {
     return `Transaction '${String(node.FITID ?? node.NAME ?? '')}' skipped: unreadable date or amount`;
@@ -38,7 +46,7 @@ function toTransaction(node: OfxNode, label: string): ImportedTransaction | stri
     accountLabel: label,
     date,
     amountMinor: toMinor(amount),
-    payee: String(node.NAME ?? node.PAYEE?.NAME ?? node.MEMO ?? ''),
+    payee: payeeOf(node),
     memo: optionalText(node.MEMO),
     category: null,
     checkNumber: optionalText(node.CHECKNUM),

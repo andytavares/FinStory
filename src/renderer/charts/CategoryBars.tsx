@@ -1,12 +1,4 @@
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { moneyCompact, money } from '../lib/format';
 import { BarGradients } from './BarGradients';
 import {
@@ -136,7 +128,12 @@ export function CategoryBars({
               labelStyle={TOOLTIP_LABEL_STYLE}
               formatter={(v) => [money(Number(v)), 'Spent']}
             />
-            <Bar dataKey="magnitude" fill={`url(#${BAR_HORIZONTAL_GRADIENT_ID})`} radius={[0, 5, 5, 0]} maxBarSize={18} />
+            <Bar
+              dataKey="magnitude"
+              fill={`url(#${BAR_HORIZONTAL_GRADIENT_ID})`}
+              radius={[0, 5, 5, 0]}
+              maxBarSize={18}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>

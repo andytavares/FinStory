@@ -29,14 +29,8 @@ function greeting(now: Date): string {
   return hour < 18 ? 'Good afternoon' : 'Good evening';
 }
 
-/**
- * SC-019: a user can state their position within 30 seconds without navigating
- * away. So the page leads with the headline figures and the runway (the actual
- * question), then where the money went, in that order of usefulness.
- *
- * Week / Month / Year sets the headline figures, their series, "where it went" and the
- * category tree. Runway and Coming up do not depend on it.
- */
+// SC-019: state your position in 30 seconds: headline figures and runway first, then where the money went.
+// Week / Month / Year sets the figures, series, "where it went" and category tree; not Runway or Coming up.
 export function Dashboard({
   onDrill,
   onReconnect,

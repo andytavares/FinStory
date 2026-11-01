@@ -47,8 +47,7 @@ export function Categories(): React.JSX.Element {
             key={group.id}
             group={group}
             subcategories={visible.filter((c) => c.parentId === group.id).sort(byName)}
-            allCategories={visible}
-            onChanged={refetch}
+            scope={{ allCategories: visible, onChanged: refetch }}
           />
         ))}
       </div>
@@ -60,7 +59,13 @@ export function Categories(): React.JSX.Element {
   );
 }
 
-function NewCategory({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }): React.JSX.Element {
+function NewCategory({
+  onDone,
+  onCancel,
+}: {
+  onDone: () => void;
+  onCancel: () => void;
+}): React.JSX.Element {
   const [name, setName] = useState('');
   const add = (): void => {
     if (!name.trim()) return;
@@ -82,8 +87,12 @@ function NewCategory({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
           placeholder="New top-level category"
           aria-label="New top-level category"
         />
-        <Button variant="primary" disabled={name.trim().length === 0} onClick={add}>Add</Button>
-        <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button variant="primary" disabled={name.trim().length === 0} onClick={add}>
+          Add
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
       </div>
     </Card>
   );

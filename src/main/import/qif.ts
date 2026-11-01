@@ -15,20 +15,28 @@ interface QifState {
   warnings: string[];
 }
 
-function toTransaction(fields: Map<string, string>, label: string): ImportedTransaction | null {
-  const date = parseDate(fields.get('D') ?? '');
-  const amountMinor = parseAmount(fields.get('T') ?? fields.get('U') ?? '');
-  if (!date || amountMinor === null) return null;
+/** A `[Account]` category marks a transfer: it becomes a memo, not a category. */
+function categoryAndMemo(fields: Map<string, string>): { category: string | null; memo: string | null } {
   const category = fields.get('L') ?? '';
   const transfer = /^\[(.*)\]/.exec(category);
   const memo = [fields.get('M'), transfer ? `Transfer: ${transfer[1]}` : null].filter(Boolean).join('; ');
+  return { category: transfer || category === '' ? null : category, memo: memo || null };
+}
+
+function text(fields: Map<string, string>, code: string): string {
+  return fields.get(code) ?? '';
+}
+
+function toTransaction(fields: Map<string, string>, label: string): ImportedTransaction | null {
+  const date = parseDate(text(fields, 'D'));
+  const amountMinor = parseAmount(fields.get('T') ?? text(fields, 'U'));
+  if (!date || amountMinor === null) return null;
   return {
     accountLabel: label,
     date,
     amountMinor,
-    payee: fields.get('P') ?? '',
-    memo: memo || null,
-    category: transfer || category === '' ? null : category,
+    payee: text(fields, 'P'),
+    ...categoryAndMemo(fields),
     checkNumber: fields.get('N') || null,
     fitId: null,
   };

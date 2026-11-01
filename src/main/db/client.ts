@@ -65,10 +65,7 @@ export function opensWithKey(path: string, key: string): boolean {
   }
 }
 
-/**
- * A restore saves the new key as pending, swaps the file, then promotes the key.
- * If it stopped in between, the file needs the pending key: promote it now.
- */
+/** A restore saves the key as pending, swaps the file, then promotes it. If it stopped between, promote it now. */
 async function settlePendingKey(path: string, store: SecretStore): Promise<void> {
   const pending = await store.get(PENDING_DATABASE_KEY_ACCOUNT);
   if (!pending) return;

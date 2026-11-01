@@ -7,6 +7,73 @@ import type { RecurringCandidateView } from '@shared/types';
 import { ChargeCard } from './recurring/ChargeCard';
 import { cadenceSince } from './recurring/cadence';
 
+type Decision = 'recurring' | 'not_recurring';
+
+function CandidateFooter({
+  candidate: c,
+}: {
+  candidate: RecurringCandidateView;
+}): React.JSX.Element {
+  return (
+    <span className="ds-caption">
+      Seen {c.occurrences} times · <Money minor={c.totalPaidMinor} magnitude /> so far ·{' '}
+      {Math.round(c.confidence * 100)}% confident
+    </span>
+  );
+}
+
+interface CandidateActions {
+  readonly onDecide: (candidate: RecurringCandidateView, decision: Decision) => Promise<void>;
+  readonly onOpenMerchant: (merchantKey: string) => void;
+}
+
+interface CandidateCardProps {
+  readonly candidate: RecurringCandidateView;
+  readonly busy: boolean;
+  readonly actions: CandidateActions;
+}
+
+function CandidateCard({ candidate: c, busy, actions }: CandidateCardProps): React.JSX.Element {
+  return (
+    <ChargeCard
+      summary={{
+        markName: c.merchantName,
+        name: c.merchantName,
+        subtitle: cadenceSince(c.cadence, c.firstSeen),
+        amountMinor: c.amountMinor,
+        history: [Math.abs(c.amountMinor), Math.abs(c.amountMinor)],
+      }}
+      footer={<CandidateFooter candidate={c} />}
+    >
+      <Button
+        size="sm"
+        variant="primary"
+        disabled={busy}
+        onClick={() => void actions.onDecide(c, 'recurring')}
+        aria-label={`Mark ${c.merchantName} recurring`}
+      >
+        Yes, recurring
+      </Button>
+      <Button
+        size="sm"
+        disabled={busy}
+        onClick={() => void actions.onDecide(c, 'not_recurring')}
+        aria-label={`Mark ${c.merchantName} not recurring`}
+      >
+        Not recurring
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="ml-auto"
+        onClick={() => actions.onOpenMerchant(c.merchantKey)}
+      >
+        See transactions
+      </Button>
+    </ChargeCard>
+  );
+}
+
 /**
  * Charges that look recurring, waiting on an answer.
  *
@@ -25,10 +92,7 @@ export function RecurringCandidates({
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  const decide = async (
-    candidate: RecurringCandidateView,
-    decision: 'recurring' | 'not_recurring',
-  ): Promise<void> => {
+  const decide = async (candidate: RecurringCandidateView, decision: Decision): Promise<void> => {
     setBusy(candidate.key);
     try {
       const result = await call<{ marked: number }>('recurring:decide', {
@@ -74,41 +138,12 @@ export function RecurringCandidates({
       )}
       <div className="ds-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {candidates.map((c) => (
-          <ChargeCard
+          <CandidateCard
             key={c.key}
-            markName={c.merchantName}
-            name={c.merchantName}
-            subtitle={cadenceSince(c.cadence, c.firstSeen)}
-            amountMinor={c.amountMinor}
-            history={[Math.abs(c.amountMinor), Math.abs(c.amountMinor)]}
-            footer={
-              <span className="ds-caption">
-                Seen {c.occurrences} times · <Money minor={c.totalPaidMinor} magnitude /> so far ·{' '}
-                {Math.round(c.confidence * 100)}% confident
-              </span>
-            }
-          >
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={busy === c.key}
-              onClick={() => void decide(c, 'recurring')}
-              aria-label={`Mark ${c.merchantName} recurring`}
-            >
-              Yes, recurring
-            </Button>
-            <Button
-              size="sm"
-              disabled={busy === c.key}
-              onClick={() => void decide(c, 'not_recurring')}
-              aria-label={`Mark ${c.merchantName} not recurring`}
-            >
-              Not recurring
-            </Button>
-            <Button size="sm" variant="ghost" className="ml-auto" onClick={() => onOpenMerchant(c.merchantKey)}>
-              See transactions
-            </Button>
-          </ChargeCard>
+            candidate={c}
+            busy={busy === c.key}
+            actions={{ onDecide: decide, onOpenMerchant }}
+          />
         ))}
       </div>
     </div>

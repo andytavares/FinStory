@@ -29,10 +29,7 @@ async function setAndVerify(store: SecretStore, account: string, value: string):
   }
 }
 
-/**
- * Move the safeStorage-sealed `money.key` into the store. Returns the key, or
- * null when there is no legacy file. The file is deleted only after read-back.
- */
+/** Move the sealed `money.key` into the store; null when no legacy file. The file goes only after read-back. */
 export async function migrateDatabaseKeyFile(
   options: Pick<MigrationOptions, 'store' | 'keyring' | 'userDataDir'>,
 ): Promise<string | null> {
@@ -70,11 +67,7 @@ async function pendingMoves(db: DatabaseHandle['db']): Promise<PendingMove[]> {
   return [...credentials, ...tokens];
 }
 
-/**
- * One-time move of every safeStorage-sealed secret into the store.
- * Idempotent. A failed item keeps its original and is retried next launch.
- * Returns the number of items that failed.
- */
+/** Idempotent move of every sealed secret into the store. A failed item is kept and retried; returns the failure count. */
 export async function migrateSecretsToKeychain(options: MigrationOptions): Promise<number> {
   let failed = 0;
   const attempt = async (move: () => Promise<unknown>): Promise<void> => {

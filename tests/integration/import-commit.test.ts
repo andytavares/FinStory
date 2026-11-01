@@ -43,6 +43,24 @@ const CATEGORY_MAP = [
   { quickenCategory: 'Income:Salary', categoryId: 'income' },
 ];
 
+async function seedLedger(handle: DatabaseHandle): Promise<void> {
+    const db = handle.db;
+    await db.insert(schema.categories).values(defaultCategories());
+    await db.insert(schema.institutions).values({
+      id: 'inst_1', plaidItemId: 'item_1', accessTokenEncrypted: '', institutionName: 'Chase',
+      status: 'healthy', createdAt: '2026-01-01T00:00:00Z',
+    });
+    await db.insert(schema.accounts).values({
+      id: 'acct_1', institutionId: 'inst_1', plaidAccountId: 'pa_1', name: 'Everyday Checking',
+      mask: '4321', type: 'depository', subtype: 'checking', isEveryday: true,
+    });
+    await db.insert(schema.transactions).values({
+      id: 'txn_1', accountId: 'acct_1', plaidTransactionId: 'pt_1', amountMinor: -450,
+      merchantName: 'Starbucks', merchantKey: 'starbucks', description: 'STARBUCKS',
+      postedDate: '2026-03-10', firstSeenAt: '2026-03-10', updatedAt: '2026-03-10',
+    });
+}
+
 describe('Quicken import', () => {
   let dir: string;
   let handle: DatabaseHandle;
@@ -64,21 +82,7 @@ describe('Quicken import', () => {
     dir = mkdtempSync(join(tmpdir(), 'money-import-'));
     handle = await openDatabase(dir, new MemorySecretStore());
     runMigrations(handle, MIGRATIONS);
-    const db = handle.db;
-    await db.insert(schema.categories).values(defaultCategories());
-    await db.insert(schema.institutions).values({
-      id: 'inst_1', plaidItemId: 'item_1', accessTokenEncrypted: '', institutionName: 'Chase',
-      status: 'healthy', createdAt: '2026-01-01T00:00:00Z',
-    });
-    await db.insert(schema.accounts).values({
-      id: 'acct_1', institutionId: 'inst_1', plaidAccountId: 'pa_1', name: 'Everyday Checking',
-      mask: '4321', type: 'depository', subtype: 'checking', isEveryday: true,
-    });
-    await db.insert(schema.transactions).values({
-      id: 'txn_1', accountId: 'acct_1', plaidTransactionId: 'pt_1', amountMinor: -450,
-      merchantName: 'Starbucks', merchantKey: 'starbucks', description: 'STARBUCKS',
-      postedDate: '2026-03-10', firstSeenAt: '2026-03-10', updatedAt: '2026-03-10',
-    });
+    await seedLedger(handle);
     modelCalls = 0;
     const model = {
       classify: async () => {

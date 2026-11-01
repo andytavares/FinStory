@@ -13,17 +13,77 @@ function SourceChip({ transaction }: { transaction: TransactionView }): React.JS
   return null;
 }
 
+interface Selection {
+  readonly id: string | null;
+  readonly onSelect: (id: string) => void;
+}
+
+interface TransactionRowProps {
+  readonly transaction: TransactionView;
+  readonly categoryName: (categoryId: string) => string;
+  readonly selection: Selection;
+}
+
+function TransactionRow({
+  transaction: t,
+  categoryName,
+  selection,
+}: TransactionRowProps): React.JSX.Element {
+  const { id: selectedId, onSelect } = selection;
+  return (
+    <tr
+      aria-selected={t.id === selectedId}
+      onClick={() => onSelect(t.id)}
+      className="cursor-pointer"
+    >
+      <td className="numeric text-[var(--color-ink-faint)]">{shortDate(t.postedDate)}</td>
+      <td>
+        <div className="ds-row">
+          <MerchantMark name={transactionName(t)} />
+          <button
+            type="button"
+            aria-label={`Edit ${transactionName(t)}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(t.id);
+            }}
+            className="cursor-pointer border-0 bg-transparent p-0 text-left text-inherit"
+          >
+            {transactionName(t)}
+          </button>
+          {t.isRecurring && <RecurringChip />}
+          {t.originalCurrency && (
+            // Display-only; never enters a calculation (FR-085).
+            <span className="ds-caption">
+              {t.originalCurrency} {((t.originalAmountMinor ?? 0) / 100).toFixed(2)}
+            </span>
+          )}
+        </div>
+      </td>
+      <td>
+        <span className="ds-row">
+          <Chip dot={categoryColor(t.categoryId)}>{categoryName(t.categoryId)}</Chip>
+          <SourceChip transaction={t} />
+        </span>
+      </td>
+      <td className="r">
+        <Money minor={t.amountMinor} direction />
+      </td>
+    </tr>
+  );
+}
+
+interface TransactionTableProps {
+  readonly rows: readonly TransactionView[];
+  readonly categoryName: (categoryId: string) => string;
+  readonly selection: Selection;
+}
+
 export function TransactionTable({
   rows,
   categoryName,
-  selectedId,
-  onSelect,
-}: {
-  rows: readonly TransactionView[];
-  categoryName: (categoryId: string) => string;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-}): React.JSX.Element {
+  selection,
+}: TransactionTableProps): React.JSX.Element {
   return (
     <Card className="min-w-0 !px-1 !py-0">
       <Table>
@@ -37,46 +97,12 @@ export function TransactionTable({
         </thead>
         <tbody>
           {rows.map((t) => (
-            <tr
+            <TransactionRow
               key={t.id}
-              aria-selected={t.id === selectedId}
-              onClick={() => onSelect(t.id)}
-              className="cursor-pointer"
-            >
-              <td className="numeric text-[var(--color-ink-faint)]">{shortDate(t.postedDate)}</td>
-              <td>
-                <div className="ds-row">
-                  <MerchantMark name={transactionName(t)} />
-                  <button
-                    type="button"
-                    aria-label={`Edit ${transactionName(t)}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelect(t.id);
-                    }}
-                    className="cursor-pointer border-0 bg-transparent p-0 text-left text-inherit"
-                  >
-                    {transactionName(t)}
-                  </button>
-                  {t.isRecurring && <RecurringChip />}
-                  {t.originalCurrency && (
-                    // Display-only; never enters a calculation (FR-085).
-                    <span className="ds-caption">
-                      {t.originalCurrency} {((t.originalAmountMinor ?? 0) / 100).toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              </td>
-              <td>
-                <span className="ds-row">
-                  <Chip dot={categoryColor(t.categoryId)}>{categoryName(t.categoryId)}</Chip>
-                  <SourceChip transaction={t} />
-                </span>
-              </td>
-              <td className="r">
-                <Money minor={t.amountMinor} direction />
-              </td>
-            </tr>
+              transaction={t}
+              categoryName={categoryName}
+              selection={selection}
+            />
           ))}
         </tbody>
       </Table>

@@ -1,19 +1,13 @@
 import { Button } from '../../components/ui';
 
-/**
- * The dashboard's count is spending in day-to-day accounts. Anything else in the
- * category is still listed, but narrowing to the dashboard's set is asked for and
- * the reason things were left out is stated.
- */
-export function DrillNote({
-  spendingOnly,
-  shownAll,
-  onChange,
-}: {
-  spendingOnly: boolean;
-  shownAll: number;
-  onChange: (next: boolean) => void;
-}): React.JSX.Element {
+/** The dashboard counts day-to-day spending; the rest of the category is listed too, with the reason and a way to narrow. */
+interface DrillNoteProps {
+  readonly spendingOnly: boolean;
+  readonly shownAll: number;
+  readonly onChange: (next: boolean) => void;
+}
+
+export function DrillNote({ spendingOnly, shownAll, onChange }: DrillNoteProps): React.JSX.Element {
   return (
     <p className="ds-caption">
       {spendingOnly

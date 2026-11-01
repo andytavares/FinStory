@@ -45,9 +45,8 @@ function uniqueIds(rows: readonly ImportedTransaction[]): string[] {
 }
 
 /**
- * A row is a duplicate when its id is already stored, or when the target account
- * holds a charge with the same amount, within 3 days, from a similar payee.
- * Each stored charge matches at most one row. `accountIdFor` is null for new accounts.
+ * A duplicate has a stored id, or matches a stored charge (same amount, within 3 days, similar
+ * payee) once. `accountIdFor` is null for new accounts.
  */
 export function planRows(
   rows: readonly ImportedTransaction[],

@@ -21,39 +21,52 @@ function BackLink({ onBack }: { onBack: () => void }): React.JSX.Element {
   );
 }
 
-/** The ten minutes a month that is the entire budgeting time investment. */
-export function ReportDetail({
-  reportId,
-  onBack,
-  onDeleted,
-  autoExport = false,
-}: {
-  reportId: string;
-  onBack: () => void;
-  onDeleted: () => void;
+interface ReportDetailProps {
+  readonly reportId: string;
+  readonly actions: { onBack: () => void; onDeleted: () => void };
   /** Export to PDF as soon as the report is on screen. */
-  autoExport?: boolean;
-}): React.JSX.Element {
-  const { data, loading, error } = useQuery<ReportRecord>('reports:get', { reportId });
+  readonly autoExport?: boolean;
+}
+
+/** Export to PDF on demand, and once on its own when `autoExport` is set and the report is on screen. */
+function useReportExport(
+  reportId: string,
+  autoExport: boolean,
+): { exported: string | null; exportPdf: () => Promise<void> } {
   const [exported, setExported] = useState<string | null>(null);
   const autoExported = useRef(false);
 
   const exportPdf = async (): Promise<void> => {
-    const result = await call<{ ok: boolean; path?: string }>('reports:exportPdf', { id: reportId });
+    const result = await call<{ ok: boolean; path?: string }>('reports:exportPdf', {
+      id: reportId,
+    });
     setExported(result.ok ? `Saved to ${result.path}` : null);
   };
+
+  useEffect(() => {
+    if (!autoExport || autoExported.current) return;
+    autoExported.current = true;
+    const timer = setTimeout(() => void exportPdf(), PAINT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [autoExport]);
+
+  return { exported, exportPdf };
+}
+
+/** The ten minutes a month that is the entire budgeting time investment. */
+export function ReportDetail({
+  reportId,
+  actions,
+  autoExport = false,
+}: ReportDetailProps): React.JSX.Element {
+  const { onBack, onDeleted } = actions;
+  const { data, loading, error } = useQuery<ReportRecord>('reports:get', { reportId });
+  const { exported, exportPdf } = useReportExport(reportId, autoExport && Boolean(data));
 
   const remove = async (): Promise<void> => {
     await call('reports:delete', { id: reportId });
     onDeleted();
   };
-
-  useEffect(() => {
-    if (!autoExport || !data || autoExported.current) return;
-    autoExported.current = true;
-    const timer = setTimeout(() => void exportPdf(), PAINT_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [autoExport, data]);
 
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
   if (error || !data) {

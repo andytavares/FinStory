@@ -14,26 +14,38 @@ interface InstitutionWithAccounts {
   readonly accounts: readonly Pick<AccountRow, 'id' | 'name'>[];
 }
 
-function CheckCard({ preview, creating, busy, onBack, onImport }: {
-  preview: ImportPreview;
-  creating: number;
-  busy: boolean;
-  onBack: () => void;
-  onImport: () => void;
+function CheckCard({
+  check,
+  actions,
+}: {
+  check: { preview: ImportPreview; creating: number; busy: boolean };
+  actions: { onBack: () => void; onImport: () => void };
 }): React.JSX.Element {
+  const { preview, creating, busy } = check;
+  const { onBack, onImport } = actions;
   return (
     <Card>
       <Eyebrow>Check</Eyebrow>
       <div style={{ margin: '10px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div>{plural(preview.newCount, 'transaction')} will be added.</div>
-        <div className="ds-faint">{plural(preview.duplicateCount, 'duplicate')} already in Money will be skipped.</div>
-        {creating > 0 && <div className="ds-faint">{plural(creating, 'new account')} will be created, left out of day-to-day money.</div>}
+        <div className="ds-faint">
+          {plural(preview.duplicateCount, 'duplicate')} already in Money will be skipped.
+        </div>
+        {creating > 0 && (
+          <div className="ds-faint">
+            {plural(creating, 'new account')} will be created, left out of day-to-day money.
+          </div>
+        )}
         {preview.warnings.map((w) => (
-          <div key={w} className="ds-warn" style={{ fontSize: 12 }}>{w}</div>
+          <div key={w} className="ds-warn" style={{ fontSize: 12 }}>
+            {w}
+          </div>
         ))}
       </div>
       <div className="ds-row">
-        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button variant="ghost" onClick={onBack}>
+          Back
+        </Button>
         <Button variant="primary" disabled={busy} onClick={onImport} style={{ marginLeft: 'auto' }}>
           Import {plural(preview.newCount, 'transaction')}
         </Button>
@@ -42,7 +54,11 @@ function CheckCard({ preview, creating, busy, onBack, onImport }: {
   );
 }
 
-export function Import({ onViewTransactions }: { onViewTransactions: () => void }): React.JSX.Element {
+export function Import({
+  onViewTransactions,
+}: {
+  onViewTransactions: () => void;
+}): React.JSX.Element {
   const flow = useImportFlow();
   const institutions = useQuery<InstitutionWithAccounts[]>('institutions:list');
   const categories = useQuery<MoneyCategory[]>('categories:list');
@@ -54,28 +70,41 @@ export function Import({ onViewTransactions }: { onViewTransactions: () => void 
 
   return (
     <>
-      <PageHeader title="Import from Quicken" sub="Bring in history from before you connected your bank" />
+      <PageHeader
+        title="Import from Quicken"
+        sub="Bring in history from before you connected your bank"
+      />
       <StepChips step={step} />
       {step === 5 && flow.result ? (
         <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <h3 className="ds-card-title">Imported {plural(flow.result.imported, 'transaction')}</h3>
           <div className="ds-faint">
-            {plural(flow.result.skippedDuplicates, 'duplicate')} skipped · {plural(flow.result.createdAccounts, 'account')} created
+            {plural(flow.result.skippedDuplicates, 'duplicate')} skipped ·{' '}
+            {plural(flow.result.createdAccounts, 'account')} created
           </div>
           <div className="ds-row">
-            <Button variant="primary" onClick={onViewTransactions}>View transactions</Button>
-            <Button variant="ghost" onClick={flow.startOver}>Import another file</Button>
+            <Button variant="primary" onClick={onViewTransactions}>
+              View transactions
+            </Button>
+            <Button variant="ghost" onClick={flow.startOver}>
+              Import another file
+            </Button>
           </div>
         </Card>
       ) : (
         <div className="ds-grid" style={{ gridTemplateColumns: '1fr 1.25fr' }}>
           <FileCard
             fileName={flow.file?.name ?? null}
-            summary={preview && !preview.needsMapping ? describeFile(preview, flow.file?.name ?? '') : null}
+            summary={
+              preview && !preview.needsMapping ? describeFile(preview, flow.file?.name ?? '') : null
+            }
             onFile={(f) => void flow.openFile(f)}
           />
           {preview?.needsMapping && (
-            <ColumnMapping headers={preview.headers ?? []} onRead={(m) => void flow.readWithMapping(m)} />
+            <ColumnMapping
+              headers={preview.headers ?? []}
+              onRead={(m) => void flow.readWithMapping(m)}
+            />
           )}
           {preview && !preview.needsMapping && step === 2 && (
             <MatchAccounts
@@ -92,11 +121,18 @@ export function Import({ onViewTransactions }: { onViewTransactions: () => void 
             />
           )}
           {preview && step === 3 && (
-            <CheckCard preview={preview} creating={creating} busy={flow.busy} onBack={() => flow.goTo(2)} onImport={() => void flow.commit()} />
+            <CheckCard
+              check={{ preview, creating, busy: flow.busy }}
+              actions={{ onBack: () => flow.goTo(2), onImport: () => void flow.commit() }}
+            />
           )}
         </div>
       )}
-      {flow.error && <p role="alert" className="ds-neg">{flow.error}</p>}
+      {flow.error && (
+        <p role="alert" className="ds-neg">
+          {flow.error}
+        </p>
+      )}
     </>
   );
 }

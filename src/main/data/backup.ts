@@ -134,6 +134,17 @@ export interface RestoreOptions {
   readonly handle?: DatabaseHandle;
 }
 
+/** Copy beside the live file first so a failed copy leaves the current data intact. */
+function stageBackupDatabase(backupDb: string, userDataDir: string, databaseKey: string): string {
+  const staged = join(userDataDir, `${DB_FILE}.restore`);
+  copyFileSync(backupDb, staged);
+  if (!opensWithKey(staged, databaseKey)) {
+    rmSync(staged, { force: true });
+    throw new IpcFailure('VALIDATION_FAILED', 'The backup database does not open with its key', false);
+  }
+  return staged;
+}
+
 export async function restoreBackup(options: RestoreOptions): Promise<void> {
   const { srcDir, userDataDir, store, passphrase, handle } = options;
   const backupDb = join(srcDir, DB_FILE);
@@ -150,17 +161,7 @@ export async function restoreBackup(options: RestoreOptions): Promise<void> {
     passphrase,
   );
 
-  // Copy beside the live file first so a failed copy leaves the current data intact.
-  const staged = join(userDataDir, `${DB_FILE}.restore`);
-  copyFileSync(backupDb, staged);
-  if (!opensWithKey(staged, databaseKey)) {
-    rmSync(staged, { force: true });
-    throw new IpcFailure(
-      'VALIDATION_FAILED',
-      'The backup database does not open with its key',
-      false,
-    );
-  }
+  const staged = stageBackupDatabase(backupDb, userDataDir, databaseKey);
   // Pending first: if this stops after the swap, startup promotes it (openDatabase).
   await store.set(PENDING_DATABASE_KEY_ACCOUNT, databaseKey);
   handle?.close();

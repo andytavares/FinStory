@@ -3,24 +3,23 @@ import { Money } from '../../components/Money';
 import { Sparkline } from '../../charts/Sparkline';
 import { categoryColor } from '../../lib/categoryColor';
 
+export interface ChargeSummary {
+  readonly markName: string;
+  readonly name: React.ReactNode;
+  readonly subtitle: string;
+  readonly amountMinor: number;
+  readonly history: readonly number[];
+}
+
+interface ChargeCardProps {
+  readonly summary: ChargeSummary;
+  readonly footer: React.ReactNode;
+  readonly children: React.ReactNode;
+}
+
 /** One recurring charge: mark, name, price, price history, a footer line and actions. */
-export function ChargeCard({
-  markName,
-  name,
-  subtitle,
-  amountMinor,
-  history,
-  footer,
-  children,
-}: {
-  markName: string;
-  name: React.ReactNode;
-  subtitle: string;
-  amountMinor: number;
-  history: readonly number[];
-  footer: React.ReactNode;
-  children: React.ReactNode;
-}): React.JSX.Element {
+export function ChargeCard({ summary, footer, children }: ChargeCardProps): React.JSX.Element {
+  const { markName, name, subtitle, amountMinor, history } = summary;
   return (
     <Card className="flex flex-col gap-2.5">
       <div className="ds-row">

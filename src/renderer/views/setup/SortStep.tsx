@@ -12,19 +12,20 @@ export interface SortChoice {
   readonly anthropicKey: string;
 }
 
-function OptionCard({
-  title,
-  detail,
-  chip,
-  selected,
-  onSelect,
-}: {
-  title: string;
-  detail: string;
-  chip: { tone: ChipTone; text: string };
-  selected: boolean;
-  onSelect: () => void;
-}): React.JSX.Element {
+interface OptionContent {
+  readonly title: string;
+  readonly detail: string;
+  readonly chip: { tone: ChipTone; text: string };
+}
+
+interface OptionCardProps {
+  readonly option: OptionContent;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
+}
+
+function OptionCard({ option, selected, onSelect }: OptionCardProps): React.JSX.Element {
+  const { title, detail, chip } = option;
   return (
     <Card
       role="radio"
@@ -66,35 +67,94 @@ function useOllama(): OllamaDetection | null {
   return detection;
 }
 
-export function SortStep({
-  choice,
-  onChange,
-  onBack,
-  onNext,
-}: {
-  choice: SortChoice;
-  onChange: (next: SortChoice) => void;
-  onBack: () => void;
-  onNext: () => void;
-}): React.JSX.Element {
-  const ollama = useOllama();
+interface ModelTest {
+  readonly testing: boolean;
+  readonly testMessage: string | null;
+  readonly test: () => Promise<void>;
+}
+
+/** Point the settings at Ollama with `model`, then run the sample-charge test. */
+function useModelTest(model: string): ModelTest {
   const [testing, setTesting] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
-  const provider = choice.provider ?? (ollama?.running ? 'ollama' : 'local_only');
-  const model = choice.model || ollama?.models[0] || '';
-  const pick = (next: SortProvider): void => onChange({ ...choice, provider: next, model });
-
   const test = async (): Promise<void> => {
     setTesting(true);
     try {
       await call('settings:update', { modelProvider: 'ollama', ollamaModel: model });
-      setTestMessage(((await call<{ message: string }>('model:test')).message));
+      setTestMessage((await call<{ message: string }>('model:test')).message);
     } catch (e) {
       setTestMessage((e as { message?: string }).message ?? 'The test did not run');
     } finally {
       setTesting(false);
     }
   };
+  return { testing, testMessage, test };
+}
+
+function ollamaChip(ollama: OllamaDetection | null): OptionContent['chip'] {
+  if (ollama?.running) return { tone: 'ok', text: 'Connected' };
+  return { tone: 'neutral', text: ollama ? 'Not running' : 'Looking…' };
+}
+
+function ollamaOption(ollama: OllamaDetection | null): OptionContent {
+  const withModel = ollama?.models[0] ? ' with ' + ollama.models[0] : '';
+  const detail = ollama?.running
+    ? `Nothing leaves this Mac. Found Ollama running${withModel}.`
+    : 'Nothing leaves this Mac. Install and start Ollama to use it.';
+  return { title: 'Local model with Ollama', detail, chip: ollamaChip(ollama) };
+}
+
+interface ProviderOptionsProps {
+  readonly provider: SortProvider;
+  readonly ollama: OllamaDetection | null;
+  readonly onPick: (next: SortProvider) => void;
+}
+
+function ProviderOptions({ provider, ollama, onPick }: ProviderOptionsProps): React.JSX.Element {
+  return (
+    <div role="radiogroup" aria-label="Sorting method" className="grid gap-[14px]">
+      <OptionCard
+        option={ollamaOption(ollama)}
+        selected={provider === 'ollama'}
+        onSelect={() => onPick('ollama')}
+      />
+      <OptionCard
+        option={{
+          title: 'Claude',
+          detail:
+            'Most accurate. Sends the merchant name, amount, date and your category history for that one merchant — never account numbers, balances, credentials, or totals.',
+          chip: { tone: 'accent', text: 'Needs API key' },
+        }}
+        selected={provider === 'anthropic'}
+        onSelect={() => onPick('anthropic')}
+      />
+      <OptionCard
+        option={{
+          title: 'Your history only',
+          detail: 'No model. More items land in Review.',
+          chip: { tone: 'neutral', text: 'Always available' },
+        }}
+        selected={provider === 'local_only'}
+        onSelect={() => onPick('local_only')}
+      />
+    </div>
+  );
+}
+
+interface SortStepProps {
+  readonly sort: { readonly choice: SortChoice; readonly onChange: (next: SortChoice) => void };
+  readonly onBack: () => void;
+  readonly onNext: () => void;
+}
+
+export function SortStep({ sort, onBack, onNext }: SortStepProps): React.JSX.Element {
+  const { choice, onChange } = sort;
+  const ollama = useOllama();
+  const provider = choice.provider ?? (ollama?.running ? 'ollama' : 'local_only');
+  const model = choice.model || ollama?.models[0] || '';
+  const pick = (next: SortProvider): void => onChange({ ...choice, provider: next, model });
+
+  const { testing, testMessage, test } = useModelTest(model);
 
   return (
     <>
@@ -104,33 +164,7 @@ export function SortStep({
         Your own corrections always win. This only decides who guesses for merchants Money has not
         seen.
       </p>
-      <div role="radiogroup" aria-label="Sorting method" className="grid gap-[14px]">
-        <OptionCard
-          title="Local model with Ollama"
-          detail={
-            ollama?.running
-              ? `Nothing leaves this Mac. Found Ollama running${ollama.models[0] ? ` with ${ollama.models[0]}` : ''}.`
-              : 'Nothing leaves this Mac. Install and start Ollama to use it.'
-          }
-          chip={ollama?.running ? { tone: 'ok', text: 'Connected' } : { tone: 'neutral', text: ollama ? 'Not running' : 'Looking…' }}
-          selected={provider === 'ollama'}
-          onSelect={() => pick('ollama')}
-        />
-        <OptionCard
-          title="Claude"
-          detail="Most accurate. Sends the merchant name, amount, date and your category history for that one merchant — never account numbers, balances, credentials, or totals."
-          chip={{ tone: 'accent', text: 'Needs API key' }}
-          selected={provider === 'anthropic'}
-          onSelect={() => pick('anthropic')}
-        />
-        <OptionCard
-          title="Your history only"
-          detail="No model. More items land in Review."
-          chip={{ tone: 'neutral', text: 'Always available' }}
-          selected={provider === 'local_only'}
-          onSelect={() => pick('local_only')}
-        />
-      </div>
+      <ProviderOptions provider={provider} ollama={ollama} onPick={pick} />
       {provider === 'ollama' && ollama?.running && (
         <div className="max-w-[320px]">
           <Field label="Model">

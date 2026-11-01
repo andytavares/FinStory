@@ -10,7 +10,14 @@ interface FileCardProps {
   readonly onFile: (file: File) => void;
 }
 
-export function FileCard({ fileName, summary, onFile }: FileCardProps): React.JSX.Element {
+/** Click, keyboard or drag-and-drop to pick the file. */
+function DropZone({
+  hasFile,
+  onFile,
+}: {
+  hasFile: boolean;
+  onFile: (file: File) => void;
+}): React.JSX.Element {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const drop = (event: React.DragEvent): void => {
@@ -20,18 +27,7 @@ export function FileCard({ fileName, summary, onFile }: FileCardProps): React.JS
     if (file) onFile(file);
   };
   return (
-    <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <Eyebrow>File</Eyebrow>
-      {fileName && (
-        <div className="ds-row">
-          <MerchantMark name="Q" color="var(--color-cat-7)" />
-          <div>
-            <div style={{ fontWeight: 600 }}>{fileName}</div>
-            {summary && <div className="ds-faint" style={{ fontSize: 11.5 }}>{summary}</div>}
-          </div>
-        </div>
-      )}
-      <div className="ds-faint" style={{ fontSize: 12 }}>{EXPLANATION}</div>
+    <>
       <div
         role="button"
         tabIndex={0}
@@ -52,7 +48,7 @@ export function FileCard({ fileName, summary, onFile }: FileCardProps): React.JS
           cursor: 'pointer',
         }}
       >
-        {fileName ? 'Drop another QFX, OFX, QIF or CSV file' : 'Drop a CSV, QIF, QFX or OFX file'}
+        {hasFile ? 'Drop another QFX, OFX, QIF or CSV file' : 'Drop a CSV, QIF, QFX or OFX file'}
       </div>
       <input
         ref={input}
@@ -66,6 +62,31 @@ export function FileCard({ fileName, summary, onFile }: FileCardProps): React.JS
           e.target.value = '';
         }}
       />
+    </>
+  );
+}
+
+export function FileCard({ fileName, summary, onFile }: FileCardProps): React.JSX.Element {
+  return (
+    <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Eyebrow>File</Eyebrow>
+      {fileName && (
+        <div className="ds-row">
+          <MerchantMark name="Q" color="var(--color-cat-7)" />
+          <div>
+            <div style={{ fontWeight: 600 }}>{fileName}</div>
+            {summary && (
+              <div className="ds-faint" style={{ fontSize: 11.5 }}>
+                {summary}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="ds-faint" style={{ fontSize: 12 }}>
+        {EXPLANATION}
+      </div>
+      <DropZone hasFile={fileName !== null} onFile={onFile} />
     </Card>
   );
 }

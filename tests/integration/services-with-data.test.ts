@@ -33,6 +33,184 @@ const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
 const NOW = new Date('2026-08-29T12:00:00Z');
 const RANGE = { periodStart: '2026-08-01T00:00:00Z', periodEnd: '2026-09-01T00:00:00Z' };
 
+const LOCAL_ONLY_MODEL: ModelDescription = {
+  provider: 'local_only',
+  model: null,
+  localOnly: true,
+  reason: 'History only in tests',
+};
+
+async function seedAccounts(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.categories).values(defaultCategories());
+  await db.insert(schema.institutions).values({
+    id: 'inst_1',
+    plaidItemId: 'item_1',
+    accessTokenEncrypted: 'sealed',
+    institutionName: 'Chase',
+    syncCursor: 'cursor_1',
+    status: 'healthy',
+    lastSyncedAt: '2026-08-29T11:00:00Z',
+    lastAttemptedSyncAt: '2026-08-29T11:00:00Z',
+    createdAt: '2026-01-01T00:00:00Z',
+  });
+  await db.insert(schema.accounts).values({
+    id: 'acct_1',
+    institutionId: 'inst_1',
+    plaidAccountId: 'pa_1',
+    name: 'Everyday Checking',
+    mask: '4321',
+    type: 'depository',
+    subtype: 'checking',
+    currentBalanceMinor: 84_700,
+    balanceAsOf: '2026-08-29T11:00:00Z',
+    isEveryday: true,
+  });
+}
+
+const TRANSACTIONS = [
+  ['txn_1', -6_400, 'uber eats', 'UBER EATS', '2026-08-05', 'dining'],
+  ['txn_2', -3_800, 'target', 'TARGET 00023415', '2026-08-09', 'groceries'],
+  ['txn_3', -12_000, 'landlord', 'RENT', '2026-08-01', 'rent'],
+  ['txn_4', 520_000, 'acme-payroll', 'ACME PAYROLL', '2026-08-15', 'income'],
+  ['txn_5', -1_599, 'netflix', 'NETFLIX.COM', '2026-08-15', 'streaming'],
+] as const;
+
+type SeedTransaction = (typeof TRANSACTIONS)[number];
+
+async function insertTransaction(db: DatabaseHandle['db'], row: SeedTransaction): Promise<void> {
+  const [id, amountMinor, merchantKey, description, postedDate] = row;
+  await db.insert(schema.transactions).values({
+    id,
+    accountId: 'acct_1',
+    plaidTransactionId: `p_${id}`,
+    amountMinor,
+    merchantName: description,
+    merchantKey,
+    description,
+    postedDate,
+    datetime: `${postedDate}T14:00:00Z`,
+    pending: false,
+    settlementState: 'posted',
+    isInternalTransfer: false,
+    reversesTransactionId: null,
+    originalCurrency: id === 'txn_2' ? 'EUR' : null,
+    originalAmountMinor: id === 'txn_2' ? 3_200 : null,
+    firstSeenAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  });
+}
+
+async function insertCategorization(db: DatabaseHandle['db'], row: SeedTransaction): Promise<void> {
+  const [id, , , , , categoryId] = row;
+  await db.insert(schema.categorizations).values({
+    id: `cat_${id}`,
+    transactionId: id,
+    categoryId,
+    confidence: id === 'txn_2' ? 0.6 : 0.95,
+    source: 'model',
+    isConfirmed: false,
+    needsReview: id === 'txn_2',
+    reasoning: id === 'txn_2' ? 'mixed-use merchant' : null,
+    supersededBy: null,
+    createdAt: NOW.toISOString(),
+  });
+}
+
+async function seedTransactions(db: DatabaseHandle['db']): Promise<void> {
+  for (const row of TRANSACTIONS) {
+    await insertTransaction(db, row);
+    await insertCategorization(db, row);
+  }
+}
+
+async function seedDerivedRows(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.incomeSources).values({
+    id: 'inc_1',
+    accountId: 'acct_1',
+    merchantKey: 'acme-payroll',
+    expectedAmountMinor: 520_000,
+    cadence: 'monthly',
+    nextExpectedDate: '2026-09-15T00:00:00Z',
+    detectionConfidence: 0.95,
+    isUserConfirmed: true,
+    isActive: true,
+  });
+}
+
+async function seedRecurringCharge(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.recurringCharges).values({
+    id: 'rc_1',
+    merchantKey: 'netflix',
+    currentAmountMinor: -1_599,
+    cadence: 'monthly',
+    firstSeenDate: '2026-01-15',
+    lastSeenDate: '2026-08-15',
+    cumulativePaidMinor: -12_792,
+    status: 'active',
+    detectedAt: NOW.toISOString(),
+    userAcknowledged: false,
+  });
+  await db.insert(schema.recurringChargeAmountChanges).values({
+    id: 'ac_1',
+    recurringChargeId: 'rc_1',
+    oldAmountMinor: -1_299,
+    newAmountMinor: -1_599,
+    changedAt: '2026-06-15T00:00:00Z',
+  });
+}
+
+async function seedAlertsAndReports(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.alertRules).values({
+    id: 'rule_1',
+    type: 'large_purchase',
+    thresholdMinor: 20_000,
+    windowMinutes: null,
+    enabled: true,
+  });
+  await db.insert(schema.alerts).values({
+    id: 'alert_1',
+    ruleId: 'rule_1',
+    triggeredByTransactionId: 'txn_3',
+    eventOccurredAt: '2026-08-01T14:00:00Z',
+    detectedAt: '2026-08-29T11:00:00Z',
+    deliveredAt: null,
+    dismissedAsFalsePositive: false,
+    dedupeKey: 'large_purchase:txn_3',
+  });
+  await db.insert(schema.periodReports).values({
+    id: 'rep_1',
+    type: 'monthly_report',
+    periodStart: '2026-07-01T00:00:00Z',
+    periodEnd: '2026-08-01T00:00:00Z',
+    content: JSON.stringify({ totalSpendingMinor: -412_000, savingsRate: 0.18 }),
+    generatedAt: NOW.toISOString(),
+    deliveredAt: null,
+    wasLate: false,
+    dataComplete: true,
+  });
+}
+
+async function seedDiagnostics(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.diagnosticEvents).values([
+    {
+      occurredAt: '2026-08-29T11:00:00Z',
+      eventType: 'sync_attempt',
+      outcome: 'success',
+      subjectId: 'inst_1',
+      durationMs: 412,
+      errorCode: null,
+    },
+    {
+      occurredAt: '2026-08-29T10:00:00Z',
+      eventType: 'sync_failure',
+      outcome: 'failure',
+      subjectId: 'inst_1',
+      durationMs: 30_000,
+      errorCode: 'network',
+    },
+  ]);
+}
+
 describe('Services with realistic data', () => {
   let dir: string;
   let handle: DatabaseHandle;
@@ -49,158 +227,16 @@ describe('Services with realistic data', () => {
     runMigrations(handle, MIGRATIONS);
     const db = handle.db;
 
-    await db.insert(schema.categories).values(defaultCategories());
-    await db.insert(schema.institutions).values({
-      id: 'inst_1',
-      plaidItemId: 'item_1',
-      accessTokenEncrypted: 'sealed',
-      institutionName: 'Chase',
-      syncCursor: 'cursor_1',
-      status: 'healthy',
-      lastSyncedAt: '2026-08-29T11:00:00Z',
-      lastAttemptedSyncAt: '2026-08-29T11:00:00Z',
-      createdAt: '2026-01-01T00:00:00Z',
-    });
-    await db.insert(schema.accounts).values({
-      id: 'acct_1',
-      institutionId: 'inst_1',
-      plaidAccountId: 'pa_1',
-      name: 'Everyday Checking',
-      mask: '4321',
-      type: 'depository',
-      subtype: 'checking',
-      currentBalanceMinor: 84_700,
-      balanceAsOf: '2026-08-29T11:00:00Z',
-      isEveryday: true,
-    });
-
-    const txs = [
-      ['txn_1', -6_400, 'uber eats', 'UBER EATS', '2026-08-05', 'dining'],
-      ['txn_2', -3_800, 'target', 'TARGET 00023415', '2026-08-09', 'groceries'],
-      ['txn_3', -12_000, 'landlord', 'RENT', '2026-08-01', 'rent'],
-      ['txn_4', 520_000, 'acme-payroll', 'ACME PAYROLL', '2026-08-15', 'income'],
-      ['txn_5', -1_599, 'netflix', 'NETFLIX.COM', '2026-08-15', 'streaming'],
-    ] as const;
-
-    for (const [id, amountMinor, merchantKey, description, postedDate, categoryId] of txs) {
-      await db.insert(schema.transactions).values({
-        id,
-        accountId: 'acct_1',
-        plaidTransactionId: `p_${id}`,
-        amountMinor,
-        merchantName: description,
-        merchantKey,
-        description,
-        postedDate,
-        datetime: `${postedDate}T14:00:00Z`,
-        pending: false,
-        settlementState: 'posted',
-        isInternalTransfer: false,
-        reversesTransactionId: null,
-        originalCurrency: id === 'txn_2' ? 'EUR' : null,
-        originalAmountMinor: id === 'txn_2' ? 3_200 : null,
-        firstSeenAt: NOW.toISOString(),
-        updatedAt: NOW.toISOString(),
-      });
-      await db.insert(schema.categorizations).values({
-        id: `cat_${id}`,
-        transactionId: id,
-        categoryId,
-        confidence: id === 'txn_2' ? 0.6 : 0.95,
-        source: 'model',
-        isConfirmed: false,
-        needsReview: id === 'txn_2',
-        reasoning: id === 'txn_2' ? 'mixed-use merchant' : null,
-        supersededBy: null,
-        createdAt: NOW.toISOString(),
-      });
-    }
-
-    await db.insert(schema.incomeSources).values({
-      id: 'inc_1',
-      accountId: 'acct_1',
-      merchantKey: 'acme-payroll',
-      expectedAmountMinor: 520_000,
-      cadence: 'monthly',
-      nextExpectedDate: '2026-09-15T00:00:00Z',
-      detectionConfidence: 0.95,
-      isUserConfirmed: true,
-      isActive: true,
-    });
-    await db.insert(schema.recurringCharges).values({
-      id: 'rc_1',
-      merchantKey: 'netflix',
-      currentAmountMinor: -1_599,
-      cadence: 'monthly',
-      firstSeenDate: '2026-01-15',
-      lastSeenDate: '2026-08-15',
-      cumulativePaidMinor: -12_792,
-      status: 'active',
-      detectedAt: NOW.toISOString(),
-      userAcknowledged: false,
-    });
-    await db.insert(schema.recurringChargeAmountChanges).values({
-      id: 'ac_1',
-      recurringChargeId: 'rc_1',
-      oldAmountMinor: -1_299,
-      newAmountMinor: -1_599,
-      changedAt: '2026-06-15T00:00:00Z',
-    });
-    await db.insert(schema.alertRules).values({
-      id: 'rule_1',
-      type: 'large_purchase',
-      thresholdMinor: 20_000,
-      windowMinutes: null,
-      enabled: true,
-    });
-    await db.insert(schema.alerts).values({
-      id: 'alert_1',
-      ruleId: 'rule_1',
-      triggeredByTransactionId: 'txn_3',
-      eventOccurredAt: '2026-08-01T14:00:00Z',
-      detectedAt: '2026-08-29T11:00:00Z',
-      deliveredAt: null,
-      dismissedAsFalsePositive: false,
-      dedupeKey: 'large_purchase:txn_3',
-    });
-    await db.insert(schema.periodReports).values({
-      id: 'rep_1',
-      type: 'monthly_report',
-      periodStart: '2026-07-01T00:00:00Z',
-      periodEnd: '2026-08-01T00:00:00Z',
-      content: JSON.stringify({ totalSpendingMinor: -412_000, savingsRate: 0.18 }),
-      generatedAt: NOW.toISOString(),
-      deliveredAt: null,
-      wasLate: false,
-      dataComplete: true,
-    });
-    await db.insert(schema.diagnosticEvents).values([
-      {
-        occurredAt: '2026-08-29T11:00:00Z',
-        eventType: 'sync_attempt',
-        outcome: 'success',
-        subjectId: 'inst_1',
-        durationMs: 412,
-        errorCode: null,
-      },
-      {
-        occurredAt: '2026-08-29T10:00:00Z',
-        eventType: 'sync_failure',
-        outcome: 'failure',
-        subjectId: 'inst_1',
-        durationMs: 30_000,
-        errorCode: 'network',
-      },
-    ]);
+    await seedAccounts(db);
+    await seedTransactions(db);
+    await seedDerivedRows(db);
+    await seedRecurringCharge(db);
+    await seedAlertsAndReports(db);
+    await seedDiagnostics(db);
 
     emitted = [];
     classify = async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' });
-    modelDescription = {
-      provider: 'local_only',
-      model: null,
-      localOnly: true,
-      reason: 'History only in tests',
-    };
+    modelDescription = { ...LOCAL_ONLY_MODEL };
 
     services = new Services({
       handle,
@@ -2328,7 +2364,7 @@ describe('Services with realistic data', () => {
           .where(eq(schema.categorizations.transactionId, id))
       ).find((r) => r.supersededBy === null);
 
-    const addUberCharge = async (id: string, categoryId: string): Promise<void> => {
+    const insertUberTransaction = async (id: string): Promise<void> => {
       await handle.db.insert(schema.transactions).values({
         id,
         accountId: 'acct_1',
@@ -2348,6 +2384,10 @@ describe('Services with realistic data', () => {
         firstSeenAt: NOW.toISOString(),
         updatedAt: NOW.toISOString(),
       });
+    };
+
+    const addUberCharge = async (id: string, categoryId: string): Promise<void> => {
+      await insertUberTransaction(id);
       await handle.db.insert(schema.categorizations).values({
         id: `cat_${id}`,
         transactionId: id,

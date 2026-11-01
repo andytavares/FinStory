@@ -54,12 +54,46 @@ function modelPlaceholder(models: Query<OllamaModel[]>): string {
   return models.error ? 'Not available' : 'No local models found';
 }
 
-export function OllamaFields({
-  settings,
-  update,
-  models,
-}: FieldsProps & { models: Query<OllamaModel[]> }): React.JSX.Element {
+interface OllamaFieldsProps extends FieldsProps {
+  readonly models: Query<OllamaModel[]>;
+}
+
+function ModelOptions({ models }: { models: Query<OllamaModel[]> }): React.JSX.Element {
   const installed = models.data ?? [];
+  if (installed.length === 0) return <option value="">{modelPlaceholder(models)}</option>;
+  return (
+    <>
+      <option value="">Choose a model</option>
+      {installed.map((m) => (
+        <option key={m.name} value={m.name}>
+          {m.name}
+        </option>
+      ))}
+    </>
+  );
+}
+
+function ModelSelect({ settings, update, models }: OllamaFieldsProps): React.JSX.Element {
+  const installed = models.data ?? [];
+  return (
+    <div className="relative flex flex-col">
+      <Select
+        disabled={installed.length === 0}
+        defaultValue={settings.ollamaModel}
+        onChange={(e) => update({ ollamaModel: e.target.value })}
+      >
+        <ModelOptions models={models} />
+      </Select>
+      {installed.length > 0 && (
+        <span className="ds-caption pointer-events-none absolute right-7 top-1/2 -translate-y-1/2">
+          {installed.length} chat models
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function OllamaFields({ settings, update, models }: OllamaFieldsProps): React.JSX.Element {
   return (
     <div className="grid grid-cols-2 gap-3">
       <Field label="Ollama address">
@@ -73,31 +107,7 @@ export function OllamaFields({
       </Field>
       <Field label="Model">
         <span className="sr-only">Installed model</span>
-        <div className="relative flex flex-col">
-          <Select
-            disabled={installed.length === 0}
-            defaultValue={settings.ollamaModel}
-            onChange={(e) => update({ ollamaModel: e.target.value })}
-          >
-            {installed.length === 0 ? (
-              <option value="">{modelPlaceholder(models)}</option>
-            ) : (
-              <>
-                <option value="">Choose a model</option>
-                {installed.map((m) => (
-                  <option key={m.name} value={m.name}>
-                    {m.name}
-                  </option>
-                ))}
-              </>
-            )}
-          </Select>
-          {installed.length > 0 && (
-            <span className="ds-caption pointer-events-none absolute right-7 top-1/2 -translate-y-1/2">
-              {installed.length} chat models
-            </span>
-          )}
-        </div>
+        <ModelSelect settings={settings} update={update} models={models} />
       </Field>
     </div>
   );

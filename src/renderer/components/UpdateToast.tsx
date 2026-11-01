@@ -13,6 +13,16 @@ export function UpdateToast(): React.JSX.Element | null {
   );
 
   if (!version) return null;
+  return <ToastCard version={version} onLater={() => setVersion(null)} />;
+}
+
+function ToastCard({
+  version,
+  onLater,
+}: {
+  version: string;
+  onLater: () => void;
+}): React.JSX.Element {
   return (
     <div
       role="status"
@@ -26,7 +36,7 @@ export function UpdateToast(): React.JSX.Element | null {
         Downloaded in the background. Restart to finish updating.
       </p>
       <div className="mt-3 flex justify-end gap-2">
-        <button className="btn" onClick={() => setVersion(null)}>
+        <button className="btn" onClick={onLater}>
           Later
         </button>
         <button

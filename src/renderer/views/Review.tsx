@@ -37,7 +37,6 @@ function ModelNotice(): React.JSX.Element | null {
   );
 }
 
-
 function ProgressCard({ done, total }: { done: number; total: number }): React.JSX.Element {
   return (
     <Card className="ds-row gap-[14px] !px-4 !py-2.5">
@@ -48,8 +47,8 @@ function ProgressCard({ done, total }: { done: number; total: number }): React.J
         {done} of {total} done
       </span>
       <span className="ds-faint">
-        Keys: <span className="numeric">1–3</span> pick · <span className="numeric">↵</span> accept ·{' '}
-        <span className="numeric">S</span> skip
+        Keys: <span className="numeric">1–3</span> pick · <span className="numeric">↵</span> accept
+        · <span className="numeric">S</span> skip
       </span>
     </Card>
   );
@@ -60,7 +59,10 @@ const isTyping = (target: EventTarget | null): boolean =>
 
 /** FR-067: clearing a month of flags is a short session, so most items take one keypress. */
 export function Review(): React.JSX.Element {
-  const { data, loading, refetch } = useQuery<QueueResponse>('review:queue', { limit: 100, offset: 0 });
+  const { data, loading, refetch } = useQuery<QueueResponse>('review:queue', {
+    limit: 100,
+    offset: 0,
+  });
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [always, setAlways] = useState<Readonly<Record<string, boolean>>>({});
@@ -90,7 +92,8 @@ export function Review(): React.JSX.Element {
       const suggestion = suggestionsFor(focusedItem)[Number(e.key) - 1];
       if (suggestion) void pick(focusedItem, suggestion.categoryId);
       else if (e.key === 'Enter') void accept([focusedItem.transaction.id]);
-      else if (e.key.toLowerCase() === 's') setFocusedIndex(Math.min(focusedIndex + 1, rows.length - 1));
+      else if (e.key.toLowerCase() === 's')
+        setFocusedIndex(Math.min(focusedIndex + 1, rows.length - 1));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -115,7 +118,10 @@ export function Review(): React.JSX.Element {
         actions={
           <>
             <RecategorizeButton variant="compact" onDone={refetch} />
-            <Button variant="primary" onClick={() => void accept(rows.map((r) => r.transaction.id))}>
+            <Button
+              variant="primary"
+              onClick={() => void accept(rows.map((r) => r.transaction.id))}
+            >
               Accept all {total} guesses
             </Button>
           </>
@@ -127,12 +133,16 @@ export function Review(): React.JSX.Element {
         <ReviewItemCard
           key={item.transaction.id}
           item={item}
-          categories={categories.data ?? []}
-          focused={item === focusedItem}
-          always={always[item.transaction.id] ?? false}
-          onFocus={() => setFocusedIndex(index)}
-          onAlways={(next) => setAlways({ ...always, [item.transaction.id]: next })}
-          onPick={(categoryId) => void pick(item, categoryId)}
+          view={{
+            categories: categories.data ?? [],
+            focused: item === focusedItem,
+            always: always[item.transaction.id] ?? false,
+          }}
+          actions={{
+            onFocus: () => setFocusedIndex(index),
+            onAlways: (next) => setAlways({ ...always, [item.transaction.id]: next }),
+            onPick: (categoryId) => void pick(item, categoryId),
+          }}
         />
       ))}
     </>

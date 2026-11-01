@@ -40,19 +40,9 @@ const CATEGORIES = [
   { name: 'Shopping', value: 45_000 },
 ];
 
-/** Dev-only gallery: every design-system piece with example data. */
-export function DesignSystem(): React.JSX.Element {
-  const [range, setRange] = useState('month');
-  const [hidden, setHidden] = useState(false);
-  const [section, setSection] = useState('general');
-  const [needsReview, setNeedsReview] = useState(false);
+function ButtonsSection(): React.JSX.Element {
   return (
     <>
-      <PageHeader
-        title="Design system"
-        sub="Every shared component, with example data"
-        actions={<Button variant="primary">Primary action</Button>}
-      />
       <Card title="Buttons and chips" caption="Button, Chip">
         <div className="ds-row" style={{ flexWrap: 'wrap' }}>
           <Button>Default</Button>
@@ -68,12 +58,26 @@ export function DesignSystem(): React.JSX.Element {
           <Chip dot={categoryColor(1)}>Food</Chip>
         </div>
       </Card>
+    </>
+  );
+}
+
+function StatsSection(): React.JSX.Element {
+  return (
+    <>
       <div className="ds-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         <Stat label="Spent this month" value="$15.00" delta="99% below Oct pace" tone="pos" series={[1890, 1874, 2244, 2603, 4430, 15]} />
         <Stat label="Income this month" value="$0.00" delta="Next: $3,100 on Nov 12" series={[3100, 6200, 6200, 6200, 6200, 0]} color="var(--color-positive)" />
         <Stat label="Recurring / month" value="$1,826.98" delta="3 to confirm" series={[1810, 1815, 1826, 1826]} color="var(--color-cat-6)" />
         <Stat label="Safe to spend / day" value="$37.80" delta="Keeps you above $1,000" tone="pos" series={[60, 52, 48, 41, 39, 37.8]} color="var(--color-attention)" />
       </div>
+    </>
+  );
+}
+
+function RunwaySection(): React.JSX.Element {
+  return (
+    <>
       <div className="ds-grid" style={{ gridTemplateColumns: '1.25fr 1fr' }}>
         <Card title="Runway to payday" caption="RunwayChart">
           <RunwayChart
@@ -91,6 +95,15 @@ export function DesignSystem(): React.JSX.Element {
           <CategoryDonut parts={CATEGORIES} legend />
         </Card>
       </div>
+    </>
+  );
+}
+
+function MenuSection(): React.JSX.Element {
+  const [section, setSection] = useState('general');
+  const [needsReview, setNeedsReview] = useState(false);
+  return (
+    <>
       <Card title="Menu, NavList, ListRows, Card tones" caption="Menu, MenuItem, NavList, ListRows, Card">
         <div className="ds-row" style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <Menu trigger="Account: All">
@@ -122,6 +135,13 @@ export function DesignSystem(): React.JSX.Element {
           </div>
         </div>
       </Card>
+    </>
+  );
+}
+
+function OverTimeSection(): React.JSX.Element {
+  return (
+    <>
       <div className="ds-grid" style={{ gridTemplateColumns: '1.25fr 1fr' }}>
         <Card>
           <SpendingOverTime
@@ -137,6 +157,13 @@ export function DesignSystem(): React.JSX.Element {
           />
         </Card>
       </div>
+    </>
+  );
+}
+
+function BarsSection(): React.JSX.Element {
+  return (
+    <>
       <div className="ds-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <Card>
           <CategoryBars
@@ -154,6 +181,15 @@ export function DesignSystem(): React.JSX.Element {
           </div>
         </Card>
       </div>
+    </>
+  );
+}
+
+function TableSection(): React.JSX.Element {
+  const [range, setRange] = useState('month');
+  const [hidden, setHidden] = useState(false);
+  return (
+    <>
       <div className="ds-grid" style={{ gridTemplateColumns: '1fr 330px' }}>
         <Card title="Table, MerchantMark, Segmented" actions={<Segmented label="Range" value={range} onChange={setRange} options={[{ value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'year', label: 'Year' }]} />}>
           <Table>
@@ -183,6 +219,26 @@ export function DesignSystem(): React.JSX.Element {
           </div>
         </Drawer>
       </div>
+    </>
+  );
+}
+
+/** Dev-only gallery: every design-system piece with example data. */
+export function DesignSystem(): React.JSX.Element {
+  return (
+    <>
+      <PageHeader
+        title="Design system"
+        sub="Every shared component, with example data"
+        actions={<Button variant="primary">Primary action</Button>}
+      />
+      <ButtonsSection />
+      <StatsSection />
+      <RunwaySection />
+      <MenuSection />
+      <OverTimeSection />
+      <BarsSection />
+      <TableSection />
     </>
   );
 }

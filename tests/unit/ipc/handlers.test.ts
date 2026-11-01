@@ -81,6 +81,61 @@ const CONTRACT_CHANNELS = [
   'usage:export',
 ];
 
+/** Valid minimal payload per channel; anything not listed takes {}. */
+const CHANNEL_PAYLOADS: Record<string, unknown> = {
+  'setup:saveCredentials': { plaidClientId: 'c', plaidSecret: 's', plaidEnv: 'sandbox' },
+  'credentials:update': { anthropicApiKey: 'sk-new' },
+  'link:complete': { linkToken: 'lt' },
+  'institutions:disconnect': { institutionId: 'i' },
+  'institutions:reauth': { institutionId: 'i' },
+  'accounts:setEveryday': { accountId: 'a', isEveryday: true },
+  'dashboard:get': { periodStart: '2026-08-01', periodEnd: '2026-09-01' },
+  'breakdown:byCategory': { periodStart: '2026-08-01', periodEnd: '2026-09-01' },
+  'breakdown:byMerchant': { periodStart: '2026-08-01', periodEnd: '2026-09-01' },
+  'trends:overTime': { periodStart: '2026-08-01', periodEnd: '2026-09-01' },
+  'transactions:query': {},
+  'transactions:update': { transactionId: 't1' },
+  'income:confirm': { id: 'i' },
+  'income:override': { id: 'i' },
+  'income:clearOverride': { id: 'i' },
+  'income:add': { accountId: 'a', cadence: 'monthly', expectedAmountMinor: 100, nextExpectedDate: '2026-09-01' },
+  'rules:update': { merchantKey: 'uber eats', categoryId: 'dining' },
+  'rules:delete': { merchantKey: 'uber eats' },
+  'overrides:clear': { kind: 'merchant_name', target: 'uber eats' },
+  'categorization:rerun': { scope: 'unresolved' },
+  'import:preview': { fileName: 'a.csv', text: 'x' },
+  'import:commit': { fileName: 'a.csv', text: 'x', accountMap: [], categoryMap: [] },
+  'recurring:decide': { merchantKey: 'netflix', amountMinor: -1599, decision: 'recurring' },
+  'review:queue': {},
+  'review:recategorize': { transactionIds: ['t'], categoryId: 'c' },
+  'review:applyRetroactive': { merchantKey: 'm', categoryId: 'c' },
+  'review:dismissFlag': { transactionIds: ['t'] },
+  'categories:create': { name: 'New' },
+  'categories:rename': { id: 'c', name: 'New' },
+  'categories:merge': { sourceId: 'a', targetId: 'b' },
+  'categories:setHidden': { id: 'c', hidden: true },
+  'categories:delete': { id: 'c' },
+  'merchants:rename': { merchantKey: 'm', displayName: 'X' },
+  'recurring:acknowledge': { id: 'r' },
+  'recurring:markNotRecurring': { id: 'r' },
+  'alerts:dismiss': { alertId: 'a' },
+  'alertRules:update': { id: 'r' },
+  'alertRules:create': { type: 'large_purchase', thresholdMinor: 20000 },
+  'alertRules:delete': { id: 'r' },
+  'reports:get': { reportId: 'rep' },
+  'reports:generate': { type: 'monthly_report' },
+  'reports:delete': { id: 'rep' },
+  'reports:exportPdf': { id: 'rep' },
+  'diagnostics:export': { destPath: '/tmp/x' },
+  'settings:update': { confidenceThreshold: 0.8 },
+  'data:export': { destPath: '/tmp/x', passphrase: 'correct horse' },
+  'data:import': { srcPath: '/tmp/x', passphrase: 'correct horse' },
+  'data:deleteAll': { confirmation: 'DELETE ALL MY DATA' },
+  'usage:view': { route: 'dashboard' },
+  'usage:action': { feature: 'ui:search' },
+  'usage:summary': { days: 7 },
+};
+
 describe('IPC wiring matches the contract', () => {
   const registry = new IpcRegistry();
   registerHandlers(registry, stubServices());
@@ -97,65 +152,10 @@ describe('IPC wiring matches the contract', () => {
   });
 
   it('every registered channel routes to its service without error', async () => {
-    // Valid minimal payload per channel; anything not listed takes {}.
-    const payloads: Record<string, unknown> = {
-      'setup:saveCredentials': { plaidClientId: 'c', plaidSecret: 's', plaidEnv: 'sandbox' },
-      'credentials:update': { anthropicApiKey: 'sk-new' },
-      'link:complete': { linkToken: 'lt' },
-      'institutions:disconnect': { institutionId: 'i' },
-      'institutions:reauth': { institutionId: 'i' },
-      'accounts:setEveryday': { accountId: 'a', isEveryday: true },
-      'dashboard:get': { periodStart: '2026-08-01', periodEnd: '2026-09-01' },
-      'breakdown:byCategory': { periodStart: '2026-08-01', periodEnd: '2026-09-01' },
-      'breakdown:byMerchant': { periodStart: '2026-08-01', periodEnd: '2026-09-01' },
-      'trends:overTime': { periodStart: '2026-08-01', periodEnd: '2026-09-01' },
-      'transactions:query': {},
-      'transactions:update': { transactionId: 't1' },
-      'income:confirm': { id: 'i' },
-      'income:override': { id: 'i' },
-      'income:clearOverride': { id: 'i' },
-      'income:add': { accountId: 'a', cadence: 'monthly', expectedAmountMinor: 100, nextExpectedDate: '2026-09-01' },
-      'rules:update': { merchantKey: 'uber eats', categoryId: 'dining' },
-      'rules:delete': { merchantKey: 'uber eats' },
-      'overrides:clear': { kind: 'merchant_name', target: 'uber eats' },
-      'categorization:rerun': { scope: 'unresolved' },
-      'import:preview': { fileName: 'a.csv', text: 'x' },
-      'import:commit': { fileName: 'a.csv', text: 'x', accountMap: [], categoryMap: [] },
-      'recurring:decide': { merchantKey: 'netflix', amountMinor: -1599, decision: 'recurring' },
-      'review:queue': {},
-      'review:recategorize': { transactionIds: ['t'], categoryId: 'c' },
-      'review:applyRetroactive': { merchantKey: 'm', categoryId: 'c' },
-      'review:dismissFlag': { transactionIds: ['t'] },
-      'categories:create': { name: 'New' },
-      'categories:rename': { id: 'c', name: 'New' },
-      'categories:merge': { sourceId: 'a', targetId: 'b' },
-      'categories:setHidden': { id: 'c', hidden: true },
-      'categories:delete': { id: 'c' },
-      'merchants:rename': { merchantKey: 'm', displayName: 'X' },
-      'recurring:acknowledge': { id: 'r' },
-      'recurring:markNotRecurring': { id: 'r' },
-      'alerts:dismiss': { alertId: 'a' },
-      'alertRules:update': { id: 'r' },
-      'alertRules:create': { type: 'large_purchase', thresholdMinor: 20000 },
-      'alertRules:delete': { id: 'r' },
-      'reports:get': { reportId: 'rep' },
-      'reports:generate': { type: 'monthly_report' },
-      'reports:delete': { id: 'rep' },
-      'reports:exportPdf': { id: 'rep' },
-      'diagnostics:export': { destPath: '/tmp/x' },
-      'settings:update': { confidenceThreshold: 0.8 },
-      'data:export': { destPath: '/tmp/x', passphrase: 'correct horse' },
-      'data:import': { srcPath: '/tmp/x', passphrase: 'correct horse' },
-      'data:deleteAll': { confirmation: 'DELETE ALL MY DATA' },
-      'usage:view': { route: 'dashboard' },
-      'usage:action': { feature: 'ui:search' },
-      'usage:summary': { days: 7 },
-    };
-
     const failures: string[] = [];
     for (const channel of CONTRACT_CHANNELS) {
       try {
-        await registry.invoke(channel, payloads[channel] ?? {});
+        await registry.invoke(channel, CHANNEL_PAYLOADS[channel] ?? {});
       } catch (e) {
         failures.push(`${channel}: ${(e as { code?: string }).code ?? 'error'}`);
       }

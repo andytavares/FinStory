@@ -86,7 +86,8 @@ async function ollamaFetch(baseUrl: string, path: string, init?: RequestInit): P
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(`Ollama: ${body?.error ?? `returned ${response.status}`}`);
+    const reason = body?.error ?? 'returned ' + response.status;
+    throw new Error(`Ollama: ${reason}`);
   }
   return response;
 }

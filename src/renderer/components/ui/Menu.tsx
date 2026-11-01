@@ -3,10 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { Button } from './Button';
 import { Chip } from './Chip';
 
-/**
- * A trigger that opens a floating panel of items. Closes on outside click and Escape.
- * `children` is a function so a panel can close the menu after an action.
- */
+/** A trigger that opens a floating panel; closes on outside click and Escape. `children` is a function so a panel can close it. */
 export function Menu({
   trigger,
   label,

@@ -4,17 +4,16 @@ import { spend } from '../../lib/format';
 import { Button, Card, MerchantMark, TextInput } from '../../components/ui';
 import { CategoryMenu } from './CategoryMenu';
 import { CategoryName } from './CategoryName';
-import type { CategoryRow } from './types';
+import type { CategoryRow, CategoryScope } from './types';
 
 interface CardProps {
   readonly group: CategoryRow;
   readonly subcategories: readonly CategoryRow[];
-  readonly allCategories: readonly CategoryRow[];
-  readonly onChanged: () => void;
+  readonly scope: CategoryScope;
 }
 
 /** One top-level category with its subcategories, each with its own ⋯ menu. */
-export function CategoryCard({ group, subcategories, allCategories, onChanged }: CardProps): React.JSX.Element {
+export function CategoryCard({ group, subcategories, scope }: CardProps): React.JSX.Element {
   const [renaming, setRenaming] = useState(false);
   const kind = group.isSystem ? 'Built in' : 'Custom';
   return (
@@ -23,18 +22,24 @@ export function CategoryCard({ group, subcategories, allCategories, onChanged }:
         <MerchantMark name={group.name} />
         <div className="min-w-0 flex-1">
           <div className="font-semibold">
-            <CategoryName category={group} editing={renaming} onDone={() => setRenaming(false)} onChanged={onChanged} />
+            <CategoryName
+              category={group}
+              rename={{ editing: renaming, onDone: () => setRenaming(false) }}
+              onChanged={scope.onChanged}
+            />
           </div>
-          <div className="ds-caption">{kind} · {subcategories.length} subcategories</div>
+          <div className="ds-caption">
+            {kind} · {subcategories.length} subcategories
+          </div>
         </div>
         <span className="ds-num">{spend(group.rolledUpSpentMinor)}</span>
-        <CategoryMenu category={group} allCategories={allCategories} onChanged={onChanged} onRename={() => setRenaming(true)} />
+        <CategoryMenu category={group} scope={scope} onRename={() => setRenaming(true)} />
       </div>
       <div className="mt-1.5 pl-[34px]">
         {subcategories.map((child) => (
-          <SubcategoryRow key={child.id} category={child} allCategories={allCategories} onChanged={onChanged} />
+          <SubcategoryRow key={child.id} category={child} scope={scope} />
         ))}
-        <AddSubcategory parentId={group.id} parentName={group.name} onCreated={onChanged} />
+        <AddSubcategory parent={group} onCreated={scope.onChanged} />
       </div>
     </Card>
   );
@@ -42,22 +47,26 @@ export function CategoryCard({ group, subcategories, allCategories, onChanged }:
 
 function SubcategoryRow({
   category,
-  allCategories,
-  onChanged,
+  scope,
 }: {
   category: CategoryRow;
-  allCategories: readonly CategoryRow[];
-  onChanged: () => void;
+  scope: CategoryScope;
 }): React.JSX.Element {
   const [renaming, setRenaming] = useState(false);
   return (
-    <div className={`group ds-row border-b border-[var(--color-line)] py-1 ${category.isHidden ? 'opacity-50' : ''}`}>
+    <div
+      className={`group ds-row border-b border-[var(--color-line)] py-1 ${category.isHidden ? 'opacity-50' : ''}`}
+    >
       <span className="ds-muted flex-1">
-        <CategoryName category={category} editing={renaming} onDone={() => setRenaming(false)} onChanged={onChanged} />
+        <CategoryName
+          category={category}
+          rename={{ editing: renaming, onDone: () => setRenaming(false) }}
+          onChanged={scope.onChanged}
+        />
       </span>
       <span className="ds-num ds-faint">{spend(category.spentMinor)}</span>
       <div className="opacity-0 focus-within:opacity-100 group-hover:opacity-100">
-        <CategoryMenu category={category} allCategories={allCategories} onChanged={onChanged} onRename={() => setRenaming(true)} />
+        <CategoryMenu category={category} scope={scope} onRename={() => setRenaming(true)} />
       </div>
     </div>
   );
@@ -65,14 +74,13 @@ function SubcategoryRow({
 
 /** Inline subcategory creation, so a parent's children are added where they live. */
 function AddSubcategory({
-  parentId,
-  parentName,
+  parent,
   onCreated,
 }: {
-  parentId: string;
-  parentName: string;
+  parent: CategoryRow;
   onCreated: () => void;
 }): React.JSX.Element {
+  const { id: parentId, name: parentName } = parent;
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +100,12 @@ function AddSubcategory({
   if (!open) {
     return (
       <div className="py-1.5">
-        <Button variant="ghost" size="sm" onClick={() => setOpen(true)} aria-label={`Add a subcategory under ${parentName}`}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen(true)}
+          aria-label={`Add a subcategory under ${parentName}`}
+        >
           + Subcategory
         </Button>
       </div>
@@ -114,8 +127,12 @@ function AddSubcategory({
           placeholder={`New subcategory under ${parentName}`}
           aria-label={`New subcategory under ${parentName}`}
         />
-        <Button size="sm" onClick={create}>Add</Button>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+        <Button size="sm" onClick={create}>
+          Add
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
       </div>
       {error && <p className="ds-warn text-[12px]">{error}</p>}
     </div>

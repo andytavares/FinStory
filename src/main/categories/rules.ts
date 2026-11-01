@@ -6,14 +6,24 @@ import type { MerchantRuleView } from '@shared/types';
 
 type Db = DatabaseHandle['db'];
 
+interface NameRule {
+  readonly merchantKey: string;
+  readonly displayName: string | null;
+}
+
+interface CategoryRule {
+  readonly merchantKey: string;
+  readonly categoryId: string | null;
+}
+
 /** Merchant rules: the name and category a merchant always gets, below one-off edits. */
 
 export async function setMerchantName(
   db: Db,
-  merchantKey: string,
-  displayName: string | null,
+  rule: NameRule,
   at: string,
 ): Promise<void> {
+  const { merchantKey, displayName } = rule;
   if (displayName === null || displayName.trim() === '') {
     await db.delete(t.merchantAliases).where(eq(t.merchantAliases.merchantKey, merchantKey));
     return;
@@ -26,10 +36,10 @@ export async function setMerchantName(
 
 export async function setRuleCategory(
   db: Db,
-  merchantKey: string,
-  categoryId: string | null,
+  rule: CategoryRule,
   at: string,
 ): Promise<void> {
+  const { merchantKey, categoryId } = rule;
   await db
     .insert(t.merchantProfiles)
     .values({
@@ -53,21 +63,21 @@ export async function deleteRule(db: Db, merchantKey: string): Promise<void> {
     .where(eq(t.merchantProfiles.merchantKey, merchantKey));
 }
 
+async function liveCategorization(db: Db, transactionId: string) {
+  const [current] = await db
+    .select()
+    .from(t.categorizations)
+    .where(and(eq(t.categorizations.transactionId, transactionId), isNull(t.categorizations.supersededBy)));
+  return current;
+}
+
 /** Append a categorization to the chain, superseding the live one. */
 export async function supersedeCategorization(
   db: Db,
   change: { transactionId: string; categoryId: string; source: 'user' | 'rule' },
   at: string,
 ): Promise<void> {
-  const [current] = await db
-    .select()
-    .from(t.categorizations)
-    .where(
-      and(
-        eq(t.categorizations.transactionId, change.transactionId),
-        isNull(t.categorizations.supersededBy),
-      ),
-    );
+  const current = await liveCategorization(db, change.transactionId);
   const id = `cat_${randomUUID().slice(0, 12)}`;
   await db.insert(t.categorizations).values({
     id,
@@ -89,16 +99,13 @@ export async function supersedeCategorization(
   }
 }
 
-/**
- * Give every charge of the merchant the rule's category, except one-offs.
- * A one-off is a live categorization with source `user`.
- */
+/** Give every charge of the merchant the rule's category, except one-offs (live source `user`). */
 export async function applyRuleCategory(
   db: Db,
-  merchantKey: string,
-  categoryId: string,
+  rule: CategoryRule & { readonly categoryId: string },
   at: string,
 ): Promise<{ updated: number; skippedOneOffs: number }> {
+  const { merchantKey, categoryId } = rule;
   const rows = await db
     .select({ id: t.transactions.id })
     .from(t.transactions)
@@ -125,6 +132,31 @@ async function liveSources(db: Db): Promise<Map<string, { categoryId: string; so
   return new Map(rows.map((r) => [r.transactionId, r]));
 }
 
+interface RuleLookups {
+  readonly displayNames: ReadonlyMap<string, string>;
+  readonly ruleCategories: ReadonlyMap<string, string | null>;
+  readonly categoryNames: ReadonlyMap<string, string>;
+  readonly transactions: readonly (typeof t.transactions.$inferSelect)[];
+  readonly live: ReadonlyMap<string, { source: string }>;
+}
+
+function ruleView(merchantKey: string, lookups: RuleLookups): MerchantRuleView {
+  const { displayNames, ruleCategories, categoryNames, transactions, live } = lookups;
+  const charges = transactions.filter((r) => r.merchantKey === merchantKey);
+  const categoryId = ruleCategories.get(merchantKey) ?? null;
+  const isOneOff = (r: (typeof charges)[number]): boolean =>
+    r.userMerchantName !== null || live.get(r.id)?.source === 'user';
+  return {
+    merchantKey,
+    merchantName: charges[0]?.merchantName ?? merchantKey,
+    displayName: displayNames.get(merchantKey) ?? null,
+    categoryId,
+    categoryName: categoryId ? (categoryNames.get(categoryId) ?? categoryId) : null,
+    transactionCount: charges.length,
+    oneOffCount: charges.filter(isOneOff).length,
+  };
+}
+
 export async function listRules(db: Db): Promise<MerchantRuleView[]> {
   const [aliases, profiles, transactions, categories, live] = await Promise.all([
     db.select().from(t.merchantAliases),
@@ -139,20 +171,6 @@ export async function listRules(db: Db): Promise<MerchantRuleView[]> {
   );
   const categoryNames = new Map(categories.map((c) => [c.id, c.name]));
   const keys = new Set([...displayNames.keys(), ...ruleCategories.keys()]);
-
-  return [...keys].sort().map((merchantKey) => {
-    const charges = transactions.filter((r) => r.merchantKey === merchantKey);
-    const categoryId = ruleCategories.get(merchantKey) ?? null;
-    return {
-      merchantKey,
-      merchantName: charges[0]?.merchantName ?? merchantKey,
-      displayName: displayNames.get(merchantKey) ?? null,
-      categoryId,
-      categoryName: categoryId ? (categoryNames.get(categoryId) ?? categoryId) : null,
-      transactionCount: charges.length,
-      oneOffCount: charges.filter(
-        (r) => r.userMerchantName !== null || live.get(r.id)?.source === 'user',
-      ).length,
-    };
-  });
+  const lookups = { displayNames, ruleCategories, categoryNames, transactions, live };
+  return [...keys].sort().map((merchantKey) => ruleView(merchantKey, lookups));
 }

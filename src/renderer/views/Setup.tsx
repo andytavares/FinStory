@@ -79,19 +79,17 @@ export function Setup({
       <main className="flex flex-col gap-[14px] px-14 py-[70px]">
         {step === 0 && (
           <ConnectStep
-            values={connect}
-            onChange={setConnect}
+            form={{ values: connect, onChange: setConnect }}
+            save={{ saving, onSave: () => void save() }}
             onNext={() => setStep(1)}
-            onSave={() => void save()}
-            saving={saving}
           />
         )}
         {step === 1 && (
-          <SortStep choice={sort} onChange={setSort} onBack={() => setStep(0)} onNext={() => setStep(2)} />
+          <SortStep sort={{ choice: sort, onChange: setSort }} onBack={() => setStep(0)} onNext={() => setStep(2)} />
         )}
         {step === 2 && <HistoryStep onBack={() => setStep(1)} onSkip={() => setStep(3)} />}
         {step === 3 && (
-          <DoneStep ready={ready} saving={saving} onBack={() => setStep(2)} onFinish={() => void save()} />
+          <DoneStep status={{ ready, saving }} onBack={() => setStep(2)} onFinish={() => void save()} />
         )}
         {error && <p className="m-0 text-[13px] text-[var(--color-attention)]">{error}</p>}
       </main>

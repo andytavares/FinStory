@@ -12,15 +12,13 @@ function monthOf(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
 }
 
-function RenameInput({
-  charge,
-  onDone,
-  onChanged,
-}: {
-  charge: RecurringChargeView;
-  onDone: () => void;
-  onChanged: () => void;
-}): React.JSX.Element {
+interface RenameInputProps {
+  readonly charge: RecurringChargeView;
+  readonly rename: { onDone: () => void; onChanged: () => void };
+}
+
+function RenameInput({ charge, rename }: RenameInputProps): React.JSX.Element {
+  const { onDone, onChanged } = rename;
   const [name, setName] = useState(charge.merchantName);
   const submit = (): void => {
     const next = name.trim();
@@ -50,48 +48,50 @@ function RenameInput({
   );
 }
 
-/** A confirmed or stopped recurring charge. */
-export function ConfirmedCard({
-  charge,
-  onChanged,
-  onOpenMerchant,
-}: {
-  charge: RecurringChargeView;
-  onChanged: () => void;
-  onOpenMerchant: (merchantKey: string) => void;
-}): React.JSX.Element {
-  const [renaming, setRenaming] = useState(false);
+function ConfirmedFooter({ charge }: { charge: RecurringChargeView }): React.JSX.Element {
   const rise = latestRise(charge.amountChanges);
+  return (
+    <>
+      <span className="ds-caption">
+        <Money minor={charge.cumulativePaidMinor} magnitude /> paid
+      </span>
+      {rise && (
+        <span className="ml-auto">
+          <Chip tone="warn">
+            ↑ Was {money(Math.abs(rise.oldAmountMinor))} until {monthOf(rise.changedAt)}
+          </Chip>
+        </span>
+      )}
+    </>
+  );
+}
+
+interface ConfirmedCardProps {
+  readonly charge: RecurringChargeView;
+  readonly actions: { onChanged: () => void; onOpenMerchant: (merchantKey: string) => void };
+}
+
+/** A confirmed or stopped recurring charge. */
+export function ConfirmedCard({ charge, actions }: ConfirmedCardProps): React.JSX.Element {
+  const { onChanged, onOpenMerchant } = actions;
+  const [renaming, setRenaming] = useState(false);
   const markNotRecurring = (): void =>
     void call('recurring:markNotRecurring', { id: charge.id }).then(onChanged);
 
   return (
     <ChargeCard
-      markName={charge.merchantName}
-      name={
-        renaming ? (
-          <RenameInput charge={charge} onDone={() => setRenaming(false)} onChanged={onChanged} />
+      summary={{
+        markName: charge.merchantName,
+        name: renaming ? (
+          <RenameInput charge={charge} rename={{ onDone: () => setRenaming(false), onChanged }} />
         ) : (
           charge.merchantName
-        )
-      }
-      subtitle={cadenceSince(charge.cadence, charge.firstSeenDate)}
-      amountMinor={charge.currentAmountMinor}
-      history={priceHistory(charge.amountChanges, charge.currentAmountMinor)}
-      footer={
-        <>
-          <span className="ds-caption">
-            <Money minor={charge.cumulativePaidMinor} magnitude /> paid
-          </span>
-          {rise && (
-            <span className="ml-auto">
-              <Chip tone="warn">
-                ↑ Was {money(Math.abs(rise.oldAmountMinor))} until {monthOf(rise.changedAt)}
-              </Chip>
-            </span>
-          )}
-        </>
-      }
+        ),
+        subtitle: cadenceSince(charge.cadence, charge.firstSeenDate),
+        amountMinor: charge.currentAmountMinor,
+        history: priceHistory(charge.amountChanges, charge.currentAmountMinor),
+      }}
+      footer={<ConfirmedFooter charge={charge} />}
     >
       <Button size="sm" onClick={() => onOpenMerchant(charge.merchantKey)}>
         See charges

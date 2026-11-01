@@ -166,20 +166,20 @@ describe('Report detail', () => {
       value: { invoke, on: () => () => {} },
     });
     const onDeleted = vi.fn();
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={onDeleted} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: onDeleted }} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Delete report' }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
     expect(invoke).toHaveBeenCalledWith('reports:delete', { id: 'rep1' });
   });
 
   it('shows the headline figures', async () => {
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getByText('18%')).toBeDefined());
     expect(screen.getByText('Saved')).toBeDefined();
   });
 
   it('shows the change with its unit, not a bare number', async () => {
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     // Groups are collapsed by default; open the one holding dining.
     await waitFor(() => screen.getAllByRole('button'));
     for (const b of screen.getAllByRole('button')) {
@@ -202,7 +202,7 @@ describe('Report detail', () => {
         },
       },
     });
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getAllByText('Food').length).toBeGreaterThan(0));
     // Children hidden until expanded; the parent still reports the rolled-up
     // change so a collapsed group is not silent.
@@ -215,26 +215,26 @@ describe('Report detail', () => {
   });
 
   it('shows human category names, never raw ids', async () => {
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getAllByText('Dining & Takeout').length).toBeGreaterThan(0));
     expect(screen.queryByText(/^cat_/)).toBeNull();
   });
 
   it('renders a chart of the category breakdown', async () => {
-    const { container } = render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    const { container } = render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getByText('Where it went')).toBeDefined());
     expect(container.querySelector('.recharts-pie, svg')).not.toBeNull();
   });
 
   it('includes the recurring audit and largest purchases', async () => {
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getByText('Netflix')).toBeDefined());
     expect(screen.getByText('Largest purchases')).toBeDefined();
     expect(screen.getByText('Landlord')).toBeDefined();
   });
 
   it('shows the in and out tiles with signs and the previous month', async () => {
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getByText('+$5,200.00')).toBeDefined());
     expect(screen.getByText('Versus July')).toBeDefined();
     expect(screen.getByText('was 24% in Jul')).toBeDefined();
@@ -242,14 +242,14 @@ describe('Report detail', () => {
 
   it('exports the open report to PDF', async () => {
     const invoke = bridgeSpy({ 'reports:get': MONTHLY, 'reports:exportPdf': { ok: true, path: '/tmp/a.pdf' } });
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Export PDF' }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('reports:exportPdf', { id: 'rep1' }));
     expect(await screen.findByText('Saved to /tmp/a.pdf')).toBeDefined();
   });
 
   it('states the assumption behind the annual projection (FR-041)', async () => {
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() =>
       expect(screen.getByText(/Assumes current spending patterns continue/)).toBeDefined(),
     );
@@ -257,7 +257,7 @@ describe('Report detail', () => {
 
   it('goes back to the list', async () => {
     let backed = false;
-    render(<ReportDetail reportId="rep1" onBack={() => (backed = true)} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => (backed = true), onDeleted: () => {} }} />);
     await waitFor(() => screen.getByText('← All reports'));
     fireEvent.click(screen.getByText('← All reports'));
     expect(backed).toBe(true);
@@ -271,7 +271,7 @@ describe('Report detail', () => {
         content: { hadActivity: false, categoryTotals: [], deviations: [], qualification: null },
       },
     });
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getByText(/No activity in this period/)).toBeDefined());
   });
 
@@ -290,7 +290,7 @@ describe('Report detail', () => {
         },
       },
     });
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() =>
       expect(screen.getByText(/a few more weeks of history are needed/)).toBeDefined(),
     );
@@ -312,14 +312,14 @@ describe('Report detail', () => {
         },
       },
     });
-    render(<ReportDetail reportId="rep1" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getByText('Worth noticing')).toBeDefined());
     expect(screen.getByText(/3\.1× above your normal range/)).toBeDefined();
   });
 
   it('handles a missing report without crashing', async () => {
     installMoneyBridge({});
-    render(<ReportDetail reportId="nope" onBack={() => {}} onDeleted={() => {}} />);
+    render(<ReportDetail reportId="nope" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
     await waitFor(() => expect(screen.getByText('← All reports')).toBeDefined());
   });
 });

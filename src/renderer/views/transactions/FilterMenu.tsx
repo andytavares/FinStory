@@ -6,19 +6,16 @@ export interface MenuOption {
 }
 
 /** A filter chip that opens a small menu of choices. `null` is the unfiltered state. */
-export function FilterMenu({
-  label,
-  anyLabel,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  anyLabel: string;
-  options: readonly MenuOption[];
-  value: string | null;
-  onChange: (next: string | null) => void;
-}): React.JSX.Element {
+interface FilterMenuProps {
+  /** `title` prefixes the trigger; `any` names the unfiltered choice. */
+  readonly labels: { readonly title: string; readonly any: string };
+  readonly options: readonly MenuOption[];
+  readonly choice: { readonly value: string | null; readonly onChange: (next: string | null) => void };
+}
+
+export function FilterMenu({ labels, options, choice }: FilterMenuProps): React.JSX.Element {
+  const { title: label, any: anyLabel } = labels;
+  const { value, onChange } = choice;
   const chosen = options.find((o) => o.value === value)?.label ?? anyLabel;
   return (
     <Menu trigger={label ? `${label}: ${chosen}` : chosen}>

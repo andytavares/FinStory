@@ -36,10 +36,8 @@ function resolveMigrationsFolder(): string {
 }
 
 /**
- * Apply pending migrations. Drizzle tracks which have already run.
- *
- * Foreign keys go off for the run: SQLite ignores PRAGMA foreign_keys inside a
- * transaction, and a table rebuild's DROP TABLE would cascade-delete child rows.
+ * Apply pending migrations. Foreign keys go off for the run: SQLite ignores the pragma
+ * inside a transaction, and a table rebuild's DROP TABLE would cascade-delete child rows.
  */
 export function runMigrations(handle: DatabaseHandle, migrationsFolder?: string): void {
   handle.raw.pragma('foreign_keys = OFF');

@@ -6,15 +6,13 @@ import { categoryColor } from '../../lib/categoryColor';
 import { RuleEditor, type CategoryChoice } from './RuleEditor';
 import type { MerchantRuleView } from '@shared/types';
 
-function RuleRow({
-  rule,
-  onEdit,
-  onRemove,
-}: {
-  rule: MerchantRuleView;
-  onEdit: () => void;
-  onRemove: () => void;
-}): React.JSX.Element {
+interface MerchantRuleRowProps {
+  readonly rule: MerchantRuleView;
+  readonly actions: { onEdit: () => void; onRemove: () => void };
+}
+
+function MerchantRuleRow({ rule, actions }: MerchantRuleRowProps): React.JSX.Element {
+  const { onEdit, onRemove } = actions;
   return (
     <tr>
       <td>
@@ -53,15 +51,17 @@ function RuleRow({
   );
 }
 
+interface MerchantRulesTableProps {
+  readonly rules: readonly MerchantRuleView[];
+  readonly choices: CategoryChoice;
+  readonly onChanged: () => void;
+}
+
 export function MerchantRulesTable({
   rules,
   choices,
   onChanged,
-}: {
-  rules: readonly MerchantRuleView[];
-  choices: CategoryChoice;
-  onChanged: () => void;
-}): React.JSX.Element {
+}: MerchantRulesTableProps): React.JSX.Element {
   const [editing, setEditing] = useState<string | null>(null);
 
   if (rules.length === 0) {
@@ -104,11 +104,13 @@ export function MerchantRulesTable({
                 </td>
               </tr>
             ) : (
-              <RuleRow
+              <MerchantRuleRow
                 key={rule.merchantKey}
                 rule={rule}
-                onEdit={() => setEditing(rule.merchantKey)}
-                onRemove={() => void remove(rule)}
+                actions={{
+                  onEdit: () => setEditing(rule.merchantKey),
+                  onRemove: () => void remove(rule),
+                }}
               />
             ),
           )}

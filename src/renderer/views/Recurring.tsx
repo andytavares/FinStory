@@ -11,7 +11,26 @@ import type { RecurringChargeView } from '@shared/types';
 
 type Tab = 'confirmed' | 'possible' | 'stopped';
 
-function useRescan(refetch: () => void): { label: string | null; scanning: boolean; run: () => void } {
+interface ChargeActions {
+  readonly onChanged: () => void;
+  readonly onOpenMerchant: (merchantKey: string) => void;
+}
+
+interface ChargeGridProps {
+  readonly charges: readonly RecurringChargeView[];
+  readonly showTimeline: boolean;
+  readonly actions: ChargeActions;
+}
+
+interface RecurringProps {
+  readonly onOpenMerchant: (merchantKey: string) => void;
+}
+
+function useRescan(refetch: () => void): {
+  label: string | null;
+  scanning: boolean;
+  run: () => void;
+} {
   const [label, setLabel] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const run = (): void => {
@@ -28,11 +47,7 @@ function useRescan(refetch: () => void): { label: string | null; scanning: boole
 }
 
 /** FR-021: the ledger. Cumulative total is the column that changes behaviour. */
-export function Recurring({
-  onOpenMerchant,
-}: {
-  onOpenMerchant: (merchantKey: string) => void;
-}): React.JSX.Element {
+export function Recurring({ onOpenMerchant }: RecurringProps): React.JSX.Element {
   const { data, loading, refetch } = useQuery<RecurringChargeView[]>('recurring:list', {
     includeInactive: true,
   });
@@ -84,25 +99,15 @@ export function Recurring({
         <ChargeGrid
           charges={tab === 'confirmed' ? active : stopped}
           showTimeline={tab === 'confirmed'}
-          onChanged={refetch}
-          onOpenMerchant={onOpenMerchant}
+          actions={{ onChanged: refetch, onOpenMerchant }}
         />
       )}
     </div>
   );
 }
 
-function ChargeGrid({
-  charges,
-  showTimeline,
-  onChanged,
-  onOpenMerchant,
-}: {
-  charges: readonly RecurringChargeView[];
-  showTimeline: boolean;
-  onChanged: () => void;
-  onOpenMerchant: (merchantKey: string) => void;
-}): React.JSX.Element {
+function ChargeGrid({ charges, showTimeline, actions }: ChargeGridProps): React.JSX.Element {
+  const { onChanged, onOpenMerchant } = actions;
   if (charges.length === 0) {
     return (
       <EmptyState
@@ -116,7 +121,7 @@ function ChargeGrid({
       {showTimeline && <Timeline charges={charges} today={new Date()} />}
       <div className="ds-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {charges.map((c) => (
-          <ConfirmedCard key={c.id} charge={c} onChanged={onChanged} onOpenMerchant={onOpenMerchant} />
+          <ConfirmedCard key={c.id} charge={c} actions={{ onChanged, onOpenMerchant }} />
         ))}
       </div>
     </>

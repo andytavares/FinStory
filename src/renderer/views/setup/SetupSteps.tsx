@@ -7,6 +7,52 @@ export const STEP_TITLES = [
   'Done',
 ] as const;
 
+type StepState = 'done' | 'now' | 'todo';
+
+function StepBadge({ state, index }: { state: StepState; index: number }): React.JSX.Element {
+  return (
+    <span
+      className="grid h-[22px] w-[22px] place-items-center rounded-full text-[11px] font-semibold"
+      style={{
+        background:
+          state === 'done'
+            ? 'var(--color-positive)'
+            : state === 'now'
+              ? 'var(--color-accent)'
+              : 'var(--color-panel-2)',
+        color: state === 'todo' ? 'var(--color-ink-faint)' : 'var(--color-accent-ink)',
+      }}
+    >
+      {state === 'done' ? <Check aria-label="Done" size={12} strokeWidth={3} /> : index + 1}
+    </span>
+  );
+}
+
+interface StepItemProps {
+  readonly title: string;
+  readonly index: number;
+  readonly progress: { readonly step: number; readonly onSelect: (index: number) => void };
+}
+
+function StepItem({ title, index, progress }: StepItemProps): React.JSX.Element {
+  const { step, onSelect } = progress;
+  const state = index < step ? 'done' : index === step ? 'now' : 'todo';
+  return (
+    <li className="border-t border-[var(--color-line)] py-3 first:border-t-0">
+      <button
+        type="button"
+        onClick={() => onSelect(index)}
+        aria-current={state === 'now' ? 'step' : undefined}
+        className="ds-row cursor-pointer border-0 bg-transparent p-0 text-left"
+        style={{ color: state === 'todo' ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}
+      >
+        <StepBadge state={state} index={index} />
+        {title}
+      </button>
+    </li>
+  );
+}
+
 /** The left panel: brand, headline and the four steps with done / now / todo states. */
 export function SetupSteps({
   step,
@@ -33,36 +79,9 @@ export function SetupSteps({
         on this Mac, encrypted.
       </p>
       <ol className="m-0 mt-auto flex list-none flex-col p-0">
-        {STEP_TITLES.map((title, index) => {
-          const state = index < step ? 'done' : index === step ? 'now' : 'todo';
-          return (
-            <li key={title} className="border-t border-[var(--color-line)] py-3 first:border-t-0">
-              <button
-                type="button"
-                onClick={() => onSelect(index)}
-                aria-current={state === 'now' ? 'step' : undefined}
-                className="ds-row cursor-pointer border-0 bg-transparent p-0 text-left"
-                style={{ color: state === 'todo' ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}
-              >
-                <span
-                  className="grid h-[22px] w-[22px] place-items-center rounded-full text-[11px] font-semibold"
-                  style={{
-                    background:
-                      state === 'done'
-                        ? 'var(--color-positive)'
-                        : state === 'now'
-                          ? 'var(--color-accent)'
-                          : 'var(--color-panel-2)',
-                    color: state === 'todo' ? 'var(--color-ink-faint)' : 'var(--color-accent-ink)',
-                  }}
-                >
-                  {state === 'done' ? <Check aria-label="Done" size={12} strokeWidth={3} /> : index + 1}
-                </span>
-                {title}
-              </button>
-            </li>
-          );
-        })}
+        {STEP_TITLES.map((title, index) => (
+          <StepItem key={title} title={title} index={index} progress={{ step, onSelect }} />
+        ))}
       </ol>
     </aside>
   );

@@ -16,10 +16,7 @@ export class MemorySink implements DiagnosticSink {
   }
 }
 
-/**
- * Persists events to the `diagnostic_events` table. The logger has already
- * validated every field against its enumerations, so no free text arrives here.
- */
+/** Persists events to `diagnostic_events`. The logger already validated every field, so no free text arrives. */
 export class DatabaseSink implements DiagnosticSink {
   constructor(private readonly db: DatabaseHandle['db']) {}
 

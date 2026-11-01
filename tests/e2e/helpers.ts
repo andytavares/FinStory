@@ -52,10 +52,7 @@ export async function launch(seededDir?: string): Promise<Harness> {
   };
 }
 
-/**
- * Test profiles write real Keychain items. Only the app that created them can
- * delete them without a macOS prompt, so the cleanup runs inside the app.
- */
+/** Test profiles write real Keychain items; only the creating app can delete them without a prompt, so cleanup runs in-app. */
 export async function clearKeychain(app: ElectronApplication, userDataDir: string): Promise<void> {
   const services = [...new Set([userDataDir, realpathSync(userDataDir)])].map((path) =>
     keychainService(false, path),

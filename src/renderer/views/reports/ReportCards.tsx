@@ -5,8 +5,14 @@ import { periodLabel, spend } from '../../lib/format';
 import { periodRange, reportTitle } from './period';
 import type { ReportSummary } from './types';
 
-interface ReportActions {
-  readonly onOpen: (id: string) => void;
+interface FeaturedProps {
+  readonly report: ReportSummary;
+  readonly actions: { onOpen: (id: string) => void; onExport: (id: string) => void };
+}
+
+interface ReportCardProps {
+  readonly report: ReportSummary;
+  readonly actions: { onOpen: (id: string) => void; onDelete: (id: string) => void };
 }
 
 function subtitle(report: ReportSummary): string {
@@ -20,18 +26,20 @@ function subtitle(report: ReportSummary): string {
     .join(' · ');
 }
 
-export function FeaturedReport({
-  report,
-  onOpen,
-  onExport,
-}: ReportActions & { report: ReportSummary; onExport: (id: string) => void }): React.JSX.Element {
-  const data = report.series.map((spendingMinor, index) => ({ label: String(index + 1), spendingMinor }));
+export function FeaturedReport({ report, actions }: FeaturedProps): React.JSX.Element {
+  const { onOpen, onExport } = actions;
+  const data = report.series.map((spendingMinor, index) => ({
+    label: String(index + 1),
+    spendingMinor,
+  }));
   return (
     <ul className="m-0 list-none p-0">
       <li>
         <Card className="grid grid-cols-[1fr_1.2fr] gap-[18px]">
           <div>
-            <Eyebrow>Latest · {report.label ?? periodLabel(report.periodStart, report.periodEnd)}</Eyebrow>
+            <Eyebrow>
+              Latest · {report.label ?? periodLabel(report.periodStart, report.periodEnd)}
+            </Eyebrow>
             <div className="mt-1 text-[19px] font-semibold">{report.headline}</div>
             {report.summary && <div className="ds-muted mt-1.5">{report.summary}</div>}
             <div className="ds-faint mt-1.5">{subtitle(report)}</div>
@@ -44,18 +52,20 @@ export function FeaturedReport({
               </Button>
             </div>
           </div>
-          <SpendingOverTime data={data} priorAverageMinor={null} title="Spending by day" showShapeToggle={false} />
+          <SpendingOverTime
+            data={data}
+            priorAverageMinor={null}
+            title="Spending by day"
+            showShapeToggle={false}
+          />
         </Card>
       </li>
     </ul>
   );
 }
 
-export function ReportCard({
-  report,
-  onOpen,
-  onDelete,
-}: ReportActions & { report: ReportSummary; onDelete: (id: string) => void }): React.JSX.Element {
+export function ReportCard({ report, actions }: ReportCardProps): React.JSX.Element {
+  const { onOpen, onDelete } = actions;
   return (
     <li className="list-none">
       <Card>

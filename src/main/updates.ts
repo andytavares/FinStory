@@ -19,12 +19,13 @@ interface StartUpdatesOptions {
 }
 
 /** Check for updates now and every 6 hours; tell the renderer once one is downloaded. */
-export function startUpdates({
-  updater,
-  send,
-  intervalMs = CHECK_INTERVAL_MS,
-  track = (run: () => Promise<unknown>) => run(),
-}: StartUpdatesOptions): () => void {
+export function startUpdates(options: StartUpdatesOptions): () => void {
+  const {
+    updater,
+    send,
+    intervalMs = CHECK_INTERVAL_MS,
+    track = (run: () => Promise<unknown>) => run(),
+  } = options;
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
   updater.on('update-downloaded', ({ version }) => send('update:ready', { version }));

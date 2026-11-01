@@ -14,15 +14,13 @@ function flag(known: boolean | undefined): { tone: ChipTone; label: string } {
 }
 
 /** Protection list, backups and reset: what is locked, and how to get out or start over. */
-export function PrivacySection({
-  protection,
-  lastBackupAt,
-  onBackedUp,
-}: {
-  protection: Protection | undefined;
-  lastBackupAt: string | null;
-  onBackedUp: () => void;
-}): React.JSX.Element {
+interface PrivacySectionProps {
+  readonly protection: Protection | undefined;
+  readonly lastBackupAt: string | null;
+  readonly onBackedUp: () => void;
+}
+
+export function PrivacySection({ protection, lastBackupAt, onBackedUp }: PrivacySectionProps): React.JSX.Element {
   const rows = [
     { name: 'Database', detail: 'Encrypted on disk (ChaCha20-Poly1305)', ...flag(protection?.databaseEncrypted) },
     { name: 'Database key', detail: 'Stored in macOS Keychain', ...flag(protection?.keysInKeychain) },

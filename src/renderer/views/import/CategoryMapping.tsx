@@ -12,19 +12,36 @@ export interface MoneyCategory {
 interface CategoryMappingProps {
   readonly mappings: ImportPreview['categoryMappings'];
   readonly categories: readonly MoneyCategory[];
-  readonly choice: Readonly<Record<string, string>>;
-  readonly onChoose: (quickenCategory: string, categoryId: string) => void;
+  readonly selection: {
+    readonly choice: Readonly<Record<string, string>>;
+    readonly onChoose: (quickenCategory: string, categoryId: string) => void;
+  };
 }
 
-export function CategoryMapping({ mappings, categories, choice, onChoose }: CategoryMappingProps): React.JSX.Element {
-  const usable = categories.filter((c) => !c.isHidden && c.mergedIntoId === null && c.id !== 'uncategorizable');
+export function CategoryMapping({
+  mappings,
+  categories,
+  selection,
+}: CategoryMappingProps): React.JSX.Element {
+  const { choice, onChoose } = selection;
+  const usable = categories.filter(
+    (c) => !c.isHidden && c.mergedIntoId === null && c.id !== 'uncategorizable',
+  );
   return (
-    <div className="ds-list" style={{ maxHeight: 220, overflowY: 'auto' }} aria-label="Category mapping">
+    <div
+      className="ds-list"
+      style={{ maxHeight: 220, overflowY: 'auto' }}
+      aria-label="Category mapping"
+    >
       {mappings.map((m) => (
         <div key={m.quickenCategory} className="ds-row" style={{ padding: '6px 0' }}>
           <div style={{ flex: 1 }}>
-            <div className="ds-num" style={{ fontSize: 12 }}>{m.quickenCategory}</div>
-            <div className="ds-faint" style={{ fontSize: 11.5 }}>{m.count} transactions</div>
+            <div className="ds-num" style={{ fontSize: 12 }}>
+              {m.quickenCategory}
+            </div>
+            <div className="ds-faint" style={{ fontSize: 11.5 }}>
+              {m.count} transactions
+            </div>
           </div>
           <span className="ds-faint">→</span>
           <Select
@@ -35,7 +52,9 @@ export function CategoryMapping({ mappings, categories, choice, onChoose }: Cate
           >
             <option value="">Let Money decide</option>
             {usable.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </Select>
         </div>

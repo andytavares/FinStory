@@ -18,10 +18,7 @@ export function toUsageRow(row: typeof usageEvents.$inferSelect): Record<string,
   return { ...row, label: featureLabel(row.feature) };
 }
 
-/**
- * Local usage log. Only ids from the feature catalog are stored, so no free text
- * (a merchant, an amount) can reach the table. Nothing here leaves the machine.
- */
+/** Local usage log. Only catalog feature ids are stored, so no free text reaches the table. Nothing leaves the machine. */
 export class UsageRecorder {
   constructor(
     private readonly db: DatabaseHandle['db'],

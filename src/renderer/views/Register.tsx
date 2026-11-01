@@ -25,6 +25,96 @@ interface CategoryOption {
   readonly mergedIntoId: string | null;
 }
 
+/** The `transactions:query` params for the filters. */
+function registerQuery(filters: Filters, spendingOnly: boolean): Record<string, unknown> {
+  const { direction, categoryId, accountId, period, needsReviewOnly, search } = filters;
+  return {
+    ...(categoryId ? { categoryIds: [categoryId] } : {}),
+    ...(accountId ? { accountIds: [accountId] } : {}),
+    ...(period ? { periodStart: period.start, periodEnd: period.end } : {}),
+    ...(search ? { merchantKey: search } : {}),
+    needsReviewOnly,
+    spendingOnly,
+    direction,
+    confirmationStatus: 'all',
+    limit: 200,
+    offset: 0,
+  };
+}
+
+function categoryNameOf(categories: readonly CategoryOption[]): (id: string) => string {
+  const names = new Map(categories.map((c) => [c.id, c.name]));
+  return (id) => names.get(id) ?? id;
+}
+
+/** The table, and the editor beside it once a row is selected. */
+function RegisterGrid({
+  rows,
+  categories,
+  onSaved,
+}: {
+  rows: TransactionView[];
+  categories: CategoryOption[];
+  onSaved: () => void;
+}): React.JSX.Element | null {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  if (rows.length === 0) return null;
+  const selected = rows.find((t) => t.id === selectedId) ?? null;
+  const select = (id: string): void => {
+    if (id !== selectedId) trackAction('ui:open-editor');
+    setSelectedId(id === selectedId ? null : id);
+  };
+  return (
+    <div className={`grid min-h-0 gap-[14px] ${selected ? 'grid-cols-[1fr_330px]' : ''}`}>
+      <TransactionTable
+        rows={rows}
+        categoryName={categoryNameOf(categories)}
+        selection={{ id: selectedId, onSelect: select }}
+      />
+      {selected && (
+        <TransactionEditor
+          key={selected.id}
+          transaction={selected}
+          categories={categories}
+          onSaved={onSaved}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** What to say about the result: the category drill, data quality, loading and the empty state. */
+function RegisterNotices({
+  data,
+  loading,
+  drill,
+}: {
+  data: RegisterResponse | null;
+  loading: boolean;
+  drill: { active: boolean; spendingOnly: boolean; onChange: (spendingOnly: boolean) => void };
+}): React.JSX.Element {
+  return (
+    <>
+      {data && drill.active && (
+        <DrillNote
+          spendingOnly={drill.spendingOnly}
+          shownAll={data.totalCount + data.excludedCount}
+          onChange={drill.onChange}
+        />
+      )}
+      {data && <Qualification dataComplete={data.dataComplete} staleInstitutions={data.staleInstitutions} />}
+      {loading && <p className="ds-caption">Loading…</p>}
+      {data && data.rows.length === 0 && (
+        <EmptyState
+          title="No transactions match"
+          detail="Try a different search, or widen the date range."
+        />
+      )}
+    </>
+  );
+}
+
 /**
  * Everything the user controls on a transaction.
  *
@@ -47,37 +137,21 @@ export function Register({
     search: initialMerchantKey ?? '',
   });
   const patch = (change: Partial<Filters>): void => setFilters({ ...filters, ...change });
-  const { direction, categoryId, accountId, period, needsReviewOnly, search } = filters;
   // Show everything in the category, which is what the count on the dashboard
   // says. Narrowing to what built the amount is offered, not imposed.
   const [spendingOnly, setSpendingOnly] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
   const institutions = useQuery<InstitutionSummary[]>('institutions:list');
+  const { data, loading, refetch } = useQuery<RegisterResponse>(
+    'transactions:query',
+    registerQuery(filters, spendingOnly),
+  );
 
-  const { data, loading, refetch } = useQuery<RegisterResponse>('transactions:query', {
-    ...(categoryId ? { categoryIds: [categoryId] } : {}),
-    ...(accountId ? { accountIds: [accountId] } : {}),
-    ...(period ? { periodStart: period.start, periodEnd: period.end } : {}),
-    ...(search ? { merchantKey: search } : {}),
-    needsReviewOnly,
-    spendingOnly,
-    direction,
-    confirmationStatus: 'all',
-    limit: 200,
-    offset: 0,
-  });
-
-  const names = new Map((categories.data ?? []).map((c) => [c.id, c.name]));
-  const categoryName = (id: string): string => names.get(id) ?? id;
+  const categoryName = categoryNameOf(categories.data ?? []);
   const rows = data?.rows ?? [];
-  const selected = rows.find((t) => t.id === selectedId) ?? null;
-  const needsReviewCount = needsReviewOnly ? (data?.totalCount ?? 0) : rows.filter((t) => t.needsReview).length;
-
-  const select = (id: string): void => {
-    if (id !== selectedId) trackAction('ui:open-editor');
-    setSelectedId(id === selectedId ? null : id);
-  };
+  const needsReviewCount = filters.needsReviewOnly
+    ? (data?.totalCount ?? 0)
+    : rows.filter((t) => t.needsReview).length;
 
   return (
     <>
@@ -92,50 +166,21 @@ export function Register({
       />
 
       <FilterRow
-        filters={filters}
-        onChange={patch}
-        accounts={(institutions.data ?? []).flatMap((i) => i.accounts)}
-        categories={categories.data ?? []}
-        needsReviewCount={needsReviewCount}
-        rows={rows}
+        filter={{ value: filters, onChange: patch }}
+        choices={{
+          accounts: (institutions.data ?? []).flatMap((i) => i.accounts),
+          categories: categories.data ?? [],
+        }}
+        results={{ rows, needsReviewCount }}
       />
 
-      {data && categoryId && (
-        <DrillNote
-          spendingOnly={spendingOnly}
-          shownAll={data.totalCount + data.excludedCount}
-          onChange={setSpendingOnly}
-        />
-      )}
-      {data && <Qualification dataComplete={data.dataComplete} staleInstitutions={data.staleInstitutions} />}
-      {loading && <p className="ds-caption">Loading…</p>}
+      <RegisterNotices
+        data={data}
+        loading={loading}
+        drill={{ active: Boolean(filters.categoryId), spendingOnly, onChange: setSpendingOnly }}
+      />
 
-      {data && rows.length === 0 && (
-        <EmptyState
-          title="No transactions match"
-          detail="Try a different search, or widen the date range."
-        />
-      )}
-
-      {rows.length > 0 && (
-        <div className={`grid min-h-0 gap-[14px] ${selected ? 'grid-cols-[1fr_330px]' : ''}`}>
-          <TransactionTable
-            rows={rows}
-            categoryName={categoryName}
-            selectedId={selectedId}
-            onSelect={select}
-          />
-          {selected && (
-            <TransactionEditor
-              key={selected.id}
-              transaction={selected}
-              categories={categories.data ?? []}
-              onSaved={refetch}
-              onClose={() => setSelectedId(null)}
-            />
-          )}
-        </div>
-      )}
+      <RegisterGrid rows={rows} categories={categories.data ?? []} onSaved={refetch} />
     </>
   );
 }

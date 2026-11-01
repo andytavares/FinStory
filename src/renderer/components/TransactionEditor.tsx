@@ -3,16 +3,7 @@ import { call, useQuery } from '../lib/ipc';
 import { transactionName } from '../lib/name';
 import { categoryColor } from '../lib/categoryColor';
 import { accountLabel, shortDate, signedMoney } from '../lib/format';
-import {
-  Button,
-  Drawer,
-  Field,
-  MerchantMark,
-  Segmented,
-  Select,
-  TextInput,
-  Toggle,
-} from './ui';
+import { Button, Drawer, Field, MerchantMark, Segmented, Select, TextInput, Toggle } from './ui';
 import type { MerchantRuleView, TransactionView } from '@shared/types';
 
 interface CategoryOption {
@@ -46,30 +37,29 @@ export function assignableCategories(
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
+type Scope = 'transaction' | 'merchant';
+
 function ScopeField({
   scope,
-  onChange,
-  importedName,
-  ruleCategory,
+  merchant,
 }: {
-  scope: 'transaction' | 'merchant';
-  onChange: (next: 'transaction' | 'merchant') => void;
-  importedName: string;
-  ruleCategory: string | null;
+  scope: { value: Scope; onChange: (next: Scope) => void };
+  merchant: { importedName: string; ruleCategory: string | null };
 }): React.JSX.Element {
+  const { importedName, ruleCategory } = merchant;
   return (
     <div className="ds-field">
       Apply this change to
       <Segmented
         label="Apply this change to"
-        value={scope}
-        onChange={onChange}
+        value={scope.value}
+        onChange={scope.onChange}
         options={[
           { value: 'transaction', label: 'This transaction' },
           { value: 'merchant', label: `All ${importedName} (rule)` },
         ]}
       />
-      {ruleCategory && scope === 'transaction' && (
+      {ruleCategory && scope.value === 'transaction' && (
         <span className="text-[var(--color-ink-muted)]">
           A rule already sorts {importedName} into {ruleCategory}. This edit changes only this one
           charge.
@@ -114,10 +104,12 @@ export function TransactionEditor({
     excluded !== transaction.userExcluded ||
     categoryId !== transaction.categoryId;
 
-  const edit = <T,>(set: (value: T) => void) => (value: T): void => {
-    set(value);
-    setStatus('idle');
-  };
+  const edit =
+    <T,>(set: (value: T) => void) =>
+    (value: T): void => {
+      set(value);
+      setStatus('idle');
+    };
 
   const save = async (): Promise<void> => {
     setStatus('saving');
@@ -149,13 +141,19 @@ export function TransactionEditor({
   };
 
   return (
-    <Drawer className="sticky top-0 self-start" role="complementary" aria-label={`Edit ${displayName}`}>
+    <Drawer
+      className="sticky top-0 self-start"
+      role="complementary"
+      aria-label={`Edit ${displayName}`}
+    >
       <div className="ds-row">
         <MerchantMark name={displayName} />
         <div className="min-w-0 flex-1">
           <div className="font-semibold">{displayName}</div>
           <div className="ds-caption">
-            {shortDate(transaction.postedDate)} · {accountLabel(transaction.accountName, transaction.accountMask)} · imported as {transaction.description}
+            {shortDate(transaction.postedDate)} ·{' '}
+            {accountLabel(transaction.accountName, transaction.accountMask)} · imported as{' '}
+            {transaction.description}
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>
@@ -204,10 +202,8 @@ export function TransactionEditor({
 
       {transaction.merchantKey && (
         <ScopeField
-          scope={scope}
-          onChange={setScope}
-          importedName={importedName}
-          ruleCategory={rule?.categoryName ?? null}
+          scope={{ value: scope, onChange: setScope }}
+          merchant={{ importedName, ruleCategory: rule?.categoryName ?? null }}
         />
       )}
 
@@ -220,7 +216,11 @@ export function TransactionEditor({
       </Field>
 
       <div className="ds-row text-[12px]">
-        <Toggle checked={excluded} onChange={edit(setExcluded)} label="Leave out of spending totals" />
+        <Toggle
+          checked={excluded}
+          onChange={edit(setExcluded)}
+          label="Leave out of spending totals"
+        />
         Leave out of spending totals
       </div>
 

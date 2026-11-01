@@ -18,7 +18,7 @@ import { Import } from './views/Import';
 import { call, useQuery } from './lib/ipc';
 import type { ViewId } from '@shared/features';
 import type { SetupStatus } from '@shared/types';
-import { useNavigation } from './lib/navigation';
+import { useNavigation, type Navigation } from './lib/navigation';
 import { AppShell, type NavGroup } from './components/AppShell';
 import { DesignSystem } from './views/DesignSystem';
 
@@ -69,20 +69,57 @@ const NAV_GROUPS: readonly NavGroup[] = [
 
 const LABELS = new Map(NAV_GROUPS.flatMap((g) => g.items.map((i) => [i.id, i.label] as const)));
 
-export function App(): React.JSX.Element {
-  const nav = useNavigation({ view: 'dashboard' });
-  const [setupDismissed, setSetupDismissed] = useState(false);
-  const status = useQuery<SetupStatus>('setup:status');
+interface ViewContext {
+  readonly nav: Navigation;
+  readonly setView: (view: string) => void;
+}
 
-  const view = nav.current.view as ViewId;
-  const setView = (next: string): void => nav.navigate({ view: next });
+const VIEWS: Record<ViewId, (context: ViewContext) => React.JSX.Element> = {
+  dashboard: ({ nav, setView }) => (
+    <Dashboard
+      onDrill={(categoryId) => nav.navigate({ view: 'register', categoryId })}
+      onReconnect={() => setView('accounts')}
+    />
+  ),
+  register: ({ nav }) => {
+    const route = nav.current;
+    return (
+      <Register
+        key={`${route.categoryId ?? 'all'}-${route.merchantKey ?? ''}-${route.search ?? ''}`}
+        initialCategoryId={route.categoryId ?? null}
+        initialMerchantKey={route.search ?? route.merchantKey ?? null}
+      />
+    );
+  },
+  recurring: ({ nav }) => (
+    <Recurring onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })} />
+  ),
+  income: ({ nav }) => (
+    <Income onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })} />
+  ),
+  review: () => <Review />,
+  alerts: ({ nav }) => (
+    <Alerts onOpenMerchant={(search) => nav.navigate({ view: 'register', search })} />
+  ),
+  reports: ({ nav }) => (
+    <Reports
+      openReportId={nav.current.reportId ?? null}
+      onOpenReport={(reportId) => nav.navigate({ view: 'reports', reportId })}
+      onCloseReport={nav.back}
+    />
+  ),
+  usage: () => <Usage />,
+  import: ({ nav }) => <Import onViewTransactions={() => nav.navigate({ view: 'register' })} />,
+  health: () => <Health />,
+  overrides: () => <Overrides />,
+  categories: () => <Categories />,
+  accounts: () => <Accounts />,
+  settings: () => <Settings />,
+  design: () => (import.meta.env.DEV ? <DesignSystem /> : <></>),
+};
 
-  // Every arrival on a screen, including the first and back/forward, is one usage event.
-  useEffect(() => {
-    void call('usage:view', { route: view }).catch(() => {});
-  }, [view]);
-
-  // Standard back/forward chords, plus the mouse buttons some pointers have.
+/** Standard back/forward chords, plus the mouse buttons some pointers have. */
+function useHistoryKeys(nav: Navigation): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (!(e.metaKey || e.altKey)) return;
@@ -97,6 +134,22 @@ export function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [nav]);
+}
+
+export function App(): React.JSX.Element {
+  const nav = useNavigation({ view: 'dashboard' });
+  const [setupDismissed, setSetupDismissed] = useState(false);
+  const status = useQuery<SetupStatus>('setup:status');
+
+  const view = nav.current.view as ViewId;
+  const setView = (next: string): void => nav.navigate({ view: next });
+
+  // Every arrival on a screen, including the first and back/forward, is one usage event.
+  useEffect(() => {
+    void call('usage:view', { route: view }).catch(() => {});
+  }, [view]);
+
+  useHistoryKeys(nav);
 
   // Hold the frame until setup status resolves. Rendering the shell first and
   // swapping to Setup a moment later flashes a UI the user cannot act on.
@@ -122,64 +175,19 @@ export function App(): React.JSX.Element {
     );
   }
 
-  const drill = (categoryId: string): void => {
-    nav.navigate({ view: 'register', categoryId });
-  };
-
-  const route = nav.current;
-  const crumb = [LABELS.get(view) ?? '', route.categoryId].filter(Boolean).join(' · ');
+  const crumb = [LABELS.get(view) ?? '', nav.current.categoryId].filter(Boolean).join(' · ');
 
   return (
     <>
       <AppShell
-        groups={NAV_GROUPS}
-        view={view}
-        crumb={crumb}
-        history={nav}
-        onSelect={setView}
-        onSearch={(search) => nav.navigate({ view: 'register', search })}
+        sidebar={{ groups: NAV_GROUPS, view, onSelect: setView }}
+        topBar={{
+          crumb,
+          history: nav,
+          onSearch: (search) => nav.navigate({ view: 'register', search }),
+        }}
       >
-        {view === 'dashboard' && (
-          <Dashboard onDrill={drill} onReconnect={() => setView('accounts')} />
-        )}
-        {view === 'register' && (
-          <Register
-            key={`${route.categoryId ?? 'all'}-${route.merchantKey ?? ''}-${route.search ?? ''}`}
-            initialCategoryId={route.categoryId ?? null}
-            initialMerchantKey={route.search ?? route.merchantKey ?? null}
-          />
-        )}
-        {view === 'recurring' && (
-          <Recurring
-            onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
-          />
-        )}
-        {view === 'income' && (
-          <Income
-            onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
-          />
-        )}
-        {view === 'review' && <Review />}
-        {view === 'alerts' && (
-          <Alerts onOpenMerchant={(search) => nav.navigate({ view: 'register', search })} />
-        )}
-        {view === 'reports' && (
-          <Reports
-            openReportId={route.reportId ?? null}
-            onOpenReport={(reportId) => nav.navigate({ view: 'reports', reportId })}
-            onCloseReport={nav.back}
-          />
-        )}
-        {view === 'usage' && <Usage />}
-        {view === 'import' && (
-          <Import onViewTransactions={() => nav.navigate({ view: 'register' })} />
-        )}
-        {view === 'health' && <Health />}
-        {view === 'overrides' && <Overrides />}
-        {view === 'categories' && <Categories />}
-        {view === 'accounts' && <Accounts />}
-        {view === 'settings' && <Settings />}
-        {import.meta.env.DEV && view === 'design' && <DesignSystem />}
+        {(VIEWS as Partial<typeof VIEWS>)[view]?.({ nav, setView }) ?? null}
       </AppShell>
       <UpdateToast />
     </>

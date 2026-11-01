@@ -55,30 +55,25 @@ async function insertRows({ app }: typeof import('electron'), seed: Seed): Promi
   db.close();
 }
 
-function exampleTables(today: Date): Seed['tables'] {
-  const now = today.toISOString();
-  const transactions: Row[] = [];
-  const categorizations: Row[] = [];
-  const add = (spec: Charge): void => {
-    const [transaction, categorization] = chargeRows(spec, transactions.length + 1, today);
-    transactions.push(transaction);
-    categorizations.push(categorization);
-  };
+function exampleCharges(): Charge[] {
+  const charges: Charge[] = [];
   for (let month = 0; month < 6; month++) {
-    add({ daysAgo: 5 + month * 30, amountMinor: -1599, name: 'Netflix', categoryId: 'streaming' });
-    add({
-      daysAgo: 12 + month * 30,
-      amountMinor: -1099,
-      name: 'Spotify',
-      categoryId: 'streaming',
-      accountId: 'a2',
-    });
-    add({ daysAgo: 1 + month * 30, amountMinor: -180000, name: 'Landlord', categoryId: 'rent' });
+    charges.push(
+      { daysAgo: 5 + month * 30, amountMinor: -1599, name: 'Netflix', categoryId: 'streaming' },
+      {
+        daysAgo: 12 + month * 30,
+        amountMinor: -1099,
+        name: 'Spotify',
+        categoryId: 'streaming',
+        accountId: 'a2',
+      },
+      { daysAgo: 1 + month * 30, amountMinor: -180000, name: 'Landlord', categoryId: 'rent' },
+    );
   }
   for (let i = 0; i < 12; i++)
-    add({ daysAgo: 3 + i * 14, amountMinor: 310000, name: 'Acme Payroll', categoryId: 'income' });
-  for (let i = 0; i < 25; i++) add(everydayCharge(i));
-  add({
+    charges.push({ daysAgo: 3 + i * 14, amountMinor: 310000, name: 'Acme Payroll', categoryId: 'income' });
+  for (let i = 0; i < 25; i++) charges.push(everydayCharge(i));
+  charges.push({
     daysAgo: 2,
     amountMinor: -45000,
     name: 'Apple Store',
@@ -86,11 +81,17 @@ function exampleTables(today: Date): Seed['tables'] {
     review: true,
     accountId: 'a2',
   });
+  return charges;
+}
+
+function exampleTables(today: Date): Seed['tables'] {
+  const now = today.toISOString();
+  const pairs = exampleCharges().map((spec, index) => chargeRows(spec, index + 1, today));
   return [
     ['institutions', institutions(now)],
     ['accounts', accounts(now)],
-    ['transactions', transactions],
-    ['categorizations', categorizations],
+    ['transactions', pairs.map(([transaction]) => transaction)],
+    ['categorizations', pairs.map(([, categorization]) => categorization)],
   ];
 }
 
@@ -117,10 +118,14 @@ function everydayCharge(i: number): Charge {
 }
 
 function chargeRows(charge: Charge, n: number, today: Date): [Row, Row] {
-  const date = new Date(today.getTime() - charge.daysAgo * 864e5).toISOString().slice(0, 10);
   const id = `t${n}`;
+  return [transactionRow(charge, id, today), categorizationRow(charge, id, today.toISOString())];
+}
+
+function transactionRow(charge: Charge, id: string, today: Date): Row {
+  const date = new Date(today.getTime() - charge.daysAgo * 864e5).toISOString().slice(0, 10);
   const now = today.toISOString();
-  const transaction: Row = {
+  return {
     id,
     account_id: charge.accountId ?? 'a1',
     plaid_transaction_id: `p${id}`,
@@ -136,9 +141,12 @@ function chargeRows(charge: Charge, n: number, today: Date): [Row, Row] {
     first_seen_at: now,
     updated_at: now,
   };
-  const categorization: Row = {
-    id: `c${id}`,
-    transaction_id: id,
+}
+
+function categorizationRow(charge: Charge, transactionId: string, now: string): Row {
+  return {
+    id: `c${transactionId}`,
+    transaction_id: transactionId,
     category_id: charge.categoryId,
     confidence: charge.review ? 0.5 : 0.95,
     source: 'model',
@@ -147,7 +155,6 @@ function chargeRows(charge: Charge, n: number, today: Date): [Row, Row] {
     created_at: now,
     reasoning: charge.review ? 'Could be either; the amount is unusual for this merchant.' : null,
   };
-  return [transaction, categorization];
 }
 
 function institutions(now: string): Row[] {

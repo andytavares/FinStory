@@ -38,6 +38,20 @@ function resolveTargets(accountMap: ImportCommitInput['accountMap']): Map<string
   );
 }
 
+function ruleDecision(categoryId: string): Decision {
+  return { categoryId, confidence: 1, source: 'rule', needsReview: false, reasoning: 'Your rule for this merchant' };
+}
+
+function mappedDecision(categoryId: string, quickenCategory: string): Decision {
+  return {
+    categoryId,
+    confidence: MAPPED_CATEGORY_CONFIDENCE,
+    source: 'local_history',
+    needsReview: false,
+    reasoning: `From your Quicken category "${quickenCategory}"`,
+  };
+}
+
 /** The user's own choices come first: a merchant rule, then a mapped Quicken category, then the pipeline. */
 async function decide(
   planned: PlannedRow,
@@ -50,19 +64,9 @@ async function decide(
 ): Promise<Decision> {
   const { transaction } = planned;
   const rule = sources.rules.get(normalizeMerchantKey(transaction.payee));
-  if (rule) {
-    return { categoryId: rule, confidence: 1, source: 'rule', needsReview: false, reasoning: 'Your rule for this merchant' };
-  }
+  if (rule) return ruleDecision(rule);
   const mapped = transaction.category ? sources.mapped.get(transaction.category) : undefined;
-  if (mapped) {
-    return {
-      categoryId: mapped,
-      confidence: MAPPED_CATEGORY_CONFIDENCE,
-      source: 'local_history',
-      needsReview: false,
-      reasoning: `From your Quicken category "${transaction.category}"`,
-    };
-  }
+  if (mapped) return mappedDecision(mapped, transaction.category ?? '');
   return sources.pipeline.categorize({
     transactionId,
     descriptor: transaction.payee,

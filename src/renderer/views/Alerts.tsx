@@ -16,14 +16,12 @@ interface AlertRowProps {
   readonly onOpen: (merchantName: string) => void;
 }
 
-function AlertRow({ alert, onDismissed, onOpen }: AlertRowProps): React.JSX.Element {
+function AlertText({ alert }: { alert: AlertView }): React.JSX.Element {
   const style = ALERT_STYLE[alert.type] ?? { title: alert.type, color: 'var(--color-ink-faint)', verb: 'charged' };
   // Both times are shown, so a replayed alert is never mistaken for a live one (FR-057).
   const late = new Date(alert.detectedAt).getTime() - new Date(alert.eventOccurredAt).getTime() > LATE_MS;
   return (
-    <div
-      className={`flex items-center gap-3 border-b border-[var(--color-line)] py-2.5 last:border-b-0 ${alert.dismissed ? 'opacity-50' : ''}`}
-    >
+    <>
       <span aria-hidden style={{ width: 8, height: 34, borderRadius: 4, background: style.color }} />
       <div className="flex-1">
         <div className="font-semibold">{style.title}</div>
@@ -35,6 +33,16 @@ function AlertRow({ alert, onDismissed, onOpen }: AlertRowProps): React.JSX.Elem
           {late && ' · detected later, while Money was closed'}
         </div>
       </div>
+    </>
+  );
+}
+
+function AlertRow({ alert, onDismissed, onOpen }: AlertRowProps): React.JSX.Element {
+  return (
+    <div
+      className={`flex items-center gap-3 border-b border-[var(--color-line)] py-2.5 last:border-b-0 ${alert.dismissed ? 'opacity-50' : ''}`}
+    >
+      <AlertText alert={alert} />
       {alert.merchantName && (
         <Button size="sm" onClick={() => onOpen(alert.merchantName as string)}>
           Open

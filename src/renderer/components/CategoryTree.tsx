@@ -95,6 +95,110 @@ function countTitle(total: number, counted: number | undefined): string {
 }
 
 /** Spending by parent category, expandable to its subcategories. */
+function GroupHeader({
+  group,
+  bar,
+  toggle,
+}: {
+  group: Group;
+  bar: { widthPercent: number; color: string };
+  toggle: { isOpen: boolean; hasChildren: boolean; onClick: () => void };
+}): React.JSX.Element {
+  const { isOpen, hasChildren, onClick } = toggle;
+  return (
+    <div className="flex items-center bg-[var(--color-surface)]">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        aria-label={hasChildren ? `Expand ${group.name}` : `View ${group.name}`}
+        className="icon flex flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-surface-raised)]"
+      >
+        <span className="w-4 shrink-0 text-[var(--color-ink-faint)]">
+          {hasChildren ? isOpen ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden /> : null}
+        </span>
+        <span className="w-40 shrink-0 truncate text-[13px]">{group.name}</span>
+        <span className="h-1 flex-1 rounded-full bg-[var(--color-surface-raised)]">
+          <span
+            className="block h-full rounded-full"
+            style={{
+              width: `${bar.widthPercent}%`,
+              background: bar.color,
+            }}
+          />
+        </span>
+        <Money minor={group.totalMinor} magnitude className="w-28 text-right text-[13px]" />
+        <span
+          className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]"
+          title={countTitle(group.txCount, group.countedCount)}
+        >
+          {group.txCount}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function ChildRow({
+  child,
+  onDrill,
+}: {
+  child: BreakdownRow;
+  onDrill: (categoryId: string) => void;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={() => onDrill(child.categoryId)}
+      className="flex w-full items-center gap-3 border-t border-[var(--color-line)] bg-[var(--color-ground)] px-4 py-2 pl-11 text-left hover:bg-[var(--color-surface)]"
+    >
+      <span className="w-40 shrink-0 truncate text-[13px] text-[var(--color-ink-muted)]">
+        {child.name}
+      </span>
+      <span className="flex-1" />
+      <Money
+        minor={child.totalMinor}
+        magnitude
+        className="w-28 text-right text-[13px] text-[var(--color-ink-muted)]"
+      />
+      <span
+        className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]"
+        title={countTitle(child.txCount, child.countedCount)}
+      >
+        {child.txCount}
+      </span>
+    </button>
+  );
+}
+
+/** Spending sitting on the parent itself is a real set of transactions, so it drills like any other row. */
+function OwnRow({
+  group,
+  onDrill,
+}: {
+  group: Group;
+  onDrill: (categoryId: string) => void;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={() => onDrill(group.id)}
+      aria-label={`View transactions directly in ${group.name}`}
+      className="flex w-full items-center gap-3 border-t border-[var(--color-line)] bg-[var(--color-ground)] px-4 py-2 pl-11 text-left text-[13px] text-[var(--color-ink-faint)] hover:bg-[var(--color-surface)] hover:text-[var(--color-ink-muted)]"
+    >
+      <span className="w-40 shrink-0 truncate">Directly in {group.name}</span>
+      <span className="flex-1" />
+      <Money minor={group.ownMinor} magnitude className="w-28 text-right" />
+      <span
+        className="numeric w-10 text-right text-[12px]"
+        title={countTitle(group.ownCount, group.ownCounted)}
+      >
+        {group.ownCount}
+      </span>
+    </button>
+  );
+}
+
 export function CategoryTree({
   rows,
   onDrill,
@@ -120,89 +224,23 @@ export function CategoryTree({
         const hasChildren = group.children.length > 0;
         return (
           <li key={group.id}>
-            <div className="flex items-center bg-[var(--color-surface)]">
-              <button
-                type="button"
-                onClick={() => (hasChildren ? toggle(group.id) : onDrill(group.id))}
-                aria-expanded={hasChildren ? isOpen : undefined}
-                aria-label={hasChildren ? `Expand ${group.name}` : `View ${group.name}`}
-                className="icon flex flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-surface-raised)]"
-              >
-                <span className="w-4 shrink-0 text-[var(--color-ink-faint)]">
-                  {hasChildren ? (
-                    isOpen ? (
-                      <ChevronDown aria-hidden />
-                    ) : (
-                      <ChevronRight aria-hidden />
-                    )
-                  ) : null}
-                </span>
-                <span className="w-40 shrink-0 truncate text-[13px]">{group.name}</span>
-                <span className="h-1 flex-1 rounded-full bg-[var(--color-surface-raised)]">
-                  <span
-                    className="block h-full rounded-full"
-                    style={{
-                      width: `${(group.totalMinor / largest) * 100}%`,
-                      background: categoryColor(index),
-                    }}
-                  />
-                </span>
-                <Money minor={group.totalMinor} magnitude className="w-28 text-right text-[13px]" />
-                <span
-                  className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]"
-                  title={countTitle(group.txCount, group.countedCount)}
-                >
-                  {group.txCount}
-                </span>
-              </button>
-            </div>
-
+            <GroupHeader
+              group={group}
+              bar={{
+                widthPercent: (group.totalMinor / largest) * 100,
+                color: categoryColor(index),
+              }}
+              toggle={{
+                isOpen,
+                hasChildren,
+                onClick: () => (hasChildren ? toggle(group.id) : onDrill(group.id)),
+              }}
+            />
             {isOpen &&
               group.children.map((child) => (
-                <button
-                  key={child.categoryId}
-                  type="button"
-                  onClick={() => onDrill(child.categoryId)}
-                  className="flex w-full items-center gap-3 border-t border-[var(--color-line)] bg-[var(--color-ground)] px-4 py-2 pl-11 text-left hover:bg-[var(--color-surface)]"
-                >
-                  <span className="w-40 shrink-0 truncate text-[13px] text-[var(--color-ink-muted)]">
-                    {child.name}
-                  </span>
-                  <span className="flex-1" />
-                  <Money
-                    minor={child.totalMinor}
-                    magnitude
-                    className="w-28 text-right text-[13px] text-[var(--color-ink-muted)]"
-                  />
-                  <span
-                    className="numeric w-10 text-right text-[12px] text-[var(--color-ink-faint)]"
-                    title={countTitle(child.txCount, child.countedCount)}
-                  >
-                    {child.txCount}
-                  </span>
-                </button>
+                <ChildRow key={child.categoryId} child={child} onDrill={onDrill} />
               ))}
-
-            {isOpen && group.ownCount > 0 && (
-              // Spending sitting on the parent itself is a real set of
-              // transactions, so it drills like any other row.
-              <button
-                type="button"
-                onClick={() => onDrill(group.id)}
-                aria-label={`View transactions directly in ${group.name}`}
-                className="flex w-full items-center gap-3 border-t border-[var(--color-line)] bg-[var(--color-ground)] px-4 py-2 pl-11 text-left text-[13px] text-[var(--color-ink-faint)] hover:bg-[var(--color-surface)] hover:text-[var(--color-ink-muted)]"
-              >
-                <span className="w-40 shrink-0 truncate">Directly in {group.name}</span>
-                <span className="flex-1" />
-                <Money minor={group.ownMinor} magnitude className="w-28 text-right" />
-                <span
-                  className="numeric w-10 text-right text-[12px]"
-                  title={countTitle(group.ownCount, group.ownCounted)}
-                >
-                  {group.ownCount}
-                </span>
-              </button>
-            )}
+            {isOpen && group.ownCount > 0 && <OwnRow group={group} onDrill={onDrill} />}
           </li>
         );
       })}

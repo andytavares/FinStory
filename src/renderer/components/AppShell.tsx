@@ -5,8 +5,21 @@ import { relativeAge } from '../lib/format';
 import type { AlertView, HealthView } from '@shared/types';
 
 export type NavIcon =
-  | 'dash' | 'tx' | 'rec' | 'inc' | 'rev' | 'bell' | 'rep' | 'use'
-  | 'cat' | 'rule' | 'acct' | 'imp' | 'health' | 'gear' | 'design';
+  | 'dash'
+  | 'tx'
+  | 'rec'
+  | 'inc'
+  | 'rev'
+  | 'bell'
+  | 'rep'
+  | 'use'
+  | 'cat'
+  | 'rule'
+  | 'acct'
+  | 'imp'
+  | 'health'
+  | 'gear'
+  | 'design';
 
 /** Icon paths copied from the approved design (mock.js `I`). */
 const ICON_PATHS: Record<Exclude<NavIcon, 'dash'>, string> = {
@@ -75,15 +88,14 @@ function useNavCounts(view: string): { review: number; alerts: number; synced: s
   };
 }
 
-export function Sidebar({
-  groups,
-  view,
-  onSelect,
-}: {
-  groups: readonly NavGroup[];
-  view: string;
-  onSelect: (id: string) => void;
-}): React.JSX.Element {
+export interface SidebarProps {
+  readonly groups: readonly NavGroup[];
+  readonly view: string;
+  readonly onSelect: (id: string) => void;
+}
+
+export function Sidebar(props: SidebarProps): React.JSX.Element {
+  const { groups, view, onSelect } = props;
   const counts = useNavCounts(view);
   const badges: Record<string, { count: number; hot: boolean }> = {
     review: { count: counts.review, hot: true },
@@ -110,7 +122,10 @@ export function Sidebar({
                 <NavSvg icon={item.icon} />
                 {item.label}
                 {badge && badge.count > 0 && (
-                  <span aria-hidden className={`ds-badge ${badge.hot ? 'ds-badge-hot' : ''}`.trim()}>
+                  <span
+                    aria-hidden
+                    className={`ds-badge ${badge.hot ? 'ds-badge-hot' : ''}`.trim()}
+                  >
                     {badge.count}
                   </span>
                 )}
@@ -129,20 +144,19 @@ export function Sidebar({
   );
 }
 
-export function TopBar({
-  crumb,
-  history,
-  onSearch,
-}: {
-  crumb: string;
-  history: {
+export interface TopBarProps {
+  readonly crumb: string;
+  readonly history: {
     canGoBack: boolean;
     canGoForward: boolean;
     back: () => void;
     forward: () => void;
   };
-  onSearch: (text: string) => void;
-}): React.JSX.Element {
+  readonly onSearch: (text: string) => void;
+}
+
+export function TopBar(props: TopBarProps): React.JSX.Element {
+  const { crumb, history, onSearch } = props;
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -156,10 +170,24 @@ export function TopBar({
   }, []);
   return (
     <div className="ds-top">
-      <button type="button" className="ds-history" onClick={history.back} disabled={!history.canGoBack} aria-label="Back" title="Back (⌘[)">
+      <button
+        type="button"
+        className="ds-history"
+        onClick={history.back}
+        disabled={!history.canGoBack}
+        aria-label="Back"
+        title="Back (⌘[)"
+      >
         <ArrowLeft aria-hidden />
       </button>
-      <button type="button" className="ds-history" onClick={history.forward} disabled={!history.canGoForward} aria-label="Forward" title="Forward (⌘])">
+      <button
+        type="button"
+        className="ds-history"
+        onClick={history.forward}
+        disabled={!history.canGoForward}
+        aria-label="Forward"
+        title="Forward (⌘])"
+      >
         <ArrowRight aria-hidden />
       </button>
       <span className="ds-crumb">{crumb}</span>
@@ -181,27 +209,19 @@ export function TopBar({
 }
 
 export function AppShell({
-  groups,
-  view,
-  crumb,
-  history,
-  onSelect,
-  onSearch,
+  sidebar,
+  topBar,
   children,
 }: {
-  groups: readonly NavGroup[];
-  view: string;
-  crumb: string;
-  history: React.ComponentProps<typeof TopBar>['history'];
-  onSelect: (id: string) => void;
-  onSearch: (text: string) => void;
+  sidebar: SidebarProps;
+  topBar: TopBarProps;
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
     <div className="ds-shell">
-      <Sidebar groups={groups} view={view} onSelect={onSelect} />
+      <Sidebar {...sidebar} />
       <main className="ds-main">
-        <TopBar crumb={crumb} history={history} onSearch={onSearch} />
+        <TopBar {...topBar} />
         <div className="ds-body">{children}</div>
       </main>
     </div>

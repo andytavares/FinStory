@@ -23,7 +23,10 @@ export function Reports({
   onOpenReport: (reportId: string) => void;
   onCloseReport: () => void;
 }): React.JSX.Element {
-  const { data, loading, refetch } = useQuery<ReportSummary[]>('reports:list', { type: 'all', limit: 24 });
+  const { data, loading, refetch } = useQuery<ReportSummary[]>('reports:list', {
+    type: 'all',
+    limit: 24,
+  });
   const [generating, setGenerating] = useState<ReportType | null>(null);
   const [generated, setGenerated] = useState<string | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
@@ -55,10 +58,12 @@ export function Reports({
     return (
       <ReportDetail
         reportId={openReportId}
-        onBack={onCloseReport}
-        onDeleted={() => {
-          refetch();
-          onCloseReport();
+        actions={{
+          onBack: onCloseReport,
+          onDeleted: () => {
+            refetch();
+            onCloseReport();
+          },
         }}
         autoExport={exportOnOpen}
       />
@@ -81,7 +86,11 @@ export function Reports({
             <Button disabled={busy} onClick={() => void generate('weekly_digest')}>
               Run weekly digest
             </Button>
-            <Button variant="primary" disabled={busy} onClick={() => void generate('monthly_report')}>
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={() => void generate('monthly_report')}
+            >
               Run {month} report
             </Button>
           </>
@@ -94,14 +103,19 @@ export function Reports({
       {generated && <p className="ds-muted">{generated}</p>}
       {latest ? (
         <>
-          <FeaturedReport report={latest} onOpen={open} onExport={(id) => open(id, true)} />
+          <FeaturedReport
+            report={latest}
+            actions={{ onOpen: open, onExport: (id) => open(id, true) }}
+          />
           <ul className="ds-grid m-0 list-none grid-cols-3 p-0">
             {older.map((report) => (
               <ReportCard
                 key={report.id}
                 report={report}
-                onOpen={open}
-                onDelete={(id) => void call('reports:delete', { id }).then(refetch)}
+                actions={{
+                  onOpen: open,
+                  onDelete: (id) => void call('reports:delete', { id }).then(refetch),
+                }}
               />
             ))}
           </ul>
