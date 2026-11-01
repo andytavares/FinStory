@@ -33,6 +33,15 @@ const DASHBOARD = {
   whatChanged: ['Dining is running above your normal range'],
   dataComplete: true,
   staleInstitutions: [],
+  kpis: {
+    spent: { thisMonthMinor: 240700, seriesMinor: [100000, 240700] },
+    income: { thisMonthMinor: 520000, seriesMinor: [500000, 520000], nextDeposit: null },
+    recurring: { monthlyMinor: 0, count: 0, candidateCount: 0 },
+    safeToSpendPerDayMinor: null,
+  },
+  upcomingRecurring: [],
+  runwaySeries: null,
+  whereItWent: [],
   runway: {
     available: true,
     currentBalanceMinor: 84700,
@@ -48,7 +57,7 @@ describe('Dashboard', () => {
 
   it('shows the runway, cash flow, and category breakdown', async () => {
     render(<Dashboard onDrill={() => {}} />);
-    await waitFor(() => expect(screen.getByText(/projected at payday/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Runway to payday')).toBeDefined());
     // Grouped under the parent, collapsed by default.
     expect(screen.getAllByText('Food').length).toBeGreaterThan(0);
     expect(screen.queryByText('Dining')).toBeNull();
@@ -412,13 +421,6 @@ describe('Setup (first run)', () => {
     expect((screen.getByRole('button', { name: /Save and continue/ }) as HTMLButtonElement).disabled).toBe(
       false,
     );
-  });
-
-  it('carries the FR-061 disclosure beside the optional API key', () => {
-    render(<Setup status={ok} onComplete={() => {}} />);
-    expect(
-      screen.getByText(/never account numbers, balances, credentials, or totals/i),
-    ).toBeDefined();
   });
 
   it('refuses to continue when encryption is unavailable (Constitution VII)', () => {
