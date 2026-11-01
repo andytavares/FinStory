@@ -81,7 +81,9 @@ describe('the workspace id field', () => {
     const invoke = vi.fn((channel: string) =>
       channel === 'settings:get'
         ? Promise.resolve(BASE['settings:get'])
-        : Promise.resolve(BASE['setup:status']),
+        : channel === 'health:get'
+          ? Promise.reject(new Error('No stub for health:get'))
+          : Promise.resolve(BASE['setup:status']),
     );
     Object.defineProperty(globalThis.window, 'money', {
       configurable: true,
