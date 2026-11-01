@@ -33,7 +33,7 @@ describe('the possible recurring charges page', () => {
     installMoneyBridge({ 'recurring:candidates': [CANDIDATE] });
     render(<RecurringCandidates onOpenMerchant={() => {}} onDecided={() => {}} />);
     await waitFor(() => expect(screen.getByText('Streamly')).toBeDefined());
-    expect(screen.getByText(/Monthly · seen 3 times/)).toBeDefined();
+    expect(screen.getByText(/Seen 3 times/)).toBeDefined();
   });
 
   it('says when the next one is expected and how confident it is', async () => {
@@ -144,6 +144,9 @@ describe('the Recurring page tabs', () => {
       cumulativePaidMinor: -36000,
       status: 'active',
       userAcknowledged: true,
+      nextExpectedDate: '2026-09-01',
+      monthlyCostMinor: 4500,
+      yearlyCostMinor: 54000,
       amountChanges: [],
     },
   ];
@@ -151,7 +154,7 @@ describe('the Recurring page tabs', () => {
   it('shows how many charges are waiting on an answer', async () => {
     installMoneyBridge({ 'recurring:list': LEDGER, 'recurring:candidates': [CANDIDATE] });
     render(<Recurring onOpenMerchant={() => {}} />);
-    await waitFor(() => expect(screen.getByText('Possible (1)')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Possible · 1')).toBeDefined());
   });
 
   it('opens on the confirmed ledger', async () => {
@@ -164,14 +167,14 @@ describe('the Recurring page tabs', () => {
   it('switches to the suggestions', async () => {
     installMoneyBridge({ 'recurring:list': LEDGER, 'recurring:candidates': [CANDIDATE] });
     render(<Recurring onOpenMerchant={() => {}} />);
-    await waitFor(() => screen.getByText('Possible (1)'));
-    fireEvent.click(screen.getByText('Possible (1)'));
+    await waitFor(() => screen.getByText('Possible · 1'));
+    fireEvent.click(screen.getByText('Possible · 1'));
     await waitFor(() => expect(screen.getByText('Streamly')).toBeDefined());
   });
 
   it('drops the count when nothing is waiting', async () => {
     installMoneyBridge({ 'recurring:list': LEDGER, 'recurring:candidates': [] });
     render(<Recurring onOpenMerchant={() => {}} />);
-    await waitFor(() => expect(screen.getByText('Possible')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Possible · 0')).toBeDefined());
   });
 })

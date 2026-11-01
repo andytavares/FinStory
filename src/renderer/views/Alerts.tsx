@@ -1,232 +1,86 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { EmptyState } from '../components/EmptyState';
+import { Button, Card, PageHeader } from '../components/ui';
+import { shortDate } from '../lib/format';
 import type { AlertView } from '@shared/types';
+import { AddRule } from './alerts/AddRule';
+import { RuleRow } from './alerts/RuleRow';
+import { ALERT_STYLE, type AlertRuleView } from './alerts/rules';
 
-interface AlertRuleView {
-  readonly id: string;
-  readonly type: string;
-  readonly label: string | null;
-  readonly thresholdMinor: number | null;
-  readonly windowMinutes: number | null;
-  readonly enabled: boolean;
-  readonly isSystem: boolean;
-}
+const LATE_MS = 60 * 60 * 1000;
 
-const RULE_TYPES = [
-  { id: 'large_purchase', label: 'A single purchase over an amount', needs: 'threshold' },
-  { id: 'daily_total', label: 'A day of spending over an amount', needs: 'threshold' },
-  { id: 'duplicate_charge', label: 'The same charge twice within a window', needs: 'window' },
-  { id: 'new_recurring', label: 'A new recurring charge appears', needs: 'none' },
-  { id: 'balance_floor', label: 'Balance projected below an amount', needs: 'threshold' },
-] as const;
-
-/** Editable rule row: threshold, window, name, on/off, delete. */
-function RuleRow({ rule, onChanged }: { rule: AlertRuleView; onChanged: () => void }): React.JSX.Element {
-  const [threshold, setThreshold] = useState(
-    rule.thresholdMinor === null ? '' : String(rule.thresholdMinor / 100),
-  );
-  const [windowMinutes, setWindowMinutes] = useState(
-    rule.windowMinutes === null ? '' : String(rule.windowMinutes),
-  );
-  const [label, setLabel] = useState(rule.label ?? '');
-
-  const save = (patch: Record<string, unknown>): void => {
-    void call('alertRules:update', { id: rule.id, ...patch });
-  };
-  const spec = RULE_TYPES.find((r) => r.id === rule.type);
-
+function AlertRow({ alert, onDismissed }: { alert: AlertView; onDismissed: () => void }): React.JSX.Element {
+  const style = ALERT_STYLE[alert.type] ?? { title: alert.type, color: 'var(--color-ink-faint)' };
+  // Both times are shown, so a replayed alert is never mistaken for a live one (FR-057).
+  const late = new Date(alert.detectedAt).getTime() - new Date(alert.eventOccurredAt).getTime() > LATE_MS;
   return (
-    <li className="space-y-2 bg-[var(--color-surface)] px-4 py-3 text-[13px]">
-      <div className="flex items-center gap-3">
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onBlur={() => save({ label: label.trim() || null })}
-          placeholder={spec?.label ?? rule.type}
-          aria-label={`Name for ${spec?.label ?? rule.type}`}
-          className="flex-1 border border-transparent bg-transparent px-1 py-0.5 outline-none hover:border-[var(--color-line)] focus:border-[var(--color-line)]"
-        />
-        <label className="flex items-center gap-2 text-[12px] text-[var(--color-ink-faint)]">
-          <input
-            type="checkbox"
-            defaultChecked={rule.enabled}
-            onChange={(e) => save({ enabled: e.target.checked })}
-          />
-          On
-        </label>
-        {!rule.isSystem && (
-          <button
-            type="button"
-            onClick={() => {
-              void call('alertRules:delete', { id: rule.id }).then(onChanged);
-            }}
-            className="btn"
-          >
-            Delete
-          </button>
-        )}
+    <div
+      className={`flex items-center gap-3 border-b border-[var(--color-line)] py-2.5 last:border-b-0 ${alert.dismissed ? 'opacity-50' : ''}`}
+    >
+      <span aria-hidden style={{ width: 8, height: 34, borderRadius: 4, background: style.color }} />
+      <div className="flex-1">
+        <div className="font-semibold">{style.title}</div>
+        <div className="ds-caption">
+          {shortDate(alert.eventOccurredAt)}
+          {late && ' · detected later, while Money was closed'}
+        </div>
       </div>
-
-      <div className="flex items-center gap-4 text-[12px] text-[var(--color-ink-faint)]">
-        <span>{spec?.label ?? rule.type}</span>
-        {spec?.needs === 'threshold' && (
-          <label className="flex items-center gap-2">
-            Amount $
-            <input
-              value={threshold}
-              onChange={(e) => setThreshold(e.target.value)}
-              onBlur={() =>
-                save({ thresholdMinor: threshold ? Math.round(Number(threshold) * 100) : null })
-              }
-              inputMode="decimal"
-              aria-label={`Threshold for ${spec.label}`}
-              className="numeric w-24 border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[var(--color-ink)] outline-none"
-            />
-          </label>
-        )}
-        {spec?.needs === 'window' && (
-          <label className="flex items-center gap-2">
-            Within
-            <input
-              value={windowMinutes}
-              onChange={(e) => setWindowMinutes(e.target.value)}
-              onBlur={() => save({ windowMinutes: windowMinutes ? Number(windowMinutes) : null })}
-              inputMode="numeric"
-              aria-label={`Window for ${spec.label}`}
-              className="numeric w-20 border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[var(--color-ink)] outline-none"
-            />
-            minutes
-          </label>
-        )}
-      </div>
-    </li>
-  );
-}
-
-/** Add a rule, including a second one of a kind that already exists. */
-function AddRule({ onCreated }: { onCreated: () => void }): React.JSX.Element {
-  const [type, setType] = useState<string>('large_purchase');
-  const [amount, setAmount] = useState('');
-  const spec = RULE_TYPES.find((r) => r.id === type);
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 border border-dashed border-[var(--color-line)] px-4 py-3 text-[13px]">
-      <select
-        value={type}
-        onChange={(e) => setType(e.target.value)}
-        aria-label="New alert type"
-        className="border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[12px]"
-      >
-        {RULE_TYPES.map((r) => (
-          <option key={r.id} value={r.id}>
-            {r.label}
-          </option>
-        ))}
-      </select>
-      {spec?.needs !== 'none' && (
-        <input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder={spec?.needs === 'window' ? 'minutes' : 'amount'}
-          inputMode="decimal"
-          aria-label="New alert value"
-          className="numeric w-28 border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[12px] outline-none"
-        />
+      {!alert.dismissed && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void call('alerts:dismiss', { alertId: alert.id }).then(onDismissed)}
+        >
+          Dismiss
+        </Button>
       )}
-      <button
-        type="button"
-        onClick={() => {
-          void call('alertRules:create', {
-            type,
-            ...(spec?.needs === 'threshold' && amount
-              ? { thresholdMinor: Math.round(Number(amount) * 100) }
-              : {}),
-            ...(spec?.needs === 'window' && amount ? { windowMinutes: Number(amount) } : {}),
-          }).then(onCreated);
-          setAmount('');
-        }}
-        className="btn"
-      >
-        Add alert
-      </button>
     </div>
   );
 }
-
-const RULE_LABELS: Record<string, string> = {
-  large_purchase: 'Any single purchase over',
-  daily_total: 'Total spending in a day over',
-  duplicate_charge: 'Same merchant and amount within',
-  new_recurring: 'A new recurring charge is detected',
-  balance_floor: 'Balance projected to fall below',
-};
 
 /** FR-032, FR-033: alert history, and per-rule configuration. */
 export function Alerts(): React.JSX.Element {
   const alerts = useQuery<AlertView[]>('alerts:list', { includeDismissed: true, limit: 100 });
   const rules = useQuery<AlertRuleView[]>('alertRules:list');
+  const [creating, setCreating] = useState(false);
+  const fresh = (alerts.data ?? []).filter((a) => !a.dismissed).length;
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-[20px]">Alerts</h1>
-
-      <section className="space-y-3">
-        <p className="eyebrow">What you get told about</p>
-        <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
+    <div className="space-y-3.5">
+      <PageHeader title="Alerts" sub={fresh > 0 ? `${fresh} new` : ''} />
+      <div className="ds-grid" style={{ gridTemplateColumns: '1fr 1.1fr' }}>
+        <Card title="Recent">
+          {alerts.loading && <p className="text-[var(--color-ink-faint)]">Loading…</p>}
+          {alerts.data?.length === 0 && (
+            <EmptyState
+              title="Nothing has needed your attention"
+              detail="Large purchases, duplicate charges, and new subscriptions show up here as they happen."
+            />
+          )}
+          {alerts.data?.map((a) => <AlertRow key={a.id} alert={a} onDismissed={alerts.refetch} />)}
+        </Card>
+        <Card
+          title="What you get told about"
+          actions={
+            <Button size="sm" onClick={() => setCreating((open) => !open)}>
+              + New alert
+            </Button>
+          }
+        >
           {(rules.data ?? []).map((rule) => (
             <RuleRow key={rule.id} rule={rule} onChanged={rules.refetch} />
           ))}
-        </ul>
-        <AddRule onCreated={rules.refetch} />
-      </section>
-
-      <section className="space-y-3">
-        <p className="eyebrow">Recent</p>
-        {alerts.loading && <p className="text-[var(--color-ink-faint)]">Loading…</p>}
-        {alerts.data && alerts.data.length === 0 && (
-          <EmptyState
-            title="Nothing has needed your attention"
-            detail="Large purchases, duplicate charges, and new subscriptions show up here as they happen."
-          />
-        )}
-        {alerts.data && alerts.data.length > 0 && (
-          <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
-            {alerts.data.map((a) => {
-              // Both times are shown, so a replayed alert is never mistaken for
-              // a live one (FR-057).
-              const late =
-                new Date(a.detectedAt).getTime() - new Date(a.eventOccurredAt).getTime() >
-                60 * 60 * 1000;
-              return (
-                <li
-                  key={a.id}
-                  className={`flex items-center gap-4 bg-[var(--color-surface)] px-4 py-3 text-[13px] ${
-                    a.dismissed ? 'opacity-50' : ''
-                  }`}
-                >
-                  <div className="flex-1">
-                    <p>{RULE_LABELS[a.type] ?? a.type}</p>
-                    <p className="text-[12px] text-[var(--color-ink-faint)]">
-                      Happened {new Date(a.eventOccurredAt).toLocaleString()}
-                      {late && ' · detected later, while Money was closed'}
-                    </p>
-                  </div>
-                  {!a.dismissed && (
-                    <button
-                      type="button"
-                      onClick={() => void call('alerts:dismiss', { alertId: a.id })}
-                      className="btn"
-                    >
-                      Not a problem
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+          {creating && (
+            <AddRule
+              onCreated={() => {
+                rules.refetch();
+                setCreating(false);
+              }}
+            />
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

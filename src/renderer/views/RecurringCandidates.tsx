@@ -1,17 +1,11 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
-import { Money } from '../components/Money';
 import { EmptyState } from '../components/EmptyState';
-import { shortDate } from '../lib/format';
+import { Button } from '../components/ui';
+import { Money } from '../components/Money';
 import type { RecurringCandidateView } from '@shared/types';
-
-const CADENCE_LABEL: Record<string, string> = {
-  weekly: 'Weekly',
-  biweekly: 'Every two weeks',
-  monthly: 'Monthly',
-  quarterly: 'Quarterly',
-  annual: 'Yearly',
-};
+import { ChargeCard } from './recurring/ChargeCard';
+import { cadenceSince } from './recurring/cadence';
 
 /**
  * Charges that look recurring, waiting on an answer.
@@ -69,68 +63,54 @@ export function RecurringCandidates({
 
   return (
     <div className="space-y-3">
-      <p className="text-[12px] text-[var(--color-ink-faint)]">
+      <p className="ds-caption">
         Same payee, same amount, on a regular interval. Answering once applies to every instance of
         that charge, including ones that arrive later.
       </p>
       {note && (
-        <p role="status" className="text-[12px] text-[var(--color-ink-faint)]">
+        <p role="status" className="ds-caption">
           {note}
         </p>
       )}
-      <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
+      <div className="ds-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {candidates.map((c) => (
-          <li key={c.key} className="bg-[var(--color-surface)] px-4 py-3">
-            <div className="flex items-start gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px]">{c.merchantName}</p>
-                <p className="text-[12px] text-[var(--color-ink-faint)]">
-                  {CADENCE_LABEL[c.cadence] ?? c.cadence} · seen {c.occurrences} times ·{' '}
-                  {shortDate(c.firstSeen)} to {shortDate(c.lastSeen)}
-                </p>
-                <p className="text-[12px] text-[var(--color-ink-faint)]">
-                  Next expected {shortDate(c.nextExpected)} ·{' '}
-                  {Math.round(c.confidence * 100)}% confident
-                </p>
-              </div>
-              <div className="text-right">
-                <Money minor={c.amountMinor} magnitude className="block" />
-                <span className="text-[11px] text-[var(--color-ink-faint)]">
-                  <Money minor={c.totalPaidMinor} magnitude /> so far
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center gap-4 text-[12px]">
-              <button
-                type="button"
-                disabled={busy === c.key}
-                onClick={() => void decide(c, 'recurring')}
-                aria-label={`Mark ${c.merchantName} recurring`}
-                className="btn"
-              >
-                Yes, recurring
-              </button>
-              <button
-                type="button"
-                disabled={busy === c.key}
-                onClick={() => void decide(c, 'not_recurring')}
-                aria-label={`Mark ${c.merchantName} not recurring`}
-                className="btn"
-              >
-                Not recurring
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenMerchant(c.merchantKey)}
-                className="btn"
-              >
-                See transactions
-              </button>
-            </div>
-          </li>
+          <ChargeCard
+            key={c.key}
+            markName={c.merchantName}
+            name={c.merchantName}
+            subtitle={cadenceSince(c.cadence, c.firstSeen)}
+            amountMinor={c.amountMinor}
+            history={[Math.abs(c.amountMinor), Math.abs(c.amountMinor)]}
+            footer={
+              <span className="ds-caption">
+                Seen {c.occurrences} times · <Money minor={c.totalPaidMinor} magnitude /> so far ·{' '}
+                {Math.round(c.confidence * 100)}% confident
+              </span>
+            }
+          >
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busy === c.key}
+              onClick={() => void decide(c, 'recurring')}
+              aria-label={`Mark ${c.merchantName} recurring`}
+            >
+              Yes, recurring
+            </Button>
+            <Button
+              size="sm"
+              disabled={busy === c.key}
+              onClick={() => void decide(c, 'not_recurring')}
+              aria-label={`Mark ${c.merchantName} not recurring`}
+            >
+              Not recurring
+            </Button>
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={() => onOpenMerchant(c.merchantKey)}>
+              See transactions
+            </Button>
+          </ChargeCard>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
