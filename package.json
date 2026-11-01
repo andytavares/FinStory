@@ -1,7 +1,7 @@
 {
   "name": "money",
   "version": "0.1.0",
-  "description": "Automated spend tracking and awareness \u2014 a local-first personal finance desktop application",
+  "description": "Automated spend tracking and awareness — a local-first personal finance desktop application",
   "main": "./out/main/index.js",
   "author": "Andrew",
   "license": "UNLICENSED",
@@ -57,5 +57,14 @@
     "typescript-eslint": "8.68.0",
     "vite": "7.3.6",
     "vitest": "4.1.11"
+  },
+  "allowScripts": {
+    "better-sqlite3-multiple-ciphers@13.0.3": true,
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.2": true,
+    "fsevents@2.3.3": true,
+    "electron-winstaller": false
   }
 }
