@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { toMinor } from '@shared/money';
 import type { InstitutionSummary } from '@shared/types';
+import { Button, Card, Field, Select, TextInput } from './ui';
 
 const CADENCES = ['weekly', 'biweekly', 'semimonthly', 'monthly'] as const;
 
@@ -10,11 +11,19 @@ const CADENCES = ['weekly', 'biweekly', 'semimonthly', 'monthly'] as const;
  *
  * Detection needs several matching deposits. Cash, a first paycheque, or an
  * irregular retainer never reaches that bar, and without this the balance
- * projection has nothing to work from.
+ * projection has nothing to work from. The caller owns the open state, so the
+ * form can sit below the page header.
  */
-export function AddIncomeSource({ onAdded }: { onAdded: () => void }): React.JSX.Element {
+export function AddIncomeSource({
+  open,
+  onClose,
+  onAdded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdded: () => void;
+}): React.JSX.Element | null {
   const institutions = useQuery<InstitutionSummary[]>('institutions:list');
-  const [open, setOpen] = useState(false);
   const [accountId, setAccountId] = useState('');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -41,7 +50,7 @@ export function AddIncomeSource({ onAdded }: { onAdded: () => void }): React.JSX
         expectedAmountMinor: minor,
         nextExpectedDate: nextDate,
       });
-      setOpen(false);
+      onClose();
       setName('');
       setAmount('');
       setNextDate('');
@@ -51,109 +60,79 @@ export function AddIncomeSource({ onAdded }: { onAdded: () => void }): React.JSX
     }
   };
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="btn"
-      >
-        Add income
-      </button>
-    );
-  }
+  if (!open) return null;
 
   return (
-    <div className="order-last basis-full space-y-3 border border-[var(--color-line)] bg-[var(--color-surface)] p-4 text-[13px]">
-      <p className="eyebrow">Income the detector cannot see</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Paid into</span>
-          <select
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            aria-label="Account"
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2"
-          >
+    <Card title="Income the detector cannot see" className="space-y-3">
+      <div className="ds-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <Field label="Paid into">
+          <Select value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label="Account">
             <option value="">Choose an account</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.label}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Name</span>
-          <input
+          </Select>
+        </Field>
+        <Field label="Name">
+          <TextInput
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Freelance retainer"
             aria-label="Name"
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2"
           />
-        </label>
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Amount each time</span>
-          <input
+        </Field>
+        <Field label="Amount each time">
+          <TextInput
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             inputMode="decimal"
             placeholder="2400.00"
             aria-label="Amount"
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2"
+            className="ds-num"
           />
-        </label>
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">How often</span>
-          <select
+        </Field>
+        <Field label="How often">
+          <Select
             value={cadence}
             onChange={(e) => setCadence(e.target.value as (typeof CADENCES)[number])}
             aria-label="How often"
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2"
           >
             {CADENCES.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Next expected</span>
-          <input
+          </Select>
+        </Field>
+        <Field label="Next expected">
+          <TextInput
             type="date"
             value={nextDate}
             onChange={(e) => setNextDate(e.target.value)}
             aria-label="Next expected"
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2"
           />
-        </label>
+        </Field>
       </div>
       {error && (
         <p role="alert" className="text-[12px] text-[var(--color-attention)]">
           {error}
         </p>
       )}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => void submit()}
-          className="btn"
-        >
+      <div className="ds-row">
+        <Button variant="primary" onClick={() => void submit()}>
           Add
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
           onClick={() => {
-            setOpen(false);
+            onClose();
             setError(null);
           }}
-          className="btn"
         >
           Cancel
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }

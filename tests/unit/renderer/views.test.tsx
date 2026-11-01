@@ -162,20 +162,23 @@ describe('Recurring', () => {
           firstSeenDate: '2026-01-15',
           cumulativePaidMinor: -12792,
           status: 'active',
+          nextExpectedDate: '2026-09-15',
+          monthlyCostMinor: 1899,
+          yearlyCostMinor: 22788,
           amountChanges: [{ oldAmountMinor: -1599, newAmountMinor: -1899, changedAt: '2026-08-01' }],
         },
       ],
     });
     render(<Recurring onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByText('Netflix')).toBeDefined());
-    expect(screen.getByText(/price changed/)).toBeDefined();
-    expect(screen.getByText(/monthly/)).toBeDefined();
+    expect(screen.getByText(/Was \$15.99 until Aug/)).toBeDefined();
+    expect(screen.getByText(/Monthly · since/)).toBeDefined();
   });
 
   it('explains why the ledger is empty rather than showing a blank list', async () => {
     installMoneyBridge({ 'recurring:list': [] });
     render(<Recurring onOpenMerchant={() => {}} />);
-    await waitFor(() => expect(screen.getByText(/No recurring charges detected yet/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText(/No recurring charges here yet/)).toBeDefined());
   });
 });
 
@@ -190,6 +193,7 @@ describe('Income', () => {
           expectedAmountMinor: 260000,
           cadence: 'biweekly',
           nextExpectedDate: '2026-09-04T00:00:00Z',
+          daysUntilNext: 3,
           detectionConfidence: 0.92,
           isUserConfirmed: false,
         },
@@ -378,7 +382,7 @@ describe('App shell', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Dashboard' })).toBeDefined());
     fireEvent.click(screen.getByRole('button', { name: 'Recurring' }));
-    await waitFor(() => expect(screen.getByText(/No recurring charges detected yet/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText(/No recurring charges here yet/)).toBeDefined());
   });
 });
 
@@ -442,11 +446,9 @@ describe('Alerts', () => {
   it('lets the user configure each rule (FR-033)', async () => {
     installMoneyBridge({ 'alerts:list': [], 'alertRules:list': [rule] });
     render(<Alerts />);
-    await waitFor(() =>
-      expect(screen.getByText(/A single purchase over an amount/)).toBeDefined(),
-    );
+    await waitFor(() => expect(screen.getByLabelText(/Threshold for/)).toBeDefined());
     // Threshold is editable, not just on/off.
-    expect(screen.getByLabelText(/Threshold for/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: '+ New alert' }));
     expect(screen.getByRole('button', { name: 'Add alert' })).toBeDefined();
   });
 
@@ -483,9 +485,9 @@ describe('Alerts', () => {
       'alertRules:list': [rule],
     });
     render(<Alerts />);
-    await waitFor(() => expect(screen.getByText('Not a problem')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Dismiss')).toBeDefined());
     // The rule toggle is still present and on.
-    expect((screen.getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
   });
 
   it('says nothing has needed attention rather than showing a blank list', async () => {

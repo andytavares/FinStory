@@ -186,7 +186,8 @@ describe('Alerts screen editing', () => {
 
   it('shows no value input for a rule that needs none', async () => {
     render(<Alerts />);
-    await waitFor(() => screen.getByLabelText('New alert type'));
+    await waitFor(() => screen.getByText('+ New alert'));
+    fireEvent.click(screen.getByText('+ New alert'));
     fireEvent.change(screen.getByLabelText('New alert type'), {
       target: { value: 'new_recurring' },
     });
@@ -233,9 +234,9 @@ describe('Accounts and Alerts branches', () => {
       ],
     });
     render(<A />);
-    await waitFor(() => expect(screen.getByText(/Happened/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Aug 29')).toBeDefined());
     // A dismissed alert offers no further action.
-    expect(screen.queryByText('Not a problem')).toBeNull();
+    expect(screen.queryByText('Dismiss')).toBeNull();
   });
 
   it('Accounts shows the connect prompt while a link is in progress', async () => {
