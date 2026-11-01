@@ -1,0 +1,33 @@
+src/main/analysis/running-balance.ts
+  s_2dd7c0bdfa9972::t_b50247f73af4f9 1-21
+src/main/services/index.ts
+  s_2dd7c0bdfa9972::t_9ba880a81355ad 92-98,734-735,760,763,2661-2672
+src/renderer/views/Register.tsx
+  s_2dd7c0bdfa9972::t_e7ff829bfd8be1 7,19-20,48-53,169
+src/renderer/views/transactions/TransactionTable.tsx
+  s_2dd7c0bdfa9972::t_1f2701e4fd697f 25,32,74-78,94,104,114
+src/shared/types.ts
+  s_2dd7c0bdfa9972::t_88d71f1ff6fad7 91-92
+tests/integration/screen-data.test.ts
+  s_2dd7c0bdfa9972::t_5190438f698fa0 459-498
+tests/unit/analysis/running-balance.test.ts
+  s_2dd7c0bdfa9972::t_583b93469d22a4 1-32
+tests/unit/renderer/register.test.tsx
+  s_2dd7c0bdfa9972::t_5827f6e3ba40cd 65-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d5ac0103e33f30a776da79b154cef00df5676965",
+  "prompts": {},
+  "sessions": {
+    "s_2dd7c0bdfa9972": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "648786c5-8c3d-404f-9a4d-d319576d090d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
