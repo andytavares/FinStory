@@ -1,0 +1,80 @@
+src/main/ipc/handlers/services.ts
+  s_d8b2366061c670::t_446d5711e0e833 72-73
+tests/fixtures/memory-secret-store.ts
+  s_d8b2366061c670::t_913b42c50b5833 1-16
+tests/integration/migration-upgrade.test.ts
+  s_d8b2366061c670::t_a50b84528db8d6 13,31,109
+src/main/db/client.ts
+  s_d8b2366061c670::t_8e0d8d75c2ed62 41-43
+  s_d8b2366061c670::t_f924849bbe416f 6-8,13-14,28-34,36-37,39-40,44,46,50,53-54,56,61-62
+tests/integration/backup.test.ts
+  s_d8b2366061c670::t_5fe24f5d6a631b 2,5,8,11,17-18,20,24-29,35-44,47-49,57-95,97-99,102-110,113
+tests/unit/shared/schemas.test.ts
+  s_d8b2366061c670::t_446d5711e0e833 2,7,18-28
+tests/unit/ipc/handlers.test.ts
+  s_d8b2366061c670::t_446d5711e0e833 134-135
+tests/e2e/helpers.ts
+  s_d8b2366061c670::t_e6c05fc8a104cf 2-3,54
+  s_d8b2366061c670::t_94ffd9e93b724c 48,55-69
+  s_d8b2366061c670::t_c6322d18610069 70
+tests/unit/secrets/keychain-service.test.ts
+  s_d8b2366061c670::t_57c63221d9d0af 1-18
+tests/integration/encryption.test.ts
+  s_d8b2366061c670::t_913b42c50b5833 2,8,10,36,44,54,68-69,74,79-110
+src/main/ipc/handlers/index.ts
+  s_d8b2366061c670::t_446d5711e0e833 24,166-169
+src/main/secrets/migrate-to-keychain.ts
+  s_d8b2366061c670::t_f924849bbe416f 1-97
+src/main/services/index.ts
+  s_d8b2366061c670::t_446d5711e0e833 35-40,90,136-140,165,169,173,191,193,234,238,310-311,357,1553,1556-1562,1566,1569-1576,1581,1583-1587
+tests/e2e/launch.spec.ts
+  s_d8b2366061c670::t_fd0a8bd091b526 33,39
+tests/integration/migration-paths.test.ts
+  s_d8b2366061c670::t_a50b84528db8d6 19,75
+tests/integration/services.test.ts
+  s_d8b2366061c670::t_67c5e63a11edbb 35,40-41,50,87,97,99,192,197-198,207,275,280-281,288,339,345,347
+  s_d8b2366061c670::t_a50b84528db8d6 27
+tests/integration/sync-store.test.ts
+  s_d8b2366061c670::t_a50b84528db8d6 16,49
+tests/integration/sync-taxonomy.test.ts
+  s_d8b2366061c670::t_a50b84528db8d6 17,43
+src/main/data/backup.ts
+  s_d8b2366061c670::t_8e0d8d75c2ed62 48-52,63-67,85-88,139-142
+  s_d8b2366061c670::t_11b49ac8fb98e0 1-2,5-11,19-21,25-41,53-62,68-84,89-110,115,117,121-134,143-157,160-163,166-171
+tests/integration/keychain-migration.test.ts
+  s_d8b2366061c670::t_913b42c50b5833 1-109
+src/main/index.ts
+  s_d8b2366061c670::t_e01d1a3f9a8187 64,68,90,163,205
+  s_d8b2366061c670::t_ee115c6757bd40 6-9,11-13,63,67,89,164,226-237
+  s_d8b2366061c670::t_0eace3cdfca379 10,62
+src/main/secrets/secret-store.ts
+  s_d8b2366061c670::t_0eace3cdfca379 1,24-30
+  s_d8b2366061c670::t_f924849bbe416f 2-23,31-47
+src/renderer/views/Settings.tsx
+  s_d8b2366061c670::t_070588eedd1acc 6,271-338,372
+tests/e2e/reset.spec.ts
+  s_d8b2366061c670::t_1a055ffee89665 4
+  s_d8b2366061c670::t_45738c7410cbfa 34
+tests/integration/services-with-data.test.ts
+  s_d8b2366061c670::t_a50b84528db8d6 30,1054,1073,1092
+  s_d8b2366061c670::t_67c5e63a11edbb 39,47-48,210,1480,1496,1498-1500,1516,1528,1530
+  s_d8b2366061c670::t_e01d1a3f9a8187 779-780
+src/shared/schemas.ts
+  s_d8b2366061c670::t_11b49ac8fb98e0 170-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "27863ace14356a7349d8f2557c68d9951f77bc3a",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
