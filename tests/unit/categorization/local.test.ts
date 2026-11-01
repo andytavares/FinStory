@@ -34,7 +34,7 @@ describe('local classification resolves confirmed merchants without the model (R
     const r = classifyLocally(profile({ userConfirmedCategoryId: 'groceries' }));
     expect(r?.categoryId).toBe('groceries');
     expect(r?.confidence).toBe(1);
-    expect(r?.source).toBe('local_history');
+    expect(r?.source).toBe('rule');
   });
 
   it('returns the dominant category when history is overwhelming', () => {

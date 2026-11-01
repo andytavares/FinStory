@@ -71,6 +71,9 @@ export const INVOKE_CHANNELS = [
   'categorization:cancel',
   'overrides:list',
   'overrides:clear',
+  'rules:list',
+  'rules:update',
+  'rules:delete',
 ] as const;
 
 const EVENT_CHANNELS = [

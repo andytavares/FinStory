@@ -25,6 +25,8 @@ const { DiagnosticLogger } = await import('@main/diagnostics/logger');
 const { MemorySink } = await import('@main/diagnostics/sink');
 const { CategorizationPipeline } = await import('@main/categorization/pipeline');
 const { TestClock } = await import('@shared/clock');
+const { loadMerchantProfiles } = await import('@main/categorization/profiles');
+const { eq } = await import('drizzle-orm');
 import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
 import type { DatabaseHandle } from '@main/db/client';
 
@@ -848,6 +850,7 @@ describe('Services with realistic data', () => {
     const r = (await services.updateTransaction({
       transactionId: 'txn_1',
       categoryId: 'groceries',
+      scope: 'merchant',
     })) as { merchantKey: string | null; retroactiveCandidateCount: number };
     expect(r.merchantKey).toBe('uber eats');
     // Only txn_1 exists for this merchant and it is now already correct.
@@ -1220,25 +1223,11 @@ describe('Services with realistic data', () => {
       expect(rows).toEqual([]);
     });
 
-    it('lists a merchant rename and undoes it', async () => {
-      const first = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
-        rows: Array<{ merchantKey: string | null }>;
-      }).rows.find((r) => r.merchantKey !== null)!;
-      await services.renameMerchant({ merchantKey: first.merchantKey, displayName: 'Renamed' });
-
-      const rows = (await services.listOverrides()) as Array<{
-        kind: string;
-        target: string;
-        current: string;
-        affectedCount: number;
-      }>;
-      const rename = rows.find((r) => r.kind === 'merchant_name');
-      expect(rename?.current).toBe('Renamed');
-      expect(rename?.affectedCount).toBeGreaterThan(0);
-
-      await services.clearOverride({ kind: 'merchant_name', target: first.merchantKey! });
-      const after = (await services.listOverrides()) as Array<{ kind: string }>;
-      expect(after.some((r) => r.kind === 'merchant_name')).toBe(false);
+    it('lists a merchant rename as a rule, not an override', async () => {
+      await services.renameMerchant({ merchantKey: 'uber eats', displayName: 'Renamed' });
+      expect(await services.listOverrides()).toEqual([]);
+      const rules = (await services.listRules()) as Array<{ displayName: string }>;
+      expect(rules[0]?.displayName).toBe('Renamed');
     });
 
     it('lists a per-transaction rename with the imported name it replaced', async () => {
@@ -1248,7 +1237,6 @@ describe('Services with realistic data', () => {
       await services.updateTransaction({
         transactionId: target.id,
         userMerchantName: 'Just this one',
-        applyNameToMerchant: false,
       });
 
       const rows = (await services.listOverrides()) as Array<{
@@ -1323,18 +1311,14 @@ describe('Services with realistic data', () => {
       expect(restored.categoryId).toBe(before);
     });
 
-    it('lists a merchant-wide category confirmation and undoes it', async () => {
-      const target = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
-        rows: Array<{ id: string; merchantKey: string | null }>;
-      }).rows.find((r) => r.merchantKey !== null)!;
-      await services.updateTransaction({ transactionId: target.id, categoryId: 'groceries' });
+    it('lists a merchant-wide category as a rule and clearing the category keeps no rule', async () => {
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries', scope: 'merchant' });
+      let rules = (await services.listRules()) as Array<{ categoryName: string | null }>;
+      expect(rules[0]?.categoryName).toBe('Groceries');
 
-      let rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
-      expect(rows.find((r) => r.kind === 'merchant_category')?.current).toBe('Groceries');
-
-      await services.clearOverride({ kind: 'merchant_category', target: target.merchantKey! });
-      rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
-      expect(rows.some((r) => r.kind === 'merchant_category')).toBe(false);
+      await services.updateRule({ merchantKey: 'uber eats', categoryId: null });
+      rules = (await services.listRules()) as Array<{ categoryName: string | null }>;
+      expect(rules).toEqual([]);
     });
 
     it('never lists a transaction category the app assigned by itself', async () => {
@@ -2346,6 +2330,162 @@ describe('Services with realistic data', () => {
       };
       const row = dashboard.categoryBreakdown.rows.find((r) => r.categoryId === categoryId);
       expect(row?.totalMinor).toBe(-30000);
+    });
+  });
+
+  describe('user corrections outrank every automatic method', () => {
+    const live = async (id: string) =>
+      (
+        await handle.db
+          .select()
+          .from(schema.categorizations)
+          .where(eq(schema.categorizations.transactionId, id))
+      ).find((r) => r.supersededBy === null);
+
+    const addUberCharge = async (id: string, categoryId: string): Promise<void> => {
+      await handle.db.insert(schema.transactions).values({
+        id,
+        accountId: 'acct_1',
+        plaidTransactionId: `p_${id}`,
+        amountMinor: -1_000,
+        merchantName: 'UBER EATS',
+        merchantKey: 'uber eats',
+        description: 'UBER EATS',
+        postedDate: '2026-08-10',
+        datetime: '2026-08-10T14:00:00Z',
+        pending: false,
+        settlementState: 'posted',
+        isInternalTransfer: false,
+        reversesTransactionId: null,
+        originalCurrency: null,
+        originalAmountMinor: null,
+        firstSeenAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      });
+      await handle.db.insert(schema.categorizations).values({
+        id: `cat_${id}`,
+        transactionId: id,
+        categoryId,
+        confidence: 0.9,
+        source: 'model',
+        isConfirmed: false,
+        needsReview: false,
+        reasoning: null,
+        supersededBy: null,
+        createdAt: NOW.toISOString(),
+      });
+    };
+
+    it('a one-off category edit leaves the merchant rule alone', async () => {
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries' });
+      expect((await live('txn_1'))?.source).toBe('user');
+      expect(await handle.db.select().from(schema.merchantProfiles)).toEqual([]);
+      expect(await handle.db.select().from(schema.merchantAliases)).toEqual([]);
+    });
+
+    it('a merchant-scope edit re-applies to other rows as a rule and skips a prior one-off', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await addUberCharge('txn_7', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_7', categoryId: 'shopping' });
+
+      const r = (await services.updateTransaction({
+        transactionId: 'txn_1',
+        categoryId: 'groceries',
+        scope: 'merchant',
+      })) as { updated: number; skippedOneOffs: number };
+
+      expect(r).toMatchObject({ updated: 2, skippedOneOffs: 1 });
+      expect((await live('txn_1'))?.source).toBe('rule');
+      expect((await live('txn_6'))).toMatchObject({ categoryId: 'groceries', source: 'rule' });
+      expect((await live('txn_7'))).toMatchObject({ categoryId: 'shopping', source: 'user' });
+    });
+
+    it('changing the rule later re-applies to rule rows and leaves the one-off', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await addUberCharge('txn_7', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_7', categoryId: 'shopping' });
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries', scope: 'merchant' });
+
+      await services.updateRule({ merchantKey: 'uber eats', categoryId: 'home' });
+
+      expect((await live('txn_1'))).toMatchObject({ categoryId: 'home', source: 'rule' });
+      expect((await live('txn_6'))).toMatchObject({ categoryId: 'home', source: 'rule' });
+      expect((await live('txn_7'))).toMatchObject({ categoryId: 'shopping', source: 'user' });
+    });
+
+    it('a new charge categorized through the pipeline gets the rule category', async () => {
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries', scope: 'merchant' });
+      const pipeline = new CategorizationPipeline(
+        { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
+        { confidenceThreshold: 0.8 },
+      );
+      loadMerchantProfiles(await handle.db.select().from(schema.merchantProfiles), pipeline);
+      const result = await pipeline.categorize({
+        transactionId: 'new',
+        descriptor: 'UBER EATS',
+        amountMinor: -900,
+        occurredAt: NOW,
+      });
+      expect(result).toMatchObject({ categoryId: 'groceries', source: 'rule' });
+    });
+
+    it('a merchant rename sets the alias and a one-off rename survives an alias change', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_6', userMerchantName: 'Just this' });
+      expect(await handle.db.select().from(schema.merchantAliases)).toEqual([]);
+
+      await services.updateTransaction({
+        transactionId: 'txn_1',
+        userMerchantName: 'Uber Dinner',
+        scope: 'merchant',
+      });
+      await services.updateRule({ merchantKey: 'uber eats', displayName: 'Uber Food' });
+
+      const aliases = await handle.db.select().from(schema.merchantAliases);
+      expect(aliases.map((a) => a.displayName)).toEqual(['Uber Food']);
+      const rows = (
+        (await services.queryTransactions({ limit: 50, offset: 0 })) as {
+          rows: Array<{ id: string; merchantName: string }>;
+        }
+      ).rows;
+      expect(rows.find((r) => r.id === 'txn_6')?.merchantName).toBe('Just this');
+      expect(rows.find((r) => r.id === 'txn_1')?.merchantName).toBe('Uber Food');
+    });
+
+    it('rules:list counts charges and one-offs, and delete clears the rule', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_6', categoryId: 'shopping' });
+      await services.updateTransaction({
+        transactionId: 'txn_1',
+        categoryId: 'groceries',
+        userMerchantName: 'Uber Food',
+        scope: 'merchant',
+      });
+
+      const rules = (await services.listRules()) as Array<Record<string, unknown>>;
+      expect(rules).toEqual([
+        {
+          merchantKey: 'uber eats',
+          merchantName: 'UBER EATS',
+          displayName: 'Uber Food',
+          categoryId: 'groceries',
+          categoryName: expect.any(String),
+          transactionCount: 2,
+          oneOffCount: 1,
+        },
+      ]);
+
+      await services.deleteRule({ merchantKey: 'uber eats' });
+      expect(await services.listRules()).toEqual([]);
+    });
+
+    it('the overrides list holds one-offs only, not rule-applied rows', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries', scope: 'merchant' });
+      expect(await services.listOverrides()).toEqual([]);
+      await services.updateTransaction({ transactionId: 'txn_6', categoryId: 'shopping' });
+      const kinds = ((await services.listOverrides()) as Array<{ kind: string }>).map((r) => r.kind);
+      expect(kinds).toEqual(['transaction_category']);
     });
   });
 

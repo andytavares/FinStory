@@ -55,7 +55,7 @@ const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboa
   { id: 'alerts', label: 'Alerts', Icon: Bell },
   { id: 'reports', label: 'Reports', Icon: FileText },
   { id: 'health', label: 'Health', Icon: Activity },
-  { id: 'overrides', label: 'Overrides', Icon: Undo2 },
+  { id: 'overrides', label: 'Rules', Icon: Undo2 },
   { id: 'categories', label: 'Categories', Icon: Tags },
   { id: 'accounts', label: 'Accounts', Icon: Landmark },
   { id: 'settings', label: 'Settings', Icon: SettingsIcon },

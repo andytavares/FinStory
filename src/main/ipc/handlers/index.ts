@@ -31,6 +31,8 @@ import {
   alertIdSchema,
   transactionIdsSchema,
   transactionUpdateSchema,
+  ruleUpdateSchema,
+  ruleDeleteSchema,
 } from '@shared/schemas';
 import type { AppServices } from './services';
 
@@ -167,6 +169,9 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('analysis:refresh', empty, () => services.refreshAnalysis());
   registry.handle('overrides:list', empty, () => services.listOverrides());
   registry.handle('overrides:clear', clearOverrideSchema, (p) => services.clearOverride(p));
+  registry.handle('rules:list', empty, () => services.listRules());
+  registry.handle('rules:update', ruleUpdateSchema, (p) => services.updateRule(p));
+  registry.handle('rules:delete', ruleDeleteSchema, (p) => services.deleteRule(p));
   registry.handle('model:status', empty, () => services.modelStatus());
   registry.handle('model:test', empty, () => services.testModel());
   registry.handle('categorization:rerun', recategorizeAllSchema, (p) =>

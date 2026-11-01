@@ -23,7 +23,7 @@ export interface MerchantProfile {
 export interface LocalClassification {
   readonly categoryId: string;
   readonly confidence: number;
-  readonly source: 'local_history';
+  readonly source: 'local_history' | 'rule';
   readonly reasoning: string;
 }
 
@@ -63,7 +63,7 @@ export function classifyLocally(profile: MerchantProfile | undefined): LocalClas
     return {
       categoryId: profile.userConfirmedCategoryId,
       confidence: 1,
-      source: 'local_history',
+      source: 'rule',
       reasoning: 'Previously confirmed by you for this merchant',
     };
   }

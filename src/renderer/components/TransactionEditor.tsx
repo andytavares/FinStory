@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { call } from '../lib/ipc';
+import { call, useQuery } from '../lib/ipc';
 import { transactionName } from '../lib/name';
-import type { TransactionView } from '@shared/types';
+import type { MerchantRuleView, TransactionView } from '@shared/types';
 
 interface CategoryOption {
   readonly id: string;
@@ -178,7 +178,10 @@ export function TransactionEditor({
   const [excluded, setExcluded] = useState(transaction.userExcluded);
   const [recurring, setRecurring] = useState<string>(transaction.userRecurringOverride ?? '');
   const [categoryId, setCategoryId] = useState(transaction.categoryId);
-  const [applyNameToMerchant, setApplyNameToMerchant] = useState(true);
+  const [scope, setScope] = useState<'transaction' | 'merchant'>('transaction');
+  const rules = useQuery<MerchantRuleView[]>('rules:list');
+  const merchantLabel = transactionName({ ...transaction, userMerchantName: null });
+  const rule = rules.data?.find((r) => r.merchantKey === transaction.merchantKey);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [pendingRetro, setPendingRetro] = useState<{ merchantKey: string; count: number } | null>(
     null,
@@ -206,8 +209,9 @@ export function TransactionEditor({
       }>('transactions:update', {
         transactionId: transaction.id,
         categoryId,
-        userMerchantName: name.trim() || null,
-        applyNameToMerchant,
+        // Unchanged names are left out: with scope merchant, null would delete the rule's name.
+        ...(name !== original.name && { userMerchantName: name.trim() || null }),
+        scope,
         userNote: note.trim() || null,
         userExcluded: excluded,
         userRecurringOverride: recurring === '' ? null : recurring,
@@ -285,20 +289,40 @@ export function TransactionEditor({
         </div>
       </div>
 
-      {name.trim() !== '' && (
-        <label className="flex items-center gap-2 text-[13px]">
-          <input
-            type="checkbox"
-            checked={applyNameToMerchant}
-            onChange={(e) => setApplyNameToMerchant(e.target.checked)}
-          />
-          <span>
-            Rename every transaction from this merchant
-            <span className="ml-2 text-[12px] text-[var(--color-ink-faint)]">
-              Past and future, not just this one
-            </span>
-          </span>
-        </label>
+      {transaction.merchantKey && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-[var(--color-ink-faint)]">Apply this change to:</span>
+            <div className="flex border border-[var(--color-line)]">
+              {(
+                [
+                  ['transaction', 'This transaction'],
+                  ['merchant', `All ${merchantLabel} (rule)`],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={scope === value}
+                  onClick={() => setScope(value)}
+                  className={`px-3 py-1 ${
+                    scope === value
+                      ? 'bg-[var(--color-surface-raised)] text-[var(--color-ink)]'
+                      : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink-muted)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {rule?.categoryName && scope === 'transaction' && (
+            <p className="text-[12px] text-[var(--color-ink-faint)]">
+              A rule already sorts {merchantLabel} into {rule.categoryName}. This
+              edit changes only this one charge.
+            </p>
+          )}
+        </div>
       )}
 
       <label className="block">

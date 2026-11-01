@@ -18,6 +18,14 @@ import { monthBoundaries, weekBoundaries } from '@shared/periods';
 import { computeBaseline } from '@main/analysis/baselines';
 import type { CategorizationPipeline } from '@main/categorization/pipeline';
 import { createCategory, mergeCategories, type Category } from '@main/categories/manage';
+import {
+  applyRuleCategory,
+  deleteRule,
+  listRules,
+  setMerchantName,
+  setRuleCategory,
+  supersedeCategorization,
+} from '@main/categories/rules';
 import { liveCategorization, planRetroactive } from '@main/categorization/corrections';
 import type { CategorizationRecord } from '@main/categorization/corrections';
 import { buildExport, summarizeHealth } from '@main/diagnostics/export';
@@ -736,18 +744,8 @@ export class Services implements AppServices {
 
   async applyRetroactive(input: unknown): Promise<unknown> {
     const { merchantKey, categoryId } = input as { merchantKey: string; categoryId: string };
-    const plan = planRetroactive(
-      await this.categorizationRecords(),
-      await this.transactionIdsForMerchant(merchantKey),
-      categoryId,
-    );
-    const at = this.deps.clock.now().toISOString();
-    for (const id of plan.affectedTransactionIds) await this.supersede(id, categoryId, at);
-    return {
-      updated: plan.affectedCount,
-      skippedUserConfirmed: plan.protectedCount,
-      restatedPeriods: [],
-    };
+    const { updated, skippedOneOffs } = await this.setCategoryRule(merchantKey, categoryId);
+    return { updated, skippedUserConfirmed: skippedOneOffs, restatedPeriods: [] };
   }
 
   /**
@@ -762,39 +760,26 @@ export class Services implements AppServices {
       transactionId: string;
       categoryId?: string;
       userMerchantName?: string | null;
-      applyNameToMerchant?: boolean;
+      scope?: 'transaction' | 'merchant';
       userNote?: string | null;
       userExcluded?: boolean;
       userRecurringOverride?: 'recurring' | 'not_recurring' | null;
     };
+    const wholeMerchant = p.scope === 'merchant';
+    const at = this.deps.clock.now().toISOString();
 
     const target = (
       await this.db.select().from(t.transactions).where(eq(t.transactions.id, p.transactionId))
     )[0];
+    const merchantKey = wholeMerchant ? target?.merchantKey : null;
 
     const patch: Record<string, unknown> = {};
-    if (p.userMerchantName !== undefined) patch['userMerchantName'] = p.userMerchantName;
-
-    // A rename applies to the whole merchant by default. Renaming row by row is
-    // the manual bookkeeping this product exists to avoid.
-    if (p.userMerchantName !== undefined && p.applyNameToMerchant !== false && target?.merchantKey) {
-      if (p.userMerchantName === null) {
-        await this.db
-          .delete(t.merchantAliases)
-          .where(eq(t.merchantAliases.merchantKey, target.merchantKey));
-      } else {
-        await this.db
-          .insert(t.merchantAliases)
-          .values({
-            merchantKey: target.merchantKey,
-            displayName: p.userMerchantName,
-            createdAt: this.deps.clock.now().toISOString(),
-          })
-          .onConflictDoUpdate({
-            target: t.merchantAliases.merchantKey,
-            set: { displayName: p.userMerchantName },
-          });
-      }
+    // Names resolve one-off, then rule: only the single-charge scope writes the row.
+    if (p.userMerchantName !== undefined && !wholeMerchant) {
+      patch['userMerchantName'] = p.userMerchantName;
+    }
+    if (p.userMerchantName !== undefined && merchantKey) {
+      await setMerchantName(this.db, merchantKey, p.userMerchantName, at);
     }
     if (p.userNote !== undefined) patch['userNote'] = p.userNote;
     if (p.userExcluded !== undefined) patch['userExcluded'] = p.userExcluded;
@@ -805,35 +790,23 @@ export class Services implements AppServices {
       await this.db.update(t.transactions).set(patch).where(eq(t.transactions.id, p.transactionId));
     }
 
-    let retroactiveCandidateCount = 0;
-    if (p.categoryId) {
-      await this.supersede(p.transactionId, p.categoryId, this.deps.clock.now().toISOString());
-
-      // A confirmed category becomes the default for this merchant going
-      // forward, so the same correction is never needed twice (FR-016).
-      if (target?.merchantKey) {
-        this.deps.pipeline.confirmCategory(target.merchantKey, p.categoryId);
-        await this.db
-          .insert(t.merchantProfiles)
-          .values({
-            merchantKey: target.merchantKey,
-            categoryDistribution: '{}',
-            userConfirmedCategoryId: p.categoryId,
-            transactionCount: 0,
-            lastUpdatedAt: this.deps.clock.now().toISOString(),
-          })
-          .onConflictDoUpdate({
-            target: t.merchantProfiles.merchantKey,
-            set: { userConfirmedCategoryId: p.categoryId },
-          });
-
-        // Report what a retroactive pass WOULD change; do not apply it (FR-074).
-        retroactiveCandidateCount = planRetroactive(
-          await this.categorizationRecords(),
-          await this.transactionIdsForMerchant(target.merchantKey),
-          p.categoryId,
-        ).affectedCount;
-      }
+    let outcome = { updated: 0, skippedOneOffs: 0 };
+    if (p.categoryId && merchantKey) {
+      // The edited charge joins the rule even if it was a one-off: the user chose All.
+      await supersedeCategorization(
+        this.db,
+        { transactionId: p.transactionId, categoryId: p.categoryId, source: 'rule' },
+        at,
+      );
+      const applied = await this.setCategoryRule(merchantKey, p.categoryId);
+      outcome = { ...applied, updated: applied.updated + 1 };
+    } else if (p.categoryId) {
+      await supersedeCategorization(
+        this.db,
+        { transactionId: p.transactionId, categoryId: p.categoryId, source: 'user' },
+        at,
+      );
+      outcome = { updated: 1, skippedOneOffs: 0 };
     }
 
     // A user marking something recurring is authoritative over detection.
@@ -850,7 +823,8 @@ export class Services implements AppServices {
     return {
       ok: true,
       merchantKey: target?.merchantKey ?? null,
-      retroactiveCandidateCount,
+      retroactiveCandidateCount: 0,
+      ...outcome,
     };
   }
 
@@ -1023,22 +997,40 @@ export class Services implements AppServices {
   /** Rename a merchant everywhere it appears. */
   async renameMerchant(input: unknown): Promise<unknown> {
     const p = input as { merchantKey: string; displayName: string | null };
-    if (p.displayName === null || p.displayName.trim() === '') {
-      await this.db.delete(t.merchantAliases).where(eq(t.merchantAliases.merchantKey, p.merchantKey));
-      return { ok: true };
-    }
-    await this.db
-      .insert(t.merchantAliases)
-      .values({
-        merchantKey: p.merchantKey,
-        displayName: p.displayName,
-        createdAt: this.deps.clock.now().toISOString(),
-      })
-      .onConflictDoUpdate({
-        target: t.merchantAliases.merchantKey,
-        set: { displayName: p.displayName },
-      });
+    await setMerchantName(this.db, p.merchantKey, p.displayName, this.deps.clock.now().toISOString());
     return { ok: true };
+  }
+
+  async listRules(): Promise<unknown> {
+    return listRules(this.db);
+  }
+
+  async updateRule(input: unknown): Promise<unknown> {
+    const p = input as { merchantKey: string; displayName?: string | null; categoryId?: string | null };
+    const at = this.deps.clock.now().toISOString();
+    if (p.displayName !== undefined) await setMerchantName(this.db, p.merchantKey, p.displayName, at);
+    if (p.categoryId === undefined) return { updated: 0, skippedOneOffs: 0 };
+    if (p.categoryId === null) {
+      await setRuleCategory(this.db, p.merchantKey, null, at);
+      return { updated: 0, skippedOneOffs: 0 };
+    }
+    return this.setCategoryRule(p.merchantKey, p.categoryId);
+  }
+
+  async deleteRule(input: unknown): Promise<unknown> {
+    await deleteRule(this.db, (input as { merchantKey: string }).merchantKey);
+    return { ok: true };
+  }
+
+  /** Make the category the merchant's rule and re-apply it to every charge that is not a one-off. */
+  private async setCategoryRule(
+    merchantKey: string,
+    categoryId: string,
+  ): Promise<{ updated: number; skippedOneOffs: number }> {
+    const at = this.deps.clock.now().toISOString();
+    this.deps.pipeline.confirmCategory(merchantKey, categoryId);
+    await setRuleCategory(this.db, merchantKey, categoryId, at);
+    return applyRuleCategory(this.db, merchantKey, categoryId, at);
   }
 
   async listRecurring(): Promise<unknown> {
@@ -1920,59 +1912,16 @@ export class Services implements AppServices {
    * turns up wrong in a report, with no way to find what caused it.
    */
   async listOverrides(): Promise<unknown> {
-    const [aliases, profiles, transactions, categorizations, categoryNames, recurringRules] =
+    const [aliases, transactions, categorizations, categoryNames, recurringRules] =
       await Promise.all([
         this.db.select().from(t.merchantAliases),
-        this.db.select().from(t.merchantProfiles),
         this.db.select().from(t.transactions),
         this.liveCategorizations(),
         this.categoryNames(),
         this.db.select().from(t.recurringRules),
       ]);
 
-    const byMerchant = new Map<string, TransactionRow[]>();
-    for (const row of transactions) {
-      if (!row.merchantKey) continue;
-      const list = byMerchant.get(row.merchantKey) ?? [];
-      list.push(row);
-      byMerchant.set(row.merchantKey, list);
-    }
-    const bankName = (merchantKey: string): string | null =>
-      byMerchant.get(merchantKey)?.[0]?.merchantName ?? null;
-
     const out: OverrideRecord[] = [];
-
-    for (const alias of aliases) {
-      out.push({
-        id: `merchant_name:${alias.merchantKey}`,
-        kind: 'merchant_name',
-        target: alias.merchantKey,
-        label: alias.displayName,
-        original: bankName(alias.merchantKey),
-        current: alias.displayName,
-        affectedCount: byMerchant.get(alias.merchantKey)?.length ?? 0,
-        occurredAt: alias.createdAt,
-      });
-    }
-
-    for (const profile of profiles) {
-      if (!profile.userConfirmedCategoryId) continue;
-      out.push({
-        id: `merchant_category:${profile.merchantKey}`,
-        kind: 'merchant_category',
-        target: profile.merchantKey,
-        label:
-          aliases.find((a) => a.merchantKey === profile.merchantKey)?.displayName ??
-          bankName(profile.merchantKey) ??
-          profile.merchantKey,
-        original: null,
-        current:
-          categoryNames.get(profile.userConfirmedCategoryId) ?? profile.userConfirmedCategoryId,
-        affectedCount: byMerchant.get(profile.merchantKey)?.length ?? 0,
-        occurredAt: profile.lastUpdatedAt,
-      });
-    }
-
     const aliasMap = new Map(aliases.map((a) => [a.merchantKey, a.displayName]));
     const ruledMerchants = new Set(recurringRules.map((r) => `${r.merchantKey}:${r.amountMinor}`));
 
@@ -2417,26 +2366,7 @@ export class Services implements AppServices {
   }
 
   private async supersede(transactionId: string, categoryId: string, at: string): Promise<void> {
-    const current = liveCategorization(await this.categorizationRecords(), transactionId);
-    const id = `cat_${randomUUID().slice(0, 12)}`;
-    await this.db.insert(t.categorizations).values({
-      id,
-      transactionId,
-      categoryId,
-      confidence: 1,
-      source: 'user',
-      isConfirmed: true,
-      needsReview: false,
-      reasoning: null,
-      supersededBy: null,
-      createdAt: at,
-    });
-    if (current) {
-      await this.db
-        .update(t.categorizations)
-        .set({ supersededBy: id })
-        .where(eq(t.categorizations.id, current.id));
-    }
+    await supersedeCategorization(this.db, { transactionId, categoryId, source: 'user' }, at);
   }
 
   /** merchantKey -> user display name (FR-016-style merchant-wide override). */

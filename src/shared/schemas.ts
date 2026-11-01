@@ -134,8 +134,8 @@ export const transactionUpdateSchema = z.object({
   transactionId: z.string().min(1),
   categoryId: z.string().min(1).optional(),
   userMerchantName: z.string().max(120).nullable().optional(),
-  /** Apply the rename to every transaction from this merchant. Default true. */
-  applyNameToMerchant: z.boolean().default(true),
+  /** 'transaction' changes this one charge; 'merchant' creates or updates the merchant rule. */
+  scope: z.enum(['transaction', 'merchant']).default('transaction'),
   userNote: z.string().max(2000).nullable().optional(),
   userExcluded: z.boolean().optional(),
   userRecurringOverride: z.enum(['recurring', 'not_recurring']).nullable().optional(),
@@ -203,6 +203,13 @@ export const clearOverrideSchema = z.object({
   ]),
   target: z.string().min(1),
 });
+
+export const ruleUpdateSchema = z.object({
+  merchantKey: z.string().min(1),
+  displayName: z.string().max(120).nullable().optional(),
+  categoryId: z.string().min(1).nullable().optional(),
+});
+export const ruleDeleteSchema = z.object({ merchantKey: z.string().min(1) });
 
 export const idSchema = z.object({ id: z.string().min(1) });
 export const alertIdSchema = z.object({ alertId: z.string().min(1) });

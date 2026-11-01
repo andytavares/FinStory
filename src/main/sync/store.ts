@@ -134,7 +134,7 @@ export class DrizzleSyncStore implements SyncStore {
       transactionId: result.transactionId,
       categoryId,
       confidence: result.confidence,
-      source: result.source as 'local_history' | 'model' | 'user',
+      source: result.source as 'local_history' | 'model' | 'user' | 'rule',
       isConfirmed: false,
       needsReview: categoryId === result.categoryId ? result.needsReview : true,
       reasoning:

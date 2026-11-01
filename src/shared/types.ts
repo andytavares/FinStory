@@ -244,3 +244,16 @@ export interface IpcError {
   readonly recoverable: boolean;
   readonly action?: string;
 }
+
+/** A standing rule for one merchant: the name and category it always gets. */
+export interface MerchantRuleView {
+  readonly merchantKey: string;
+  /** The name the bank sent, for telling rules apart. */
+  readonly merchantName: string;
+  readonly displayName: string | null;
+  readonly categoryId: string | null;
+  readonly categoryName: string | null;
+  readonly transactionCount: number;
+  /** Charges of this merchant the rule does not control. */
+  readonly oneOffCount: number;
+}

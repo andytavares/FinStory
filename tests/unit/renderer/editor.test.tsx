@@ -62,21 +62,6 @@ describe('transaction editor', () => {
     );
   });
 
-  it('offers the merchant-wide rename only once a name is entered', () => {
-    render(<TransactionEditor transaction={tx()} categories={CATEGORIES} />);
-    expect(screen.queryByText(/Rename every transaction from this merchant/)).toBeNull();
-    const input = screen.getByPlaceholderText('Uber Eats');
-    fireEvent.change(input, { target: { value: 'Dinner' } });
-    expect(screen.getByText(/Rename every transaction from this merchant/)).toBeDefined();
-  });
-
-  it('defaults the merchant-wide rename to on', () => {
-    render(<TransactionEditor transaction={tx()} categories={CATEGORIES} />);
-    fireEvent.change(screen.getByPlaceholderText('Uber Eats'), { target: { value: 'Dinner' } });
-    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
-    expect(boxes[0]?.checked).toBe(true);
-  });
-
   it('saves and confirms', async () => {
     render(<TransactionEditor transaction={tx()} categories={CATEGORIES} />);
     fireEvent.change(screen.getByLabelText(/^Subcategory for/), { target: { value: 'groceries' } });

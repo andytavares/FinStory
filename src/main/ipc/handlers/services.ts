@@ -77,6 +77,9 @@ export interface AppServices {
   syncNow(): Promise<unknown>;
   listOverrides(): Promise<unknown>;
   clearOverride(input: unknown): Promise<unknown>;
+  listRules(): Promise<unknown>;
+  updateRule(input: unknown): Promise<unknown>;
+  deleteRule(input: unknown): Promise<unknown>;
   modelStatus(): Promise<unknown>;
   testModel(): Promise<unknown>;
   recategorizePending(input?: unknown): Promise<unknown>;

@@ -25,7 +25,7 @@ describe('loadMerchantProfiles', () => {
       occurredAt: new Date('2026-08-29T10:00:00Z'),
     });
     expect(result.categoryId).toBe('coffee');
-    expect(result.source).toBe('local_history');
+    expect(result.source).toBe('rule');
     expect(classify).not.toHaveBeenCalled();
   });
 });

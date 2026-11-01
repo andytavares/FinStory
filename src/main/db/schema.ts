@@ -116,7 +116,7 @@ export const categorizations = sqliteTable(
       .notNull()
       .references(() => categories.id),
     confidence: real('confidence').notNull(),
-    source: text('source', { enum: ['local_history', 'model', 'user'] }).notNull(),
+    source: text('source', { enum: ['local_history', 'model', 'user', 'rule'] }).notNull(),
     isConfirmed: integer('is_confirmed', { mode: 'boolean' }).notNull().default(false),
     needsReview: integer('needs_review', { mode: 'boolean' }).notNull().default(false),
     reasoning: text('reasoning'),
