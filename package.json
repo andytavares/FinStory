@@ -32,6 +32,7 @@
     "date-fns": "4.4.0",
     "drizzle-orm": "0.45.2",
     "lucide-react": "1.37.0",
+    "ofx-js": "1.1.2",
     "plaid": "46.0.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
