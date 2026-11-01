@@ -1,0 +1,65 @@
+README.md
+  s_d8b2366061c670::t_7e26b63a225b8e 15,35-36,45,61-63,67,71-74,76,78,86
+docs/architecture.md
+  s_d8b2366061c670::t_b17e7cbb78da5d 1-123
+docs/user-guide/README.md
+  s_d8b2366061c670::t_0df64feecc1707 1-38
+docs/user-guide/accounts.md
+  s_d8b2366061c670::t_82d451de86239a 1-41
+docs/user-guide/alerts.md
+  s_d8b2366061c670::t_79bf067abe0776 1-51
+docs/user-guide/categories.md
+  s_d8b2366061c670::t_6a79e533499966 1-44
+docs/user-guide/dashboard.md
+  s_d8b2366061c670::t_205b367a2a5b29 1-39
+docs/user-guide/getting-started.md
+  s_d8b2366061c670::t_91bb2cc6f4cb8c 1-77
+docs/user-guide/health.md
+  s_d8b2366061c670::t_715441bf256e94 1-31
+docs/user-guide/importing-from-quicken.md
+  s_d8b2366061c670::t_da080dfc6a61ae 1-54
+docs/user-guide/income.md
+  s_d8b2366061c670::t_199cd3b54c4103 1-38
+docs/user-guide/ollama.md
+  s_d8b2366061c670::t_780d3d1db71c61 1-50
+docs/user-guide/privacy-and-security.md
+  s_d8b2366061c670::t_fdce8c96c2acb0 1-45
+docs/user-guide/recurring.md
+  s_d8b2366061c670::t_3dfb6f1ae6b95c 1-37
+docs/user-guide/reports.md
+  s_d8b2366061c670::t_2045d23fd0b415 1-46
+docs/user-guide/review.md
+  s_d8b2366061c670::t_f679a657a24a62 1-41
+docs/user-guide/rules.md
+  s_d8b2366061c670::t_a3c3ac467deb31 1-44
+docs/user-guide/settings.md
+  s_d8b2366061c670::t_cbb5f880c11825 1-96
+docs/user-guide/transactions.md
+  s_d8b2366061c670::t_5f603374d15931 1-71
+docs/user-guide/troubleshooting.md
+  s_d8b2366061c670::t_4ac30d1486e2eb 1-52
+docs/user-guide/updates.md
+  s_d8b2366061c670::t_0b7d5c1acb7eee 1-28
+docs/user-guide/usage.md
+  s_d8b2366061c670::t_6f3f0d637b5b77 1-38
+scripts/docs/screenshots.spec.ts
+  s_d8b2366061c670::t_f5c900dbe060c8 7,13-38,52,55
+tests/unit/docs/links.test.ts
+  s_d8b2366061c670::t_3b15ba8a310ab9 1-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd4ab616f4634764e39b0140b05d11effcfe684f",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
