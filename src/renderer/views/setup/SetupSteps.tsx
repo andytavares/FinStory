@@ -1,3 +1,5 @@
+import { Check } from 'lucide-react';
+
 export const STEP_TITLES = [
   'Connect your bank',
   'Choose how to sort transactions',
@@ -54,7 +56,7 @@ export function SetupSteps({
                     color: state === 'todo' ? 'var(--color-ink-faint)' : 'var(--color-accent-ink)',
                   }}
                 >
-                  {state === 'done' ? '✓' : index + 1}
+                  {state === 'done' ? <Check aria-label="Done" size={12} strokeWidth={3} /> : index + 1}
                 </span>
                 {title}
               </button>

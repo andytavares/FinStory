@@ -231,6 +231,8 @@ describe('Reports, Health, Settings, Categories', () => {
           wasLate: true,
           totalSpendingMinor: -425000,
           savingsRate: 0.18,
+          headline: 'You spent $4,250',
+          series: [100, 200],
         },
       ],
     });
@@ -242,6 +244,10 @@ describe('Reports, Health, Settings, Categories', () => {
   it('shows per-account sync status and the redaction promise', async () => {
     installMoneyBridge({
       'health:get': {
+        categorization: { provider: 'ollama', model: 'llama3.1:8b', localOnly: true, reason: 'ok' },
+        encryption: { databaseEncrypted: true, keysInKeychain: true },
+        updates: { version: '1.0.0' },
+        syncHistory: [],
         contents: {
           institutions: 1,
           accounts: 1,
@@ -271,8 +277,7 @@ describe('Reports, Health, Settings, Categories', () => {
       },
     });
     render(<Health />);
-    await waitFor(() => expect(screen.getByText('Chase')).toBeDefined());
-    expect(screen.getByText(/reauth required/)).toBeDefined();
+    await waitFor(() => expect(screen.getByText(/Chase needs sign-in/)).toBeDefined());
     expect(screen.getByText(/no merchant names, amounts, balances, or credentials/)).toBeDefined();
   });
 
@@ -627,8 +632,10 @@ describe('App shell navigation covers every area', () => {
       'institutions:list': [],
       'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
       'health:get': {
+        categorization: { provider: 'ollama', model: 'llama3.1:8b', localOnly: true, reason: 'ok' },
         encryption: { databaseEncrypted: true, keysInKeychain: true },
         updates: { version: '1.0.0' },
+        syncHistory: [],
         contents: {
           institutions: 1,
           accounts: 1,

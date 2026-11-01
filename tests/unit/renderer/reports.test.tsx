@@ -2,11 +2,20 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { installMoneyBridge } from './setup';
+import { vi } from 'vitest';
 import { useState } from 'react';
 import { Reports } from '@renderer/views/Reports';
 import { ReportDetail } from '@renderer/views/ReportDetail';
 
 afterEach(cleanup);
+
+/** A bridge whose `invoke` can be asserted on. */
+function bridgeSpy(responses: Record<string, unknown>): ReturnType<typeof vi.fn> {
+  const invoke = vi.fn((channel: string) => Promise.resolve(responses[channel] ?? { ok: true }));
+  installMoneyBridge({});
+  Object.defineProperty(globalThis.window, 'money', { configurable: true, value: { invoke, on: () => () => {} } });
+  return invoke;
+}
 
 const SUMMARY = {
   id: 'rep1',
@@ -18,6 +27,8 @@ const SUMMARY = {
   wasLate: false,
   totalSpendingMinor: -425_000,
   savingsRate: 0.18,
+  headline: 'You spent $4,250, 12% above your average',
+  series: [100, 200, 150],
 };
 
 const MONTHLY = {
@@ -27,6 +38,10 @@ const MONTHLY = {
   periodEnd: '2026-09-01T00:00:00Z',
   dataComplete: true,
   wasLate: false,
+  kpiSeries: [
+    { periodStart: '2026-07-01T00:00:00Z', totalIncomeMinor: 500_000, totalSpendingMinor: -380_000, savingsMinor: 120_000, savingsRate: 0.24 },
+    { periodStart: '2026-08-01T00:00:00Z', totalIncomeMinor: 520_000, totalSpendingMinor: -425_000, savingsMinor: 95_000, savingsRate: 0.18 },
+  ],
   content: {
     totalIncomeMinor: 520_000,
     totalSpendingMinor: -425_000,
@@ -36,9 +51,9 @@ const MONTHLY = {
       { categoryId: 'dining', categoryName: 'Dining & Takeout', currentMinor: -64_000, priorMinor: -50_000, changeMinor: -14_000, direction: 'up' as const },
       { categoryId: 'rent', categoryName: 'Rent & Mortgage', currentMinor: -120_000, priorMinor: -120_000, changeMinor: 0, direction: 'flat' as const },
     ],
-    largestPurchases: [{ id: 'a', amountMinor: -120_000, categoryId: 'rent', categoryName: 'Rent & Mortgage' }],
+    largestPurchases: [{ id: 'a', amountMinor: -120_000, categoryId: 'rent', categoryName: 'Rent & Mortgage', merchantName: 'Landlord', postedDate: '2026-08-01' }],
     recurringAudit: [
-      { merchantKey: 'netflix', currentAmountMinor: -1_599, cadence: 'monthly', cumulativePaidMinor: -12_792 },
+      { merchantKey: 'netflix', merchantName: 'Netflix', currentAmountMinor: -1_599, cadence: 'monthly', cumulativePaidMinor: -12_792 },
     ],
     projectedAnnualSpendingMinor: -5_100_000,
     projectionAssumption: 'Assumes current spending patterns continue unchanged.',
@@ -70,7 +85,8 @@ describe('Reports list', () => {
 
   it('offers scheduled runs and a custom range', async () => {
     render(<ReportsHarness />);
-    await waitFor(() => screen.getByRole('button', { name: 'Run monthly report' }));
+    const month = new Date().toLocaleDateString('en-US', { month: 'long' });
+    await waitFor(() => screen.getByRole('button', { name: `Run ${month} report` }));
     expect(screen.getByRole('button', { name: 'Run weekly digest' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Custom range…' })).toBeDefined();
   });
@@ -95,25 +111,44 @@ describe('Reports list', () => {
     expect((screen.getByRole('button', { name: 'Generate' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('opens a report when its row is clicked', async () => {
+  it('shows the latest report as a headline with its period', async () => {
     render(<ReportsHarness />);
-    await waitFor(() => screen.getByText(/August 2026/));
-    fireEvent.click(screen.getByText(/August 2026/));
+    await waitFor(() => expect(screen.getByText('You spent $4,250, 12% above your average')).toBeDefined());
+    expect(screen.getByText('Latest · August 2026')).toBeDefined();
+  });
+
+  it('opens the latest report', async () => {
+    render(<ReportsHarness />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open report' }));
     await waitFor(() => expect(screen.getByText('← All reports')).toBeDefined());
   });
 
-  it('offers deletion per report', async () => {
+  it('opens the report and exports it to PDF from the list', async () => {
+    const invoke = bridgeSpy({ 'reports:list': [SUMMARY], 'reports:get': MONTHLY, 'reports:exportPdf': { ok: true, path: '/tmp/a.pdf' } });
     render(<ReportsHarness />);
-    await waitFor(() => expect(screen.getByLabelText(/Delete report from 2026-08-01/)).toBeDefined());
+    fireEvent.click(await screen.findByRole('button', { name: 'Export PDF' }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('reports:exportPdf', { id: 'rep1' }), { timeout: 2000 });
+    expect(screen.getByText('← All reports')).toBeDefined();
+  });
+
+  it('lists older reports as cards with open and delete', async () => {
+    const invoke = bridgeSpy({
+      'reports:list': [SUMMARY, { ...SUMMARY, id: 'rep0', periodStart: '2026-07-01T00:00:00Z', periodEnd: '2026-08-01T00:00:00Z' }],
+      'reports:delete': { ok: true },
+    });
+    render(<ReportsHarness />);
+    expect(await screen.findByText('July report')).toBeDefined();
+    fireEvent.click(screen.getByLabelText('Delete report from 2026-07-01'));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('reports:delete', { id: 'rep0' }));
   });
 
   it('shows a custom report by its name rather than its month', async () => {
     installMoneyBridge({
-      'reports:list': [{ ...SUMMARY, type: 'custom' as const, label: 'Trip to Japan' }],
+      'reports:list': [SUMMARY, { ...SUMMARY, id: 'rep9', type: 'custom' as const, label: 'Trip to Japan' }],
     });
     render(<ReportsHarness />);
-    await waitFor(() => expect(screen.getByText('Trip to Japan')).toBeDefined());
-    expect(screen.getByText('Custom range')).toBeDefined();
+    expect(await screen.findByText('Trip to Japan')).toBeDefined();
+    expect(screen.getByText(/Custom range · /)).toBeDefined();
   });
 });
 
@@ -133,8 +168,8 @@ describe('Report detail', () => {
     for (const b of screen.getAllByRole('button')) {
       if (b.getAttribute('aria-expanded') === 'false') fireEvent.click(b);
     }
-    await waitFor(() => expect(screen.getByText(/up \+\$140\.00/)).toBeDefined());
-    expect(screen.getByText('unchanged')).toBeDefined();
+    await waitFor(() => expect(screen.getByText(/↑ \$140\.00/)).toBeDefined());
+    expect(screen.getByText('same')).toBeDefined();
   });
 
   it('groups the comparison by parent and hides children until expanded', async () => {
@@ -155,17 +190,11 @@ describe('Report detail', () => {
     // Children hidden until expanded; the parent still reports the rolled-up
     // change so a collapsed group is not silent.
     expect(screen.queryByText('Dining')).toBeNull();
-    expect(screen.getByText(/up \+\$220\.00/)).toBeDefined();
+    expect(screen.getByText(/↑ \$220\.00/)).toBeDefined();
 
     fireEvent.click(screen.getByLabelText('Expand Food'));
     expect(screen.getByText('Dining')).toBeDefined();
-    expect(screen.getByText(/up \+\$140\.00/)).toBeDefined();
-  });
-
-  it('shows the change as a share of the prior period', async () => {
-    render(<ReportDetail reportId="rep1" onBack={() => {}} />);
-    await waitFor(() => screen.getAllByRole('button'));
-    expect(screen.getByText(/28\.00%/)).toBeDefined();
+    expect(screen.getByText(/↑ \$140\.00/)).toBeDefined();
   });
 
   it('shows human category names, never raw ids', async () => {
@@ -177,13 +206,29 @@ describe('Report detail', () => {
   it('renders a chart of the category breakdown', async () => {
     const { container } = render(<ReportDetail reportId="rep1" onBack={() => {}} />);
     await waitFor(() => expect(screen.getByText('Where it went')).toBeDefined());
-    expect(container.querySelector('figure')).not.toBeNull();
+    expect(container.querySelector('.recharts-pie, svg')).not.toBeNull();
   });
 
   it('includes the recurring audit and largest purchases', async () => {
     render(<ReportDetail reportId="rep1" onBack={() => {}} />);
-    await waitFor(() => expect(screen.getByText('netflix')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Netflix')).toBeDefined());
     expect(screen.getByText('Largest purchases')).toBeDefined();
+    expect(screen.getByText('Landlord')).toBeDefined();
+  });
+
+  it('shows the in and out tiles with signs and the previous month', async () => {
+    render(<ReportDetail reportId="rep1" onBack={() => {}} />);
+    await waitFor(() => expect(screen.getByText('+$5,200.00')).toBeDefined());
+    expect(screen.getByText('Versus July')).toBeDefined();
+    expect(screen.getByText('was 24% in Jul')).toBeDefined();
+  });
+
+  it('exports the open report to PDF', async () => {
+    const invoke = bridgeSpy({ 'reports:get': MONTHLY, 'reports:exportPdf': { ok: true, path: '/tmp/a.pdf' } });
+    render(<ReportDetail reportId="rep1" onBack={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Export PDF' }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('reports:exportPdf', { id: 'rep1' }));
+    expect(await screen.findByText('Saved to /tmp/a.pdf')).toBeDefined();
   });
 
   it('states the assumption behind the annual projection (FR-041)', async () => {

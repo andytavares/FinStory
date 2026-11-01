@@ -64,6 +64,6 @@ describe('app shell', () => {
     fireEvent.change(search, { target: { value: 'whole foods' } });
     fireEvent.keyDown(search, { key: 'Enter' });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Transactions' }).getAttribute('aria-current')).toBe('page'));
-    await waitFor(() => expect(screen.getByText('Search: whole foods ✕')).toBeDefined());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Search: whole foods Clear search' })).toBeDefined());
   });
 });

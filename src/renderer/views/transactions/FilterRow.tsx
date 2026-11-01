@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { Button, Chip, Segmented } from '../../components/ui';
 import { assignableCategories } from '../../components/TransactionEditor';
 import { signedMoney } from '../../lib/format';
@@ -102,7 +103,7 @@ export function FilterRow({
       </button>
       {filters.search && (
         <Button size="sm" variant="ghost" onClick={() => onChange({ search: '' })}>
-          Search: {filters.search} ✕
+          Search: {filters.search} <X aria-label="Clear search" size={12} />
         </Button>
       )}
       {rows.length > 0 && <Totals rows={rows} />}
