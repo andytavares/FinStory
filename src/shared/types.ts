@@ -88,6 +88,8 @@ export interface TransactionView {
   readonly userRecurringOverride: 'recurring' | 'not_recurring' | null;
   readonly accountName: string;
   readonly accountMask: string | null;
+  /** Balance after this transaction; only when the list is one account with a bank balance. */
+  readonly runningBalanceMinor?: number;
 }
 
 /** Every total-bearing response carries its own completeness. */

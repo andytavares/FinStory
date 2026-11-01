@@ -456,6 +456,46 @@ describe('Data for the redesigned screens', () => {
       expect((await query({ accountIds: ['acct_1'] })).totalCount).toBe(7);
     });
 
+    describe('running balance', () => {
+      type Balanced = {
+        rows: Array<{ id: string; amountMinor: number; runningBalanceMinor?: number }>;
+        balance?: { currentMinor: number; asOf: string | null };
+      };
+      const balanced = async (extra: object): Promise<Balanced> => (await query(extra)) as unknown as Balanced;
+
+      it('shows the balance after each transaction, newest first from the bank balance', async () => {
+        const result = await balanced({ accountIds: ['acct_1'] });
+        expect(result.balance).toEqual({ currentMinor: 300_000, asOf: '2026-08-29T11:00:00Z' });
+        expect(result.rows[0]?.runningBalanceMinor).toBe(300_000);
+        result.rows.slice(1).forEach((row, i) => {
+          const newer = result.rows[i]!;
+          expect(row.runningBalanceMinor).toBe(newer.runningBalanceMinor! - newer.amountMinor);
+        });
+      });
+
+      it('counts newer transactions outside the period', async () => {
+        // August nets +496 201, so July ends at 300 000 - 496 201.
+        const result = await balanced({ accountIds: ['acct_1'], periodStart: '2026-07-01', periodEnd: '2026-07-31' });
+        expect(result.rows.map((r) => [r.id, r.runningBalanceMinor])).toEqual([
+          ['txn_j2', -196_201],
+          ['txn_j1', -716_201],
+        ]);
+      });
+
+      it('shows no balance across several accounts', async () => {
+        const result = await balanced({});
+        expect(result.balance).toBeUndefined();
+        expect(result.rows[0]?.runningBalanceMinor).toBeUndefined();
+      });
+
+      it('shows no balance when the bank gave none', async () => {
+        await handle.db.update(schema.accounts).set({ currentBalanceMinor: null });
+        const result = await balanced({ accountIds: ['acct_1'] });
+        expect(result.balance).toBeUndefined();
+        expect(result.rows[0]?.runningBalanceMinor).toBeUndefined();
+      });
+    });
+
     it('filters to transactions that need review', async () => {
       const result = await query({ needsReviewOnly: true });
       expect(result.rows.map((r) => r.id)).toEqual(['txn_2']);

@@ -62,6 +62,39 @@ function bridge(rows: unknown[] = [tx()], extra: Record<string, unknown> = {}): 
 const lastQuery = (invoke: ReturnType<typeof vi.fn>): Record<string, unknown> =>
   invoke.mock.calls.filter((c) => c[0] === 'transactions:query').at(-1)![1] as Record<string, unknown>;
 
+describe('Register running balance', () => {
+  it('shows the account balance at the top and the balance after each row', async () => {
+    const rows = [
+      tx({ runningBalanceMinor: 300_000 }),
+      tx({ id: 't2', amountMinor: 520_000, merchantName: 'Acme', runningBalanceMinor: 304_312 }),
+    ];
+    bridge(rows, {
+      'transactions:query': {
+        rows,
+        totalCount: 2,
+        excludedCount: 0,
+        dataComplete: true,
+        staleInstitutions: [],
+        balance: { currentMinor: 300_000, asOf: new Date().toISOString() },
+      },
+    });
+    render(<Register initialCategoryId={null} />);
+    await screen.findByText('Acme');
+    expect(screen.getByText('2 this period · Balance $3,000.00, updated just now')).toBeDefined();
+    expect(screen.getByRole('columnheader', { name: 'Balance' })).toBeDefined();
+    expect(screen.getByText('$3,000.00')).toBeDefined();
+    expect(screen.getByText('$3,043.12')).toBeDefined();
+  });
+
+  it('shows no balance column when the list spans accounts', async () => {
+    bridge();
+    render(<Register initialCategoryId={null} />);
+    await screen.findByText('Uber Eats');
+    expect(screen.queryByRole('columnheader', { name: 'Balance' })).toBeNull();
+    expect(screen.getByText('1 this period')).toBeDefined();
+  });
+});
+
 describe('Register filters', () => {
   it('sends the direction, account, category, period and needs-review filters', async () => {
     const invoke = bridge([tx({ needsReview: true })]);

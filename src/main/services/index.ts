@@ -89,6 +89,13 @@ import type { ImportCommitInput, ImportPreviewInput } from '@shared/schemas';
 import { commitImport } from '@main/import/commit';
 import { selectPlaidInstitutions } from '@main/import/institutions';
 import { previewImport } from '@main/import/preview';
+import { runningBalances } from '@main/analysis/running-balance';
+
+/** Register order: newest posted date first, then newest time on that date. */
+const newestFirst = (a: TransactionRow, b: TransactionRow): number => {
+  const byDate = b.postedDate.localeCompare(a.postedDate);
+  return byDate !== 0 ? byDate : (b.datetime ?? '').localeCompare(a.datetime ?? '');
+};
 
 export interface ModelDescription {
   readonly provider: string;
@@ -724,10 +731,8 @@ export class Services implements AppServices {
     // Newest first. Without an explicit order the register returns rows in
     // insertion order and the 100-row page can hide recent activity entirely —
     // which is how income became invisible.
-    filtered = [...filtered].sort((a, b) => {
-      const byDate = b.postedDate.localeCompare(a.postedDate);
-      return byDate !== 0 ? byDate : (b.datetime ?? '').localeCompare(a.datetime ?? '');
-    });
+    filtered = [...filtered].sort(newestFirst);
+    const balance = await this.accountBalance(q.accountIds);
 
     return {
       rows: filtered.slice(q.offset, q.offset + q.limit).map((r) => {
@@ -752,8 +757,10 @@ export class Services implements AppServices {
           userExcluded: r.userExcluded,
           userRecurringOverride: r.userRecurringOverride,
           ...accountLabels.get(r.accountId),
+          ...(balance && { runningBalanceMinor: balance.after.get(r.id) }),
         };
       }),
+      ...(balance && { balance: balance.current }),
       totalCount: filtered.length,
       // Only meaningful alongside spendingOnly; zero otherwise.
       excludedCount,
@@ -2649,6 +2656,18 @@ export class Services implements AppServices {
       userExcluded: r.userExcluded,
       postedDate: r.postedDate,
     }));
+  }
+
+  /** Running balances for a one-account list; none when the bank gave no balance. */
+  private async accountBalance(accountIds: string[] | undefined) {
+    if (accountIds?.length !== 1) return null;
+    const [account] = await this.db.select().from(t.accounts).where(eq(t.accounts.id, accountIds[0] ?? ''));
+    if (account?.currentBalanceMinor == null) return null;
+    const rows = await this.db.select().from(t.transactions).where(eq(t.transactions.accountId, account.id));
+    return {
+      current: { currentMinor: account.currentBalanceMinor, asOf: account.balanceAsOf },
+      after: runningBalances(rows.sort(newestFirst), { currentBalanceMinor: account.currentBalanceMinor, type: account.type }),
+    };
   }
 
   private async transactionsIn(start?: string, end?: string): Promise<TransactionRow[]> {
