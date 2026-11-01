@@ -1,0 +1,283 @@
+src/renderer/charts/BarGradients.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 1
+src/main/categorization/ollama.ts
+  s_d8b2366061c670::t_9565b15f020f07 89-90
+src/renderer/views/reports/DigestBody.tsx
+  s_d8b2366061c670::t_192a12f4a52309 7-22,38
+src/renderer/views/review/ReviewItemCard.tsx
+  s_d8b2366061c670::t_d9ddb2be660799 30-56,58-98,101-103,110-113,116
+src/renderer/views/Accounts.tsx
+  s_d8b2366061c670::t_49a3956c3ff965 9-18,25,72
+  s_d8b2366061c670::t_313d3f6df7d626 77-80
+  s_d8b2366061c670::t_b9d06b03631d0e 21-24,26-30,35-41,76,82,93
+  s_d8b2366061c670::t_eb24fa71535974 31-34,62,86
+src/renderer/views/settings/PrivacySection.tsx
+  s_d8b2366061c670::t_6e012d63121df8 17-23
+tests/integration/sync-store.test.ts
+  s_d8b2366061c670::t_1310b521cc55e1 42,69-80
+src/renderer/views/Income.tsx
+  s_d8b2366061c670::t_93099bfc3fc2c0 56
+src/main/analysis/dashboard-kpis.ts
+  s_d8b2366061c670::t_47573523069ddd 96
+  s_d8b2366061c670::t_e1b80192ca63b9 73,75
+  s_d8b2366061c670::t_d36dbfb9ee391f 3-4,109
+src/renderer/views/rules/OneOffChanges.tsx
+  s_d8b2366061c670::t_d36dbfb9ee391f 68
+  s_d8b2366061c670::t_3c27cc6d3c1b6f 9-33,37-43,56-61,106-111
+src/main/updates.ts
+  s_d8b2366061c670::t_76a2eab3aa1895 22-28
+src/renderer/components/CategoryTree.tsx
+  s_d8b2366061c670::t_23a890d99478a0 118-201,227-232,237
+  s_d8b2366061c670::t_2889a158c2b733 98-117,233-236,238,241,243
+src/renderer/views/recurring/ChargeCard.tsx
+  s_d8b2366061c670::t_c1bd88d53dc7a7 14-19,21
+  s_d8b2366061c670::t_0fe6ceeaf939d7 6-13,22
+tests/integration/import-commit.test.ts
+  s_d8b2366061c670::t_1310b521cc55e1 46-63,85
+src/renderer/views/RecurringCandidates.tsx
+  s_d8b2366061c670::t_0fe6ceeaf939d7 10-11,37-45,47-76,95,141,143-146
+  s_d8b2366061c670::t_36e4dcde66daae 12,14,16-24,46
+  s_d8b2366061c670::t_c1bd88d53dc7a7 25-36
+  s_d8b2366061c670::t_7680e3b2baabd3 13,15
+src/renderer/views/dashboard/KpiTiles.tsx
+  s_d8b2366061c670::t_d35c46d6f8dd0d 25-43,45-46,48-59,73,81
+  s_d8b2366061c670::t_a3c6ba6bbbff25 44,47
+src/renderer/charts/SpendingOverTime.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 79-90,122
+src/renderer/views/DesignSystem.tsx
+  s_d8b2366061c670::t_35128346c64132 43,61-67,74-80,98-106,138-144,160-166,184-192,225-244
+src/renderer/views/Register.tsx
+  s_d8b2366061c670::t_543bf628844362 72,169-174
+  s_d8b2366061c670::t_5b1ec7b2883202 87-92,94-117,177-179,181
+  s_d8b2366061c670::t_ea3ec5e0eced9b 93,180
+  s_d8b2366061c670::t_61a5706b6f840d 28-71,73-86,145-148,150,152-154,183
+tests/unit/ipc/handlers.test.ts
+  s_d8b2366061c670::t_d35c46d6f8dd0d 84,138,158
+  s_d8b2366061c670::t_ec893f405a3678 85-137
+src/main/secrets/migrate-to-keychain.ts
+  s_d8b2366061c670::t_d36dbfb9ee391f 32,70
+src/renderer/components/UpdateToast.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 16-25,39
+src/renderer/views/import/MatchAccounts.tsx
+  s_d8b2366061c670::t_93099bfc3fc2c0 81-83,85-87,89-94,122-126
+  s_d8b2366061c670::t_7b161d471b18dd 32-44
+  s_d8b2366061c670::t_be19030be2dd2d 30,45-51,53-80,105-112,114-116,134
+  s_d8b2366061c670::t_4c7432c65bd3f2 27-29,31,52,84,88,113,139-147
+src/main/categories/rules.ts
+  s_d8b2366061c670::t_e1b80192ca63b9 135-159,174-175
+  s_d8b2366061c670::t_39fdca07c837ba 26,42,66-73,80,108
+  s_d8b2366061c670::t_a49a983a2c46ae 9-18,23,39,105
+  s_d8b2366061c670::t_d36dbfb9ee391f 102
+src/main/import/duplicates.ts
+  s_d8b2366061c670::t_d36dbfb9ee391f 48-49
+src/main/usage/recorder.ts
+  s_d8b2366061c670::t_d36dbfb9ee391f 21
+src/renderer/views/transactions/FilterRow.tsx
+  s_d8b2366061c670::t_543bf628844362 49,54,59,64-65,70-71,75-89
+  s_d8b2366061c670::t_552c971d113238 36-39,50-53,55-58,60-63,66-69,73,91-98,110
+  s_d8b2366061c670::t_e3ecaf2d1bf0f2 72,74,90
+src/renderer/views/Review.tsx
+  s_d8b2366061c670::t_d9ddb2be660799 136-145
+  s_d8b2366061c670::t_1b3b10c37b6189 50-51,62-65,95-96,121-124
+src/renderer/views/categories/CategoryCard.tsx
+  s_d8b2366061c670::t_da8f2241131662 7,12,16,25-32,36,40,42,61-65,69,77,80,83
+  s_d8b2366061c670::t_36d793923707b8 50,53,57-59,103-108,130-135
+tests/unit/renderer/views.test.tsx
+  s_d8b2366061c670::t_e0c8b794d15b2a 103-116
+  s_d8b2366061c670::t_db25c35a061ad2 54-102,117-118,296
+  s_d8b2366061c670::t_2a01ab10d1137e 620-662,665
+  s_d8b2366061c670::t_61a572760cfa38 179,591
+src/renderer/views/setup/SetupSteps.tsx
+  s_d8b2366061c670::t_8c8a4a65ec7de7 10-30,49
+  s_d8b2366061c670::t_2a01ab10d1137e 38-48,50-55,82-84
+  s_d8b2366061c670::t_d4d8ee3f8a45a6 31-37
+src/main/import/ofx.ts
+  s_d8b2366061c670::t_2d7b74b108692b 29-37,40,49
+src/renderer/views/settings/CategorizationSection.tsx
+  s_d8b2366061c670::t_6e012d63121df8 77-83
+  s_d8b2366061c670::t_d36dbfb9ee391f 26
+src/main/settings/index.ts
+  s_d8b2366061c670::t_c91b7f547eaa9c 37,42-45,47
+src/renderer/components/TransactionEditor.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 6,40-41,44,46-47,49,55-56,62,107-112,144-148,154-156,205-206,219-223
+src/renderer/views/Dashboard.tsx
+  s_d8b2366061c670::t_d36dbfb9ee391f 32-33
+src/main/import/commit.ts
+  s_d8b2366061c670::t_1006b9a73ff3c6 41-54,67,69
+tests/unit/renderer/review.test.tsx
+  s_d8b2366061c670::t_5d899fe993a8ff 8,27,29
+  s_d8b2366061c670::t_ec893f405a3678 9-26
+src/renderer/views/import/FileCard.tsx
+  s_d8b2366061c670::t_be19030be2dd2d 13-15,17-18,20,30,51,65-77,79-81,83-89
+  s_d8b2366061c670::t_01f20a3ccfc2e6 16,19,78,82
+src/renderer/components/AppShell.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 8-22,125-128,173-180,183-190
+  s_d8b2366061c670::t_90237347e11567 91-98,147-149,155-159,212-213,216-217,222,224
+src/renderer/views/transactions/FilterMenu.tsx
+  s_d8b2366061c670::t_543bf628844362 9-18
+src/main/index.ts
+  s_d8b2366061c670::t_ab29586a23de87 166-183
+  s_d8b2366061c670::t_71188f1e9da802 393-403,408
+  s_d8b2366061c670::t_e6f2c486f1042f 201
+  s_d8b2366061c670::t_0c13afdb7f5253 376-390,404-407,409-410,421,426,430
+  s_d8b2366061c670::t_d36dbfb9ee391f 422
+  s_d8b2366061c670::t_0b68a39e84811e 157-165,189-190,212,358-375,391-392
+src/renderer/views/recurring/ConfirmedCard.tsx
+  s_d8b2366061c670::t_64e49dea3d62ed 51-68,94
+  s_d8b2366061c670::t_0fe6ceeaf939d7 21,76,83-86,89-93
+  s_d8b2366061c670::t_c1bd88d53dc7a7 15-20,69-73,75
+src/renderer/views/transactions/DrillNote.tsx
+  s_d8b2366061c670::t_d36dbfb9ee391f 3
+  s_d8b2366061c670::t_543bf628844362 4-10
+src/main/import/qif.ts
+  s_d8b2366061c670::t_2d7b74b108692b 26-33,38
+  s_d8b2366061c670::t_9b6a96a1396344 18-19,23-25,39
+src/renderer/components/ui/Menu.tsx
+  s_d8b2366061c670::t_d36dbfb9ee391f 6
+src/renderer/charts/IncomeVsSpending.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 39-51,59-67,75-78
+src/renderer/views/income/SourceCard.tsx
+  s_d8b2366061c670::t_93099bfc3fc2c0 20-24,26-27
+  s_d8b2366061c670::t_b081340c975d7d 35-38,49-53,57-62,74-79
+src/renderer/views/Categories.tsx
+  s_d8b2366061c670::t_33c3316f0d274c 50
+  s_d8b2366061c670::t_606eeffc4e64c7 62-68,90-95
+src/renderer/charts/CategoryDonut.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 21-37,50,56
+  s_d8b2366061c670::t_3ffb4551181ad5 11-20
+src/renderer/views/categories/types.ts
+  s_d8b2366061c670::t_da8f2241131662 16-27
+src/renderer/views/setup/SortStep.tsx
+  s_d8b2366061c670::t_11373dc617467d 70-77
+  s_d8b2366061c670::t_3328b5a2bed688 94-98,104
+  s_d8b2366061c670::t_d4d8ee3f8a45a6 107-113
+  s_d8b2366061c670::t_93c702d5e407cc 21,23-28,92-93,101,103,105,116-127,131-135,142-151
+  s_d8b2366061c670::t_30698e8a2e6eaa 15-20,22
+  s_d8b2366061c670::t_192a12f4a52309 100,102
+  s_d8b2366061c670::t_73f6b49dd1234f 84,91,99,106,114-115,128-130,136-141,152-157,167
+src/renderer/views/setup/DoneStep.tsx
+  s_d8b2366061c670::t_d4d8ee3f8a45a6 19-21,26-31
+  s_d8b2366061c670::t_93c702d5e407cc 3-10
+src/main/services/index.ts
+  s_d8b2366061c670::t_9687e34ef2f838 158-159,162,164-186,192,194
+  s_d8b2366061c670::t_70f6f33c56a4b5 150-157,187-188,190-191,193,195-207,907
+  s_d8b2366061c670::t_52345916335286 208-211,912,1065-1066,1068,1070,1075
+  s_d8b2366061c670::t_d2dec0ffb4e4dd 160-161,163,189
+  s_d8b2366061c670::t_47573523069ddd 556,983,1211-1215,1226,1229,1247-1248
+  s_d8b2366061c670::t_c91b7f547eaa9c 359-363,379,399
+  s_d8b2366061c670::t_00ab435084467f 351-358,381-385,400
+  s_d8b2366061c670::t_fa51b94e0236ed 212-219,531
+  s_d8b2366061c670::t_a75829463ef0ed 386-398
+src/main/db/migrate.ts
+  s_d8b2366061c670::t_d36dbfb9ee391f 39-40
+tests/e2e/fixtures/seed.ts
+  s_d8b2366061c670::t_578c0ae58b0226 58-59,61-71,74-76,84-89,93-94,122-126,128,144-149
+src/renderer/components/RecategorizeButton.tsx
+  s_d8b2366061c670::t_d36dbfb9ee391f 33
+tests/unit/renderer/reports.test.tsx
+  s_d8b2366061c670::t_a722034ab78b68 169,176,182,205,218,224,230,237,245,252,260,274,293,315,322
+src/renderer/views/import/CategoryMapping.tsx
+  s_d8b2366061c670::t_be19030be2dd2d 15-18,21-23,25-26
+  s_d8b2366061c670::t_5cd403f4c741ef 24,27-29,31-35,39-44,55-57
+src/main/diagnostics/sink.ts
+  s_d8b2366061c670::t_d36dbfb9ee391f 19
+src/renderer/charts/RunwayChart.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 31-71,95-96,102,104-107,116
+src/main/data/backup.ts
+  s_d8b2366061c670::t_f8b762a39bea7d 137-147,164
+tests/e2e/helpers.ts
+  s_d8b2366061c670::t_d36dbfb9ee391f 55
+src/renderer/views/Usage.tsx
+  s_d8b2366061c670::t_a722034ab78b68 19-24,46
+  s_d8b2366061c670::t_3a791befe26dce 13-18,44
+src/renderer/charts/CategoryBars.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 1,131-135
+  s_d8b2366061c670::t_f9916b50a759ec 136
+src/main/import/csv.ts
+  s_d8b2366061c670::t_163018400d88f2 20-33,41-45,50
+  s_d8b2366061c670::t_9b6a96a1396344 91-95,101
+src/renderer/views/categories/CategoryMenu.tsx
+  s_d8b2366061c670::t_36e4dcde66daae 113-119,143
+  s_d8b2366061c670::t_da8f2241131662 4,10,14-19,23-24,47-53,58-65,69-76,85-93,96-104,120,127,144,151-152,157-158,163-167,170-172,176
+  s_d8b2366061c670::t_67cfaece8e3584 131-133,136-138,179-181
+tests/integration/screen-data.test.ts
+  s_d8b2366061c670::t_94b381789413ca 161-187,189
+  s_d8b2366061c670::t_8315e5350cb0d7 38,51,53,159-160,188
+  s_d8b2366061c670::t_34848cdeae6487 39-50,54-90,133,137-158,190-199,205-206,219,222-223,225-276,278-289,305-306,308-309
+  s_d8b2366061c670::t_e1d8aeea22cbbf 92-131,134-136
+  s_d8b2366061c670::t_c7940c52467685 91,200-202,217-218,220-221,290-304,307,310
+src/main/db/client.ts
+  s_d8b2366061c670::t_d36dbfb9ee391f 68
+src/renderer/App.tsx
+  s_d8b2366061c670::t_fb9d7f349aaa19 21,72-75,77-119,121-122,137-152,178
+  s_d8b2366061c670::t_90237347e11567 183
+  s_d8b2366061c670::t_4faaf242b0a97b 184-188
+  s_d8b2366061c670::t_beaeb6aefe0ed6 190
+src/renderer/views/settings/ProviderChoice.tsx
+  s_d8b2366061c670::t_d36dbfb9ee391f 4
+src/renderer/views/Recurring.tsx
+  s_d8b2366061c670::t_c1bd88d53dc7a7 14-33,50,109
+  s_d8b2366061c670::t_0fe6ceeaf939d7 102,110,124
+src/renderer/charts/Sparkline.tsx
+  s_d8b2366061c670::t_4faaf242b0a97b 3-15,32-37,40
+src/renderer/views/settings/ProviderFields.tsx
+  s_d8b2366061c670::t_6e012d63121df8 57-76,78-84,86-96,110
+  s_d8b2366061c670::t_837a0f7b0f6b51 85
+src/renderer/views/setup/ConnectStep.tsx
+  s_d8b2366061c670::t_93c702d5e407cc 48,53-59
+  s_d8b2366061c670::t_2a01ab10d1137e 11,18-47,49-52,74
+src/renderer/views/reports/ReportCards.tsx
+  s_d8b2366061c670::t_93099bfc3fc2c0 8-15,29-34,40-42,55-60,67-68
+src/renderer/views/Import.tsx
+  s_d8b2366061c670::t_d35c46d6f8dd0d 17-18,20-22,24-25,59
+  s_d8b2366061c670::t_a722034ab78b68 107,124-127
+  s_d8b2366061c670::t_0174a9ef079198 19,31-38,40-42,46-48,57-58,60-61,73-76,82-83,86-91,98-100,104-106,131-135
+src/renderer/views/settings/ResetCard.tsx
+  s_d8b2366061c670::t_6e012d63121df8 6,17-43,59
+src/renderer/views/transactions/TransactionTable.tsx
+  s_d8b2366061c670::t_d4d8ee3f8a45a6 16-26,31,79
+  s_d8b2366061c670::t_2a01ab10d1137e 27-30,32-75,85-86,100,102-105
+  s_d8b2366061c670::t_543bf628844362 76-78,80-81
+src/renderer/views/categories/CategoryName.tsx
+  s_d8b2366061c670::t_36e4dcde66daae 6-10,15,17
+  s_d8b2366061c670::t_da8f2241131662 4,18
+  s_d8b2366061c670::t_4bd4a45685f67d 5
+src/renderer/views/Alerts.tsx
+  s_d8b2366061c670::t_815472a475c84b 19,24,36-45
+src/renderer/views/Setup.tsx
+  s_d8b2366061c670::t_93c702d5e407cc 82-83,88,92
+src/renderer/views/ReportDetail.tsx
+  s_d8b2366061c670::t_c1bd88d53dc7a7 24-26,28-30
+  s_d8b2366061c670::t_fd02185b386507 31-33,35,40-42,47,51-59,61-69
+  s_d8b2366061c670::t_83f2101d1fa325 34,60
+src/renderer/views/Reports.tsx
+  s_d8b2366061c670::t_192a12f4a52309 106-109,115-118
+  s_d8b2366061c670::t_d804fe49cd0863 26-29,61-66,89-93
+tests/integration/services-with-data.test.ts
+  s_d8b2366061c670::t_e1d8aeea22cbbf 78-118,120-122
+  s_d8b2366061c670::t_89d7877357e824 43-69,77,123-137,141-159,163-190,194-213,230-232,2367,2387-2390
+  s_d8b2366061c670::t_d4d8ee3f8a45a6 36-42,70-76,119,160-162,191-193,234-235,239
+  s_d8b2366061c670::t_bd13638088da51 138-140,233
+src/renderer/views/Health.tsx
+  s_d8b2366061c670::t_3a791befe26dce 24-42,65
+src/renderer/views/rules/MerchantRulesTable.tsx
+  s_d8b2366061c670::t_789e862f9ce436 9-15,54-59,64,107,110-113
+src/renderer/views/usage/UsageStats.tsx
+  s_d8b2366061c670::t_cdcf3e2c64dc4d 11,14,28-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ada022809e0a7496f8a2b9450b94b13107f7f95",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
