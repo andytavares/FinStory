@@ -1,0 +1,79 @@
+src/main/settings/index.ts
+  s_d8b2366061c670::t_a702b480747dfe 27,50
+src/renderer/views/Register.tsx
+  s_d8b2366061c670::t_25a3c8d2160740 125,142-145,290-293
+  s_d8b2366061c670::t_48909e1f0cd2d5 2
+tests/e2e/usage.spec.ts
+  s_d8b2366061c670::t_2f63ff3d2b6b63 1-21,26-34
+  s_d8b2366061c670::t_94ac3ef1f0dc9d 22-25
+src/main/diagnostics/sink.ts
+  s_d8b2366061c670::t_a702b480747dfe 1-2,18-37
+  s_d8b2366061c670::t_921b21d3285420 38-39
+src/shared/types.ts
+  s_d8b2366061c670::t_a702b480747dfe 225-226
+tests/unit/renderer/usage-view.test.tsx
+  s_d8b2366061c670::t_7d6210b2dd15bc 1-44
+src/main/ipc/handlers/services.ts
+  s_d8b2366061c670::t_a702b480747dfe 72-76
+src/main/ipc/handlers/index.ts
+  s_d8b2366061c670::t_a702b480747dfe 37-40,176-181
+  s_d8b2366061c670::t_03abbf2baf05a9 182
+src/shared/features.ts
+  s_d8b2366061c670::t_7d64796ace7703 1-152
+src/main/index.ts
+  s_d8b2366061c670::t_ece0b7b0fb6ac6 34,49,207-210,225-226,236-238,240-242,245-247,250,253-254,382
+  s_d8b2366061c670::t_1715dce9b9d5d0 32,85,143,158-163,190,230
+src/renderer/views/Usage.tsx
+  s_d8b2366061c670::t_451e1bb0b10aa4 1-140
+src/preload/index.ts
+  s_d8b2366061c670::t_d81e1f93d3044b 77-81,93
+src/main/usage/recorder.ts
+  s_d8b2366061c670::t_f597842007c7b4 1-71
+tests/unit/shared/features.test.ts
+  s_d8b2366061c670::t_7d6210b2dd15bc 1-37
+src/main/db/migrations/meta/_journal.json
+  s_d8b2366061c670::t_7d64796ace7703 60-66
+src/main/db/schema.ts
+  s_d8b2366061c670::t_7d64796ace7703 271-284
+src/main/sync/engine.ts
+  s_d8b2366061c670::t_1715dce9b9d5d0 58-59,109-110
+src/renderer/lib/ipc.ts
+  s_d8b2366061c670::t_25a3c8d2160740 2,48-51
+  s_d8b2366061c670::t_e80b3649155c76 52
+src/main/db/migrations/0008_usage_events.sql
+  s_d8b2366061c670::t_7d64796ace7703 1-13
+src/renderer/App.tsx
+  s_d8b2366061c670::t_25a3c8d2160740 17,32-33,36,50,62-66,193
+tests/integration/usage.test.ts
+  s_d8b2366061c670::t_7d6210b2dd15bc 1-151
+src/shared/schemas.ts
+  s_d8b2366061c670::t_a702b480747dfe 2,132,224-228
+src/renderer/charts/SpendingOverTime.tsx
+  s_d8b2366061c670::t_25a3c8d2160740 74-77
+  s_d8b2366061c670::t_48909e1f0cd2d5 14
+src/main/services/index.ts
+  s_d8b2366061c670::t_a702b480747dfe 34-35,114-118,1549-1551,1560-1584
+src/main/usage/queries.ts
+  s_d8b2366061c670::t_f597842007c7b4 1-3,5-62
+  s_d8b2366061c670::t_a702b480747dfe 4
+tests/unit/ipc/handlers.test.ts
+  s_d8b2366061c670::t_1715dce9b9d5d0 72-76,142-144
+src/renderer/views/Settings.tsx
+  s_d8b2366061c670::t_451e1bb0b10aa4 217-239,396
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4386173af2bf5f11451e5c24db1ab630c9409122",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
