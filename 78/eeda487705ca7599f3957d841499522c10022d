@@ -1,0 +1,32 @@
+src/renderer/views/income/SourceCard.tsx
+  s_d8b2366061c670::t_d08121115ad486 6,8,25
+src/renderer/views/recurring/Timeline.tsx
+  s_d8b2366061c670::t_d08121115ad486 4,27
+src/renderer/views/recurring/ConfirmedCard.tsx
+  s_d8b2366061c670::t_d08121115ad486 9,20,59
+src/renderer/views/Recurring.tsx
+  s_d8b2366061c670::t_d08121115ad486 10,36,101
+src/shared/types.ts
+  s_d8b2366061c670::t_d08121115ad486 103-105,117
+src/renderer/App.tsx
+  s_d8b2366061c670::t_b546653ba12ef3 140
+  s_d8b2366061c670::t_922380e718cea4 141-142,151-153
+src/renderer/views/Income.tsx
+  s_d8b2366061c670::t_d08121115ad486 10,25-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78eeda487705ca7599f3957d841499522c10022d",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
