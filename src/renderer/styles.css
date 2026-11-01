@@ -16,7 +16,7 @@
  * renders identically with no network.
  */
 
-@theme {
+@theme static {
   --color-ground: #0a0d14;
   --color-side: #0e1220;
   --color-surface: #121828;
