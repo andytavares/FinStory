@@ -83,8 +83,8 @@ describe('progress and stopping', () => {
       });
     });
     const bar = screen.getByRole('progressbar');
-    expect(bar.getAttribute('aria-valuenow')).toBe('12');
-    expect(bar.getAttribute('aria-valuemax')).toBe('60');
+    expect(bar.getAttribute('aria-valuenow')).toBe('20');
+    expect(bar.getAttribute('aria-valuemax')).toBe('100');
     expect(screen.getByText(/12 of 60 · 9 recategorized/)).toBeDefined();
     await waitFor(() => screen.getByText('Recategorize with AI'));
   });
