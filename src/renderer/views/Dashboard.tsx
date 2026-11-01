@@ -1,15 +1,16 @@
 import { useQuery } from '../lib/ipc';
-import { Money } from '../components/Money';
 import { Qualification } from '../components/Qualification';
 import { EmptyState } from '../components/EmptyState';
 import { Runway } from '../components/Runway';
-import { CategoryBars } from '../charts/CategoryBars';
 import { CategoryTree, groupByParent } from '../components/CategoryTree';
+import { Card, PageHeader } from '../components/ui';
+import { CategoryDonut } from '../charts/CategoryDonut';
 import { SpendingOverTime } from '../charts/SpendingOverTime';
-import { useQuery as useTrends } from '../lib/ipc';
-import type { DashboardResponse } from '@shared/types';
+import { KpiTiles } from './dashboard/KpiTiles';
+import { ComingUp } from './dashboard/ComingUp';
+import type { DashboardExtras, DashboardResponse } from '@shared/types';
 
-interface DashboardData extends DashboardResponse {
+interface DashboardData extends DashboardResponse, DashboardExtras {
   readonly runway: {
     available: boolean;
     currentBalanceMinor: number;
@@ -20,12 +21,33 @@ interface DashboardData extends DashboardResponse {
   };
 }
 
+function greeting(now: Date): string {
+  const hour = now.getHours();
+  if (hour < 12) return 'Good morning';
+  return hour < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+function monthSoFar(now: Date): string {
+  const month = now.toLocaleDateString('en-US', { month: 'long' });
+  const day = now.getDate();
+  return `${month} so far · ${day} ${day === 1 ? 'day' : 'days'} in`;
+}
+
 /**
  * SC-019: a user can state their position within 30 seconds without navigating
- * away. So the page leads with the runway (the actual question), then cash
- * flow, then where the money went — in that order of usefulness.
+ * away. So the page leads with the headline figures and the runway (the actual
+ * question), then where the money went, in that order of usefulness.
+ *
+ * `dashboard:get` takes one period and the headline figures are always this
+ * month, so there is no Week / Month / Year switch.
  */
-export function Dashboard({ onDrill }: { onDrill: (categoryId: string) => void }): React.JSX.Element {
+export function Dashboard({
+  onDrill,
+  onReconnect,
+}: {
+  onDrill: (categoryId: string) => void;
+  onReconnect?: (() => void) | undefined;
+}): React.JSX.Element {
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
@@ -35,7 +57,7 @@ export function Dashboard({ onDrill }: { onDrill: (categoryId: string) => void }
   });
 
   // A year back, so the trend has something to show.
-  const trends = useTrends<{
+  const trends = useQuery<{
     series: Array<{ label: string; spendingMinor: number }>;
     priorAverageMinor: number | null;
   }>('trends:overTime', {
@@ -47,64 +69,53 @@ export function Dashboard({ onDrill }: { onDrill: (categoryId: string) => void }
   if (error) return <EmptyState title="Could not load your dashboard" detail={error} />;
   if (!data) return <EmptyState title="No data yet" detail="Connect an account to get started." />;
 
-  const { cashFlowMinor, categoryBreakdown } = data;
+  const { categoryBreakdown } = data;
+  const groups = groupByParent(categoryBreakdown.rows);
 
   return (
-    <div className="space-y-6">
+    <div className="ds-grid">
+      <PageHeader title={greeting(now)} sub={monthSoFar(now)} />
       <Qualification
         dataComplete={data.dataComplete}
         staleInstitutions={data.staleInstitutions}
+        onReconnect={onReconnect}
       />
+      <KpiTiles kpis={data.kpis} floorMinor={data.runway.floorMinor} now={now} />
 
-      <Runway {...data.runway} />
+      <div className="ds-grid" style={{ gridTemplateColumns: '1.25fr 1fr' }}>
+        <Runway
+          available={data.runway.available}
+          projectedMinor={data.runway.projectedMinor}
+          reason={data.runway.reason}
+          series={data.runwaySeries}
+        />
+        <Card title="Where it went" caption="Last 30 days">
+          {data.whereItWent.length === 0 ? (
+            <p className="ds-muted" style={{ margin: '10px 0 0' }}>
+              Nothing spent in the last 30 days.
+            </p>
+          ) : (
+            <CategoryDonut legend parts={data.whereItWent.map((g) => ({ name: g.name, value: g.spentMinor }))} />
+          )}
+        </Card>
+      </div>
 
-      <section className="grid grid-cols-3 gap-px bg-[var(--color-line)]">
-        {[
-          { label: 'In', value: cashFlowMinor.incomeMinor },
-          { label: 'Out', value: cashFlowMinor.spendingMinor },
-          { label: 'Net', value: cashFlowMinor.netMinor },
-        ].map((cell) => (
-          <div key={cell.label} className="bg-[var(--color-surface)] px-5 py-4">
-            <p className="eyebrow">{cell.label} this month</p>
-            <Money minor={cell.value} magnitude={cell.label !== 'Net'} className="mt-1 block text-[22px]" />
-          </div>
-        ))}
-      </section>
+      <div className="ds-grid" style={{ gridTemplateColumns: '1.25fr 1fr' }}>
+        <Card>
+          {trends.data && trends.data.series.length > 1 ? (
+            <SpendingOverTime
+              data={trends.data.series}
+              priorAverageMinor={trends.data.priorAverageMinor}
+              title="Spending by month"
+            />
+          ) : (
+            <p className="ds-muted">Not enough history yet to chart spending by month.</p>
+          )}
+        </Card>
+        <ComingUp charges={data.upcomingRecurring} />
+      </div>
 
-      {categoryBreakdown.rows.length > 0 && (
-        <section>
-          {/* Charted at the parent level: a dozen subcategories is noise when
-              the question is "which part of my life cost the most". */}
-          <CategoryBars
-            data={groupByParent(categoryBreakdown.rows).map((g) => ({
-              categoryId: g.id,
-              categoryName: g.name,
-              totalMinor: g.totalMinor,
-            }))}
-            title="Where it went"
-            onSelect={onDrill}
-          />
-        </section>
-      )}
-
-      {trends.data && trends.data.series.length > 1 && (
-        <section>
-          <SpendingOverTime
-            data={trends.data.series}
-            priorAverageMinor={trends.data.priorAverageMinor}
-            title="Spending by month"
-          />
-        </section>
-      )}
-
-      <section>
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-[15px]">By category</h2>
-          <p className="text-[12px] text-[var(--color-ink-faint)]">
-            {groupByParent(categoryBreakdown.rows).length} groups · amount and transactions counted
-          </p>
-        </div>
-
+      <Card title="By category" caption={`${groups.length} groups · amount and transactions counted`}>
         {categoryBreakdown.rows.length === 0 ? (
           <EmptyState
             title="Nothing spent this month yet"
@@ -113,17 +124,16 @@ export function Dashboard({ onDrill }: { onDrill: (categoryId: string) => void }
         ) : (
           <CategoryTree rows={categoryBreakdown.rows} onDrill={onDrill} />
         )}
-      </section>
+      </Card>
 
       {data.whatChanged.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-[15px]">What changed</h2>
-          <ul className="space-y-1 text-[13px] text-[var(--color-ink-muted)]">
+        <Card title="What changed">
+          <ul className="ds-muted m-0 list-none space-y-1 p-0 pt-2">
             {data.whatChanged.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
     </div>
   );

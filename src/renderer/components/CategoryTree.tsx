@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { Money } from './Money';
+import { categoryColor } from '../lib/categoryColor';
 
 export interface BreakdownRow {
   readonly categoryId: string;
@@ -113,8 +114,8 @@ export function CategoryTree({
   };
 
   return (
-    <ul className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
-      {groups.map((group) => {
+    <ul className="m-0 mt-2 list-none divide-y divide-[var(--color-line)] p-0">
+      {groups.map((group, index) => {
         const isOpen = expanded.has(group.id);
         const hasChildren = group.children.length > 0;
         return (
@@ -137,10 +138,13 @@ export function CategoryTree({
                   ) : null}
                 </span>
                 <span className="w-40 shrink-0 truncate text-[13px]">{group.name}</span>
-                <span className="h-1 flex-1 bg-[var(--color-surface-raised)]">
+                <span className="h-1 flex-1 rounded-full bg-[var(--color-surface-raised)]">
                   <span
-                    className="block h-full bg-[var(--color-ink-faint)]"
-                    style={{ width: `${(group.totalMinor / largest) * 100}%` }}
+                    className="block h-full rounded-full"
+                    style={{
+                      width: `${(group.totalMinor / largest) * 100}%`,
+                      background: categoryColor(index),
+                    }}
                   />
                 </span>
                 <Money minor={group.totalMinor} magnitude className="w-28 text-right text-[13px]" />

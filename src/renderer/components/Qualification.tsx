@@ -1,26 +1,36 @@
-import { TriangleAlert } from 'lucide-react';
+import { Button, Chip } from './ui';
 
 /**
  * Constitution IX / SC-014: an incomplete period is never presented as
- * complete. This banner is not optional decoration — any view showing a total
+ * complete. This chip is not optional decoration — any view showing a total
  * over a period with a stale feed must render it.
  */
 export function Qualification({
   dataComplete,
   staleInstitutions,
+  onReconnect,
 }: {
   dataComplete: boolean;
   staleInstitutions: readonly string[];
+  /** Shown as a Reconnect action when an institution needs sign-in. */
+  onReconnect?: (() => void) | undefined;
 }): React.JSX.Element | null {
   if (dataComplete) return null;
   const names = staleInstitutions.length > 0 ? staleInstitutions.join(', ') : 'one or more accounts';
   return (
-    <div className="icon flex items-start gap-2 border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px] text-[var(--color-ink-muted)]">
-      <TriangleAlert aria-hidden className="mt-px shrink-0 opacity-70" />
-      <p>
-        These figures are incomplete. Data from {names} was unavailable, so totals shown are lower
-        bounds.
-      </p>
+    <div style={{ alignSelf: 'flex-start' }}>
+      <Chip tone="warn">
+        <span>
+          {onReconnect && staleInstitutions.length > 0
+            ? `${names} needs you to sign in again. Totals below miss its charges.`
+            : `These figures are incomplete. Data from ${names} was unavailable, so totals shown are lower bounds.`}
+        </span>
+        {onReconnect && staleInstitutions.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={onReconnect}>
+            Reconnect
+          </Button>
+        )}
+      </Chip>
     </div>
   );
 }

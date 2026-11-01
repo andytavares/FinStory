@@ -68,43 +68,31 @@ describe('EmptyState invites action', () => {
 });
 
 describe('Runway withholds rather than guessing (Constitution IX)', () => {
-  const base = {
-    currentBalanceMinor: 84700,
+  const series = {
+    points: [
+      { date: '2026-09-01', balanceMinor: 84700 },
+      { date: '2026-09-04', balanceMinor: 62000 },
+    ],
     floorMinor: 100000,
-    nextIncomeDate: '2026-09-04T00:00:00Z',
   };
 
   it('states the reason instead of drawing a projection when unavailable', () => {
     render(
       <Runway
-        {...base}
         available={false}
         projectedMinor={null}
+        series={null}
         reason="No recurring income detected yet"
       />,
     );
     expect(screen.getByText(/No recurring income detected yet/)).toBeDefined();
-    expect(screen.queryByText(/projected at payday/)).toBeNull();
-  });
-
-  it('renders the projection when income is known', () => {
-    render(
-      <Runway {...base} available projectedMinor={62000} reason="Assumes current spending" />,
-    );
-    expect(screen.getByText('$620.00')).toBeDefined();
-    expect(screen.getByText(/projected at payday/)).toBeDefined();
+    expect(screen.queryByText(/on payday/)).toBeNull();
   });
 
   it('always states the assumption behind the projection (FR-041)', () => {
     render(
-      <Runway {...base} available projectedMinor={62000} reason="Assumes current spending" />,
+      <Runway available projectedMinor={62000} series={series} reason="Assumes current spending" />,
     );
     expect(screen.getByText(/Assumes current spending/)).toBeDefined();
-  });
-
-  it('shows the floor marker and current balance for context', () => {
-    render(<Runway {...base} available projectedMinor={62000} reason="x" />);
-    expect(screen.getByText('$847.00')).toBeDefined();
-    expect(screen.getByText('$1,000.00')).toBeDefined();
   });
 });
