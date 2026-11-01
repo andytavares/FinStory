@@ -10,7 +10,8 @@ import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-or
 
 export const institutions = sqliteTable('institutions', {
   id: text('id').primaryKey(),
-  plaidItemId: text('plaid_item_id').notNull().unique(),
+  // Null for imported institutions; SQLite UNIQUE ignores nulls.
+  plaidItemId: text('plaid_item_id').unique(),
   accessTokenEncrypted: text('access_token_encrypted', { mode: 'text' }).notNull(),
   institutionName: text('institution_name').notNull(),
   // Null means never synced — drives initial backfill (FR-004).
@@ -21,6 +22,7 @@ export const institutions = sqliteTable('institutions', {
   lastSyncedAt: text('last_synced_at'),
   lastAttemptedSyncAt: text('last_attempted_sync_at'),
   createdAt: text('created_at').notNull(),
+  source: text('source', { enum: ['plaid', 'import'] }).notNull().default('plaid'),
 });
 
 export const accounts = sqliteTable('accounts', {

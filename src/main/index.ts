@@ -16,6 +16,7 @@ import { openDatabase, type DatabaseHandle } from './db/client';
 import { runMigrations } from './db/migrate';
 import { defaultCategories, defaultAlertRules } from './db/seed-categories';
 import { categories as categoriesTable } from './db/schema';
+import { selectPlaidInstitutions } from './import/institutions';
 import { IpcRegistry } from './ipc/registry';
 import { registerHandlers } from './ipc/handlers/index';
 import { Services, type ModelDescription } from './services/index';
@@ -27,7 +28,7 @@ import { EMPTY_SYNC, type SyncOutcome } from '@main/sync/outcome';
 import { SyncEngine, type SyncPage } from './sync/engine';
 import { DrizzleSyncStore } from './sync/store';
 import { createPlaidClient } from './plaid/client';
-import { settings as settingsTable, institutions as institutionsTable, alertRules as alertRulesTable, merchantProfiles as merchantProfilesTable } from './db/schema';
+import { settings as settingsTable, alertRules as alertRulesTable, merchantProfiles as merchantProfilesTable } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { DiagnosticLogger } from './diagnostics/logger';
 import { DatabaseSink } from './diagnostics/sink';
@@ -142,7 +143,7 @@ async function bootstrap(): Promise<void> {
 
   /** Sync every connected institution. Called on launch, on a timer, and after linking. */
   const syncAll = async (): Promise<SyncOutcome> => {
-    const rows = await handle.db.select().from(institutionsTable);
+    const rows = await selectPlaidInstitutions(handle.db);
     if (rows.length === 0) return { ...EMPTY_SYNC, blocked: 'no_institutions' };
 
     const clientId = await readSecret('plaidClientId');

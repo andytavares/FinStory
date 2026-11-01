@@ -72,6 +72,8 @@ export const INVOKE_CHANNELS = [
   'model:test',
   'categorization:rerun',
   'categorization:cancel',
+  'import:preview',
+  'import:commit',
   'overrides:list',
   'overrides:clear',
   'rules:list',

@@ -231,3 +231,37 @@ export const usageViewSchema = z.object({ route: z.enum(VIEW_IDS as [string, ...
 export const usageActionSchema = z.object({ feature: z.enum(UI_ACTION_IDS) });
 export const usageSummarySchema = z.object({ days: z.union([z.literal(7), z.literal(30), z.null()]) });
 export const usageRecentSchema = z.object({ limit: z.number().int().min(1).max(200).default(50) });
+
+const columnIndex = z.number().int().min(0).optional();
+export const csvMappingSchema = z.object({
+  date: z.number().int().min(0),
+  payee: z.number().int().min(0),
+  amount: columnIndex,
+  debit: columnIndex,
+  credit: columnIndex,
+  category: columnIndex,
+  memo: columnIndex,
+  account: columnIndex,
+  checkNumber: columnIndex,
+});
+
+const importFileSchema = z.object({
+  fileName: z.string().min(1),
+  text: z.string(),
+  mapping: csvMappingSchema.optional(),
+});
+
+/** `accountId` is an existing account id, or 'new' to create one named `newName`. */
+export const importPreviewSchema = importFileSchema.extend({
+  accountMap: z.array(z.object({ label: z.string(), accountId: z.string().min(1) })).optional(),
+});
+
+export const importCommitSchema = importFileSchema.extend({
+  accountMap: z.array(
+    z.object({ label: z.string(), accountId: z.string().min(1), newName: z.string().max(120).optional() }),
+  ),
+  categoryMap: z.array(z.object({ quickenCategory: z.string(), categoryId: z.string().min(1).nullable() })),
+});
+
+export type ImportPreviewInput = z.infer<typeof importPreviewSchema>;
+export type ImportCommitInput = z.infer<typeof importCommitSchema>;

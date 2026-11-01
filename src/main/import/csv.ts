@@ -47,6 +47,12 @@ function splitRecords(text: string): string[][] {
   return records;
 }
 
+/** The first row with several filled cells, for the column pickers when no header is recognised. */
+export function guessCsvHeaders(text: string): string[] {
+  const row = splitRecords(text).find((record) => record.filter((c) => c.trim() !== '').length >= 3);
+  return (row ?? []).map((c) => c.trim());
+}
+
 export function detectCsvColumns(headerRow: string[]): CsvColumnMapping | null {
   const names = headerRow.map((cell) => cell.trim().toLowerCase());
   const found: Partial<Record<keyof CsvColumnMapping, number>> = {};
@@ -100,6 +106,10 @@ function findHeader(records: string[][]): { mapping: CsvColumnMapping; index: nu
     if (mapping) return { mapping, index };
   }
   return null;
+}
+
+export function hasCsvHeader(text: string): boolean {
+  return findHeader(splitRecords(text)) !== null;
 }
 
 export function parseQuickenCsv(text: string, mapping?: CsvColumnMapping): ParseResult {

@@ -13,12 +13,12 @@ import { Alerts } from './views/Alerts';
 import { Setup } from './views/Setup';
 import { Accounts } from './views/Accounts';
 import { Usage } from './views/Usage';
+import { Import } from './views/Import';
 import { call, useQuery } from './lib/ipc';
 import type { ViewId } from '@shared/features';
 import type { SetupStatus } from '@shared/types';
 import { useNavigation } from './lib/navigation';
 import { AppShell, type NavGroup } from './components/AppShell';
-import { EmptyState } from './components/EmptyState';
 import { DesignSystem } from './views/DesignSystem';
 
 const NAV_GROUPS: readonly NavGroup[] = [
@@ -166,11 +166,8 @@ export function App(): React.JSX.Element {
           onCloseReport={nav.back}
         />
       )}
-      {/* shortcut: placeholder until the Import unit fills it in. */}
       {view === 'usage' && <Usage />}
-      {view === 'import' && (
-        <EmptyState title="Import" detail="Bring in history from a file. Coming soon." />
-      )}
+      {view === 'import' && <Import onViewTransactions={() => nav.navigate({ view: 'register' })} />}
       {view === 'health' && <Health />}
       {view === 'overrides' && <Overrides />}
       {view === 'categories' && <Categories />}

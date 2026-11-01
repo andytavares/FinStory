@@ -85,6 +85,10 @@ import { summarizeSync, type SyncOutcome } from '@main/sync/outcome';
 import { resolveMerchantName } from '@shared/merchant-name';
 import { humanizeCategoryIds } from '@shared/category-names';
 import type { OverrideKind, OverrideRecord } from '@shared/types';
+import type { ImportCommitInput, ImportPreviewInput } from '@shared/schemas';
+import { commitImport } from '@main/import/commit';
+import { selectPlaidInstitutions } from '@main/import/institutions';
+import { previewImport } from '@main/import/preview';
 
 export interface ModelDescription {
   readonly provider: string;
@@ -164,7 +168,7 @@ export class Services implements AppServices {
   }
 
   async completeness(): Promise<Completeness> {
-    const rows = await this.db.select().from(t.institutions);
+    const rows = await selectPlaidInstitutions(this.db);
     const states: InstitutionState[] = rows.map((r) => ({
       id: r.id,
       name: r.institutionName,
@@ -370,6 +374,7 @@ export class Services implements AppServices {
       institutionName: r.institutionName,
       status: r.status,
       lastSyncedAt: r.lastSyncedAt,
+      source: r.source,
       accountCount: accounts.filter((a) => a.institutionId === r.id).length,
       accounts: accounts
         .filter((a) => a.institutionId === r.id)
@@ -397,8 +402,10 @@ export class Services implements AppServices {
   }
 
   async disconnectInstitution(id: string): Promise<unknown> {
+    const [institution] = await this.db.select().from(t.institutions).where(eq(t.institutions.id, id));
+    // Deleting an imported institution deletes its accounts and their transactions.
     await this.db.delete(t.institutions).where(eq(t.institutions.id, id));
-    await this.deps.store.delete(accessTokenAccount(id));
+    if (institution?.source !== 'import') await this.deps.store.delete(accessTokenAccount(id));
     return { ok: true };
   }
 
@@ -1686,7 +1693,7 @@ export class Services implements AppServices {
   async health(): Promise<unknown> {
     const [events, institutions, transactions] = await Promise.all([
       this.db.select().from(t.diagnosticEvents).orderBy(desc(t.diagnosticEvents.occurredAt)).limit(1000),
-      this.db.select().from(t.institutions),
+      selectPlaidInstitutions(this.db),
       this.db.select().from(t.transactions),
     ]);
     const summary = summarizeHealth(events.map((e) => this.toDiagnosticEvent(e)));
@@ -1854,6 +1861,20 @@ export class Services implements AppServices {
       institutionIds: institutions.map((row) => row.id),
     });
     return { ok: true, requiresRestart: true };
+  }
+
+  async previewImport(input: unknown): Promise<unknown> {
+    return previewImport(this.db, input as ImportPreviewInput);
+  }
+
+  async commitImport(input: unknown): Promise<unknown> {
+    const result = await commitImport(
+      { handle: this.deps.handle, clock: this.deps.clock, buildPipeline: this.deps.buildPipeline },
+      input as ImportCommitInput,
+    );
+    // Recurring and income detection need the imported history.
+    if (result.imported > 0) await this.refreshAnalysis();
+    return result;
   }
 
   /** Whether Ollama answers at the saved address, within two seconds. */

@@ -39,6 +39,8 @@ import {
   usageActionSchema,
   usageSummarySchema,
   usageRecentSchema,
+  importPreviewSchema,
+  importCommitSchema,
 } from '@shared/schemas';
 import type { AppServices } from './services';
 
@@ -196,6 +198,9 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
     services.recategorizePending(p),
   );
   registry.handle('categorization:cancel', empty, () => services.cancelRecategorize());
+
+  registry.handle('import:preview', importPreviewSchema, (p) => services.previewImport(p));
+  registry.handle('import:commit', importCommitSchema, (p) => services.commitImport(p));
 
   // The only caller of /transactions/refresh, and only on user request (R2).
   registry.handle('sync:now', empty, async () => {

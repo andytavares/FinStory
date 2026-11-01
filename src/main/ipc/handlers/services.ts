@@ -92,4 +92,7 @@ export interface AppServices {
   testModel(): Promise<unknown>;
   recategorizePending(input?: unknown): Promise<unknown>;
   cancelRecategorize(): Promise<unknown>;
+
+  previewImport(input: unknown): Promise<unknown>;
+  commitImport(input: unknown): Promise<unknown>;
 }

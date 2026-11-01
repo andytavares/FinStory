@@ -7,7 +7,7 @@ const { migrate } = await import('drizzle-orm/better-sqlite3/migrator');
 import { join } from 'node:path';
 import type { DatabaseHandle } from '@main/db/client';
 
-const handle = { db: {}, raw: {}, close: () => {} } as unknown as DatabaseHandle;
+const handle = { db: {}, raw: { pragma: () => {} }, close: () => {} } as unknown as DatabaseHandle;
 
 describe('migration folder resolution', () => {
   it('uses an explicitly provided folder', () => {

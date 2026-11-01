@@ -19,6 +19,38 @@ export interface InstitutionSummary {
   readonly lastSyncedAt: string | null;
   readonly accountCount: number;
   readonly accounts: AccountRow[];
+  /** 'import' institutions hold Quicken history and never sync. */
+  readonly source?: 'plaid' | 'import';
+}
+
+export interface ImportPreview {
+  readonly format: 'csv' | 'qif' | 'ofx';
+  readonly accounts: ReadonlyArray<{
+    label: string;
+    count: number;
+    firstDate: string;
+    lastDate: string;
+    suggestedAccountId: string | null;
+    /** Rows of this account already in Money. */
+    duplicateCount: number;
+  }>;
+  readonly newCount: number;
+  readonly duplicateCount: number;
+  readonly categoryMappings: ReadonlyArray<{
+    quickenCategory: string;
+    count: number;
+    suggestedCategoryId: string | null;
+  }>;
+  readonly warnings: readonly string[];
+  /** The CSV has no recognisable header row; the user picks the columns. */
+  readonly needsMapping: boolean;
+  readonly headers?: readonly string[];
+}
+
+export interface ImportResult {
+  readonly imported: number;
+  readonly skippedDuplicates: number;
+  readonly createdAccounts: number;
 }
 
 export interface AccountSummary {
