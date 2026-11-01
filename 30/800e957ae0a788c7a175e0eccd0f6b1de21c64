@@ -1,0 +1,31 @@
+tests/integration/backup.test.ts
+  s_d8b2366061c670::t_9babeac12af977 48-53,78-87,95-97,100-106,124-130,134-136,150-156,158-160,167-176
+  s_d8b2366061c670::t_4073ddf47064b7 116-123,131-133,137-149,157,161-163,193-207
+  s_d8b2366061c670::t_7ccf1047aeefac 2
+src/main/db/client.ts
+  s_d8b2366061c670::t_9babeac12af977 6-10
+  s_d8b2366061c670::t_27cdfa7f164446 54-71,73,79-81,88,91
+  s_d8b2366061c670::t_1f8621b7d09820 72,74-78,89
+src/main/data/backup.ts
+  s_d8b2366061c670::t_1f8621b7d09820 156-157,163-165,170-171
+  s_d8b2366061c670::t_9babeac12af977 4,10,94-98,158-162
+  s_d8b2366061c670::t_f934a50a3bd3e6 188
+src/main/secrets/secret-store.ts
+  s_d8b2366061c670::t_27cdfa7f164446 12-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "30800e957ae0a788c7a175e0eccd0f6b1de21c64",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
