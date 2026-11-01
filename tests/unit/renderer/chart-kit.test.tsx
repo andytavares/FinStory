@@ -34,8 +34,8 @@ describe('chart kit', () => {
     const { container } = render(
       <RunwayChart
         points={[
-          { date: 'Nov 1', balance: 236700 },
-          { date: 'Nov 12', balance: 141600 },
+          { date: '2026-11-01', balance: 236700 },
+          { date: '2026-11-12', balance: 141600 },
         ]}
         floor={100000}
         label="$1,416 on payday"

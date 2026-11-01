@@ -82,10 +82,10 @@ function RunwaySection(): React.JSX.Element {
         <Card title="Runway to payday" caption="RunwayChart">
           <RunwayChart
             points={[
-              { date: 'Nov 1', balance: 236_700 },
-              { date: 'Nov 5', balance: 190_000 },
-              { date: 'Nov 9', balance: 150_000 },
-              { date: 'Nov 12', balance: 141_600 },
+              { date: '2026-11-01', balance: 236_700 },
+              { date: '2026-11-05', balance: 190_000 },
+              { date: '2026-11-09', balance: 150_000 },
+              { date: '2026-11-12', balance: 141_600 },
             ]}
             floor={100_000}
             label="$1,416 on payday"

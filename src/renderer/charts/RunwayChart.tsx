@@ -21,6 +21,7 @@ import {
 } from './theme';
 
 export interface RunwayPoint {
+  /** YYYY-MM-DD; the axis formats it, and any other text throws. */
   readonly date: string;
   /** Minor units. */
   readonly balance: number;
