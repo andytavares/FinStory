@@ -2729,7 +2729,8 @@ export class Services implements AppServices {
   private async localResolutionRate(): Promise<number | null> {
     const rows = await this.db.select().from(t.categorizations);
     if (rows.length === 0) return null;
-    return rows.filter((r) => r.source === 'local_history').length / rows.length;
+    // A merchant rule is resolved locally too; classifyLocally labels it 'rule'.
+    return rows.filter((r) => r.source === 'local_history' || r.source === 'rule').length / rows.length;
   }
 
   private medianDuration(events: Array<{ durationMs: number | null }>): number | null {

@@ -71,7 +71,7 @@ describe('backup round-trip onto a clean install (FR-060, SC-017)', () => {
     const newMacStore = new MemorySecretStore();
     await expect(
       restoreBackup({ srcDir: backupDir, userDataDir: freshHome, store: newMacStore, passphrase: 'not the passphrase' }),
-    ).rejects.toThrow(/passphrase/i);
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED', message: expect.stringMatching(/passphrase/i) });
     expect(existsSync(join(freshHome, 'money.sqlite'))).toBe(false);
     expect(newMacStore.items.size).toBe(0);
   });
@@ -96,7 +96,7 @@ describe('backup round-trip onto a clean install (FR-060, SC-017)', () => {
     mkdirSync(join(backupDir, 'empty'), { recursive: true });
     await expect(
       restoreBackup({ srcDir: join(backupDir, 'empty'), userDataDir: freshHome, store: new MemorySecretStore(), passphrase: PASSPHRASE }),
-    ).rejects.toThrow(/incomplete/i);
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED', message: expect.stringMatching(/incomplete/i) });
   });
 
   it('deletes the files and every Keychain item on reset (FR-048)', async () => {

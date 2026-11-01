@@ -1,6 +1,6 @@
 import { parseSync } from 'ofx-js';
 import { toMinor } from '@shared/money';
-import { buildResult } from './common';
+import { buildResult, parseDate } from './common';
 import type { ImportedTransaction, ParseResult } from './types';
 
 // ofx-js types its parsed tree as any; the shape depends on the bank.
@@ -26,12 +26,18 @@ function optionalText(value: unknown): string | null {
   return value === undefined ? null : String(value);
 }
 
-function toTransaction(node: OfxNode, label: string): ImportedTransaction {
+/** A transaction, or a warning when its date or amount cannot be read. */
+function toTransaction(node: OfxNode, label: string): ImportedTransaction | string {
   const d = String(node.DTPOSTED ?? '');
+  const date = parseDate(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+  const amount = Number(node.TRNAMT);
+  if (!date || node.TRNAMT === undefined || !Number.isFinite(amount)) {
+    return `Transaction '${String(node.FITID ?? node.NAME ?? '')}' skipped: unreadable date or amount`;
+  }
   return {
     accountLabel: label,
-    date: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`,
-    amountMinor: toMinor(Number(node.TRNAMT)),
+    date,
+    amountMinor: toMinor(amount),
     payee: String(node.NAME ?? node.PAYEE?.NAME ?? node.MEMO ?? ''),
     memo: optionalText(node.MEMO),
     category: null,
@@ -43,13 +49,17 @@ function toTransaction(node: OfxNode, label: string): ImportedTransaction {
 export async function parseOfx(text: string): Promise<ParseResult> {
   const { OFX } = parseSync(text);
   const transactions: ImportedTransaction[] = [];
+  const warnings: string[] = [];
   for (const path of STATEMENT_PATHS) {
     for (const response of toArray<OfxNode>(OFX[path.messages]?.[path.response])) {
       const statement: OfxNode | undefined = response[path.statement];
       const label = accountLabel(statement?.[path.account], path.messages === 'CREDITCARDMSGSRSV1');
       const nodes = toArray<OfxNode>(statement?.BANKTRANLIST?.STMTTRN);
-      transactions.push(...nodes.map((node) => toTransaction(node, label)));
+      for (const parsed of nodes.map((node) => toTransaction(node, label))) {
+        if (typeof parsed === 'string') warnings.push(parsed);
+        else transactions.push(parsed);
+      }
     }
   }
-  return buildResult('ofx', transactions, []);
+  return buildResult('ofx', transactions, warnings);
 }

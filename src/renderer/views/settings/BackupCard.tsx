@@ -27,8 +27,10 @@ export function BackupCard({
     if (!action) return;
     const { channel, pathKey } = BACKUP_ACTIONS[action];
     setMessage(null);
-    void call(channel, { [pathKey]: '', passphrase })
-      .then(() => {
+    void call<{ ok: boolean }>(channel, { [pathKey]: '', passphrase })
+      .then(({ ok }) => {
+        // ok is false when the folder dialog was cancelled.
+        if (!ok) return;
         setAction(null);
         setPassphrase('');
         setMessage(action === 'export' ? 'Backup saved.' : null);

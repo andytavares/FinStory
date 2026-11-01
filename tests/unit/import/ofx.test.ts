@@ -46,4 +46,14 @@ describe('parseOfx', () => {
       fitId: 'C1',
     });
   });
+
+  it('skips a transaction with an unreadable amount or date and keeps the rest', async () => {
+    const broken = BANK.replace('<TRNAMT>1234.56', '<TRNAMT>12,34').replace(
+      '<DTPOSTED>20250114120000[-5:EST]',
+      '<DTPOSTED>2025XX14',
+    );
+    const r = await parseOfx(broken);
+    expect(r.transactions).toEqual([]);
+    expect(r.warnings).toHaveLength(2);
+  });
 });

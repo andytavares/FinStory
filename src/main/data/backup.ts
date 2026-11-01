@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'node:cryp
 import { copyFileSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DatabaseHandle } from '@main/db/client';
+import { IpcFailure } from '@main/ipc/registry';
 import {
   accessTokenAccount,
   CREDENTIAL_ACCOUNTS,
@@ -88,7 +89,8 @@ async function unlockKey(file: BackupKeyFile, passphrase: string): Promise<strin
     ]);
     return plain.toString('utf8');
   } catch {
-    throw new Error('Wrong passphrase, or the backup key file is damaged. Nothing was changed.');
+    // IpcFailure, or the IPC layer would replace this message with a generic one.
+    throw new IpcFailure('VALIDATION_FAILED', 'Wrong passphrase, or the backup key file is damaged. Nothing was changed.', false);
   }
 }
 
@@ -132,8 +134,10 @@ export async function restoreBackup(options: RestoreOptions): Promise<void> {
   const backupDb = join(srcDir, DB_FILE);
   const backupKey = join(srcDir, BACKUP_KEY_FILE);
   if (!existsSync(backupDb) || !existsSync(backupKey)) {
-    throw new Error(
+    throw new IpcFailure(
+      'VALIDATION_FAILED',
       'Backup is incomplete: both the database and its key file are required to restore',
+      false,
     );
   }
   const databaseKey = await unlockKey(

@@ -20,7 +20,7 @@ macOS can ask whether Money may use a Keychain item.
 - Click **Always Allow**. Money reads its own items under `com.atavares.money`.
 - If you click **Deny**, Money cannot open its database key. Restart Money and click **Always Allow**.
 - "Money cannot start" means Money has no Keychain access. Unlock your login Keychain in **Keychain Access**, then open Money again.
-- "The database key is missing from the Keychain": the key item was deleted. Restore a [backup](settings.md).
+- "The database key is missing from the Keychain": the key item was deleted, and Money cannot open the database without it. Money cannot start, so **Restore…** in Settings is not available. Restore the `database-key` item under `com.atavares.money` from a Time Machine copy of your login Keychain. If you have no copy, move `money.sqlite` out of Money's folder in `~/Library/Application Support`, start Money, and restore a [backup](settings.md).
 
 ## Sorting problems
 

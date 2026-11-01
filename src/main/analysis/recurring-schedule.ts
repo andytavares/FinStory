@@ -9,14 +9,16 @@ const CHARGES_PER_YEAR: Record<RecurringCadence, number> = {
   annual: 1,
 };
 
-/** `lastSeenDate` is a `YYYY-MM-DD` day; the result is too. */
+const MONTHS_AHEAD: Record<Exclude<RecurringCadence, 'weekly'>, number> = { monthly: 1, quarterly: 3, annual: 12 };
+
+/** `lastSeenDate` is a `YYYY-MM-DD` day; the result is too. A month-end day stays at the end of a shorter month. */
 export function nextExpectedDate(lastSeenDate: string, cadence: RecurringCadence): string {
-  const next = new Date(`${lastSeenDate}T00:00:00Z`);
-  if (cadence === 'weekly') next.setUTCDate(next.getUTCDate() + 7);
-  if (cadence === 'monthly') next.setUTCMonth(next.getUTCMonth() + 1);
-  if (cadence === 'quarterly') next.setUTCMonth(next.getUTCMonth() + 3);
-  if (cadence === 'annual') next.setUTCFullYear(next.getUTCFullYear() + 1);
-  return next.toISOString().slice(0, 10);
+  const last = new Date(`${lastSeenDate}T00:00:00Z`);
+  if (cadence === 'weekly') return new Date(last.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
+  const year = last.getUTCFullYear();
+  const month = last.getUTCMonth() + MONTHS_AHEAD[cadence];
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(last.getUTCDate(), lastDayOfMonth))).toISOString().slice(0, 10);
 }
 
 /** Positive amounts, whatever the sign of the stored charge. */

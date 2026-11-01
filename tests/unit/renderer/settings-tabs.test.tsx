@@ -182,4 +182,16 @@ describe('Data and privacy reflects health:get', () => {
       expect(invoke).toHaveBeenCalledWith('data:export', { destPath: '', passphrase: 'correct horse battery' }),
     );
   });
+
+  it('does not claim a backup was saved when the folder dialog is cancelled', async () => {
+    const invoke = setup({ 'data:export': { ok: false } });
+    render(<Settings />);
+    await waitFor(() => screen.getByRole('button', { name: 'Back up now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back up now' }));
+    fireEvent.change(screen.getByLabelText('Backup passphrase'), { target: { value: 'correct horse battery' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Back up' }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('data:export', expect.anything()));
+    await waitFor(() => expect(screen.getByLabelText('Backup passphrase')).toBeDefined());
+    expect(screen.queryByText('Backup saved.')).toBeNull();
+  });
 });

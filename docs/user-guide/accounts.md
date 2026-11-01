@@ -38,4 +38,4 @@ Money syncs again after that. While an account needs you, Money marks every tota
 
 ## Disconnect a bank
 
-Click **Disconnect** on the bank card. Money stops syncing that bank. Money asks for no confirmation.
+Click **Disconnect** on the bank card. Money stops syncing that bank and deletes its accounts and all their transactions. Money asks for no confirmation, and this cannot be undone. Back up first if you want to keep the history. See [Settings](settings.md).

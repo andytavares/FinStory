@@ -774,6 +774,12 @@ describe('Services with realistic data', () => {
     expect(h.metrics.localResolutionRate).toBe(0);
   });
 
+  it('counts a merchant rule as a local resolution', async () => {
+    handle.raw.prepare("UPDATE categorizations SET source = 'rule' WHERE transaction_id = 'txn_1'").run();
+    const h = (await services.health()) as { metrics: { localResolutionRate: number | null } };
+    expect(h.metrics.localResolutionRate).toBeCloseTo(1 / 5, 5);
+  });
+
   it('cancelling the export dialog is not an error', async () => {
     expect(await services.exportDiagnostics('')).toMatchObject({ ok: false });
     expect(await services.exportData('', 'correct horse')).toMatchObject({ ok: false });
