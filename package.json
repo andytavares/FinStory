@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "verify": "npm run typecheck && npm run lint && npm run test:coverage && npm run build && npm run test:e2e"
+    "verify": "npm run typecheck && npm run lint && npm run test:coverage && npm run build && npm run test:e2e",
+    "docs:screenshots": "npm run build && playwright test -c playwright.docs.config.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.122.0",
