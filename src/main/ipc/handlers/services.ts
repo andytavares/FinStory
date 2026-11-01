@@ -69,8 +69,8 @@ export interface AppServices {
   exportDiagnostics(destPath: string): Promise<unknown>;
   getSettings(): Promise<unknown>;
   updateSettings(input: unknown): Promise<unknown>;
-  exportData(destPath: string): Promise<unknown>;
-  importData(srcPath: string): Promise<unknown>;
+  exportData(destPath: string, passphrase: string): Promise<unknown>;
+  importData(srcPath: string, passphrase: string): Promise<unknown>;
   deleteAllData(): Promise<unknown>;
   listOllamaModels(): Promise<unknown>;
   refreshAnalysis(): Promise<unknown>;

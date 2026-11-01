@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { execSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
-import { launch, dismissSetup } from './helpers';
+import { launch, dismissSetup, clearKeychain } from './helpers';
 
 // FR-048. The restarted app is a process Playwright does not own,
 // so the test finds it by its unique user-data dir and stops it.
@@ -31,6 +31,7 @@ test('reset erases everything and restarts at setup', async () => {
 
     const second = await launch(dir);
     await expect(second.page.getByLabel('Client ID')).toBeVisible({ timeout: 20_000 });
+    await clearKeychain(second.app, dir);
     await second.app.close();
   } finally {
     stopAll(dir);

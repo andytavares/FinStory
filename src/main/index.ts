@@ -3,6 +3,14 @@ import { join } from 'node:path';
 import { assertEncryptionAvailable, EncryptionUnavailableError } from './secrets/availability';
 import { ElectronSecretBackend } from './secrets/electron-backend';
 import { Keyring } from './secrets/keyring';
+import {
+  accessTokenAccount,
+  CREDENTIAL_ACCOUNTS,
+  KeychainSecretStore,
+  keychainService,
+  type CredentialKey,
+} from './secrets/secret-store';
+import { migrateSecretsToKeychain } from './secrets/migrate-to-keychain';
 import { openDatabase, type DatabaseHandle } from './db/client';
 import { runMigrations } from './db/migrate';
 import { defaultCategories, defaultAlertRules } from './db/seed-categories';
@@ -51,9 +59,13 @@ async function bootstrap(): Promise<void> {
   const backend = new ElectronSecretBackend();
   const keyring = new Keyring(backend);
 
-  const handle = await openDatabase(userDataDir, backend);
+  const secretStore = new KeychainSecretStore(keychainService(app.isPackaged, userDataDir));
+
+  const handle = await openDatabase(userDataDir, secretStore, keyring);
   databaseHandle = handle;
   runMigrations(handle);
+  // Failures keep their original and retry next launch, so they never block startup.
+  await migrateSecretsToKeychain({ db: handle.db, store: secretStore, keyring, userDataDir });
 
   // Seed once: the app must be usable with no configuration (FR-078).
   const existing = await handle.db.select().from(categoriesTable);
@@ -74,11 +86,8 @@ async function bootstrap(): Promise<void> {
     const rows = await handle.db.select().from(settingsTable).where(eq(settingsTable.key, key));
     return rows[0]?.value ?? null;
   };
-  const readSecret = async (key: string): Promise<string | null> => {
-    const value = await readSetting(key);
-    if (!value) return null;
-    return (await keyring.open(Buffer.from(value, 'base64'))).value;
-  };
+  const readSecret = (key: CredentialKey): Promise<string | null> =>
+    secretStore.get(CREDENTIAL_ACCOUNTS[key]);
 
   // The categorizer is rebuilt from settings each time it is needed, so
   // switching provider or model in the UI takes effect without a restart.
@@ -151,7 +160,8 @@ async function bootstrap(): Promise<void> {
         institutionId: inst.id,
         cursor: inst.syncCursor,
         fetch: async (cursor: string | null) => {
-          const accessToken = (await keyring.open(Buffer.from(inst.accessTokenEncrypted, 'base64'))).value;
+          const accessToken = await secretStore.get(accessTokenAccount(inst.id));
+          if (!accessToken) throw new Error(`No access token in the Keychain for ${inst.institutionName}`);
           const response = await client.transactionsSync({
             access_token: accessToken,
             ...(cursor ? { cursor } : {}),
@@ -192,7 +202,7 @@ async function bootstrap(): Promise<void> {
     userDataDir,
     clock,
     logger,
-    keyring,
+    store: secretStore,
     pipeline,
     buildPipeline,
     describeModel,
@@ -213,12 +223,18 @@ async function bootstrap(): Promise<void> {
   for (const channel of registry.channels()) {
     ipcMain.handle(channel, async (_event, payload: unknown) => registry.invoke(channel, payload));
   }
-  // The reset closes the database and deletes its files; only a fresh start reopens one.
-  ipcMain.removeHandler('data:deleteAll');
-  ipcMain.handle('data:deleteAll', async (_event, payload: unknown) => {
-    const result = await registry.invoke('data:deleteAll', payload);
-    app.relaunch();
-    app.exit(0);
+  // Both channels close the database and replace its files; only a fresh start reopens one.
+  for (const channel of ['data:deleteAll', 'data:import'] as const) relaunchAfter(registry, channel);
+}
+
+function relaunchAfter(registry: IpcRegistry, channel: string): void {
+  ipcMain.removeHandler(channel);
+  ipcMain.handle(channel, async (_event, payload: unknown) => {
+    const result = await registry.invoke(channel, payload);
+    if ((result as { ok?: boolean }).ok) {
+      app.relaunch();
+      app.exit(0);
+    }
     return result;
   });
 }

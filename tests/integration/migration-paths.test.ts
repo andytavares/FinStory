@@ -15,20 +15,8 @@ vi.mock('electron', () => ({ app: { isPackaged: false, getPath: () => tmpdir() }
 
 const { openDatabase } = await import('@main/db/client');
 const { runMigrations } = await import('@main/db/migrate');
-import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
 import type { DatabaseHandle } from '@main/db/client';
-
-class TestBackend implements SecretBackend {
-  async isEncryptionAvailable(): Promise<boolean> {
-    return true;
-  }
-  async encryptString(p: string): Promise<Buffer> {
-    return Buffer.from(p, 'utf8');
-  }
-  async decryptString(c: Buffer): Promise<OpenedSecret> {
-    return { value: c.toString('utf8'), shouldReEncrypt: false };
-  }
-}
+import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
 
@@ -84,7 +72,7 @@ describe('upgrading from every prior schema version', () => {
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-path-'));
-    handle = await openDatabase(dir, new TestBackend());
+    handle = await openDatabase(dir, new MemorySecretStore());
   });
   afterEach(() => {
     handle.close();

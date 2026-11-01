@@ -20,27 +20,14 @@ const { runMigrations } = await import('@main/db/migrate');
 const { Services } = await import('@main/services/index');
 const { defaultCategories } = await import('@main/db/seed-categories');
 const schema = await import('@main/db/schema');
-const { Keyring } = await import('@main/secrets/keyring');
 const { DiagnosticLogger } = await import('@main/diagnostics/logger');
 const { MemorySink } = await import('@main/diagnostics/sink');
 const { CategorizationPipeline } = await import('@main/categorization/pipeline');
 const { TestClock } = await import('@shared/clock');
 const { loadMerchantProfiles } = await import('@main/categorization/profiles');
 const { eq } = await import('drizzle-orm');
-import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
 import type { DatabaseHandle } from '@main/db/client';
-
-class TestBackend implements SecretBackend {
-  async isEncryptionAvailable(): Promise<boolean> {
-    return true;
-  }
-  async encryptString(p: string): Promise<Buffer> {
-    return Buffer.from(Buffer.from(p, 'utf8').toString('base64'), 'utf8');
-  }
-  async decryptString(c: Buffer): Promise<OpenedSecret> {
-    return { value: Buffer.from(c.toString('utf8'), 'base64').toString('utf8'), shouldReEncrypt: false };
-  }
-}
+import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
 const NOW = new Date('2026-08-29T12:00:00Z');
@@ -49,6 +36,7 @@ const RANGE = { periodStart: '2026-08-01T00:00:00Z', periodEnd: '2026-09-01T00:0
 describe('Services with realistic data', () => {
   let dir: string;
   let handle: DatabaseHandle;
+  let store: MemorySecretStore;
   let services: InstanceType<typeof Services>;
   let modelDescription: ModelDescription;
   let emitted: Array<{ channel: string; payload: unknown }>;
@@ -56,7 +44,8 @@ describe('Services with realistic data', () => {
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-data-'));
-    handle = await openDatabase(dir, new TestBackend());
+    store = new MemorySecretStore();
+    handle = await openDatabase(dir, store);
     runMigrations(handle, MIGRATIONS);
     const db = handle.db;
 
@@ -218,7 +207,7 @@ describe('Services with realistic data', () => {
       userDataDir: dir,
       clock: new TestClock(NOW),
       logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-      keyring: new Keyring(new TestBackend()),
+      store,
       pipeline: new CategorizationPipeline(
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
@@ -787,8 +776,8 @@ describe('Services with realistic data', () => {
 
   it('cancelling the export dialog is not an error', async () => {
     expect(await services.exportDiagnostics('')).toMatchObject({ ok: false });
-    expect(await services.exportData('')).toMatchObject({ ok: false });
-    expect(await services.importData('')).toMatchObject({ ok: false });
+    expect(await services.exportData('', 'correct horse')).toMatchObject({ ok: false });
+    expect(await services.importData('', 'correct horse')).toMatchObject({ ok: false });
   });
 
   it('sync:now delegates to the injected sync', async () => {
@@ -1062,7 +1051,7 @@ describe('Services with realistic data', () => {
         userDataDir: dir,
         clock: new TestClock(NOW),
         logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-        keyring: new Keyring(new TestBackend()),
+        store: new MemorySecretStore(),
         pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
         buildPipeline: () =>
           Promise.resolve(
@@ -1081,7 +1070,7 @@ describe('Services with realistic data', () => {
         userDataDir: dir,
         clock: new TestClock(NOW),
         logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-        keyring: new Keyring(new TestBackend()),
+        store: new MemorySecretStore(),
         pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
         buildPipeline: () =>
           Promise.resolve(
@@ -1100,7 +1089,7 @@ describe('Services with realistic data', () => {
         userDataDir: dir,
         clock: new TestClock(NOW),
         logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-        keyring: new Keyring(new TestBackend()),
+        store: new MemorySecretStore(),
         pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
         buildPipeline: () =>
           Promise.resolve(
@@ -1488,12 +1477,7 @@ describe('Services with realistic data', () => {
 
 
   describe('changing a credential after setup', () => {
-    async function stored(key: string): Promise<string | undefined> {
-      const rows = handle.raw
-        .prepare('SELECT value, is_secret FROM settings WHERE key = ?')
-        .all(key) as Array<{ value: string; is_secret: number }>;
-      return rows[0]?.value;
-    }
+    const stored = async (account: string): Promise<string | null> => store.get(account);
 
     it('replaces one credential without touching the others', async () => {
       await services.updateCredentials({ plaidClientId: 'client_a', plaidSecret: 'secret_a' });
@@ -1509,11 +1493,11 @@ describe('Services with realistic data', () => {
       expect(status.categorizationConfigured).toBe(true);
     });
 
-    it('seals the value rather than storing it in the clear', async () => {
+    it('keeps the value in the Keychain, not in the database', async () => {
       await services.updateCredentials({ anthropicApiKey: 'sk-ant-secret-value' });
-      const value = await stored('anthropicApiKey');
-      expect(value).toBeDefined();
-      expect(value).not.toContain('sk-ant-secret-value');
+      expect(await stored('anthropic-api-key')).toBe('sk-ant-secret-value');
+      const settingsRows = handle.raw.prepare('SELECT value FROM settings').all();
+      expect(JSON.stringify(settingsRows)).not.toContain('sk-ant-secret-value');
     });
 
     it('never returns a stored credential to the renderer', async () => {
@@ -1529,7 +1513,7 @@ describe('Services with realistic data', () => {
       await services.updateCredentials({ anthropicApiKey: '' });
       const status = (await services.setupStatus()) as { categorizationConfigured: boolean };
       expect(status.categorizationConfigured).toBe(false);
-      expect(await stored('anthropicApiKey')).toBeUndefined();
+      expect(await stored('anthropic-api-key')).toBeNull();
     });
 
     it('changes the Plaid environment, which decides whether keys work at all', async () => {
@@ -1541,13 +1525,9 @@ describe('Services with realistic data', () => {
       expect(((await services.setupStatus()) as { plaidEnv: string }).plaidEnv).toBe('sandbox');
     });
 
-    it('trims a pasted key rather than sealing the whitespace', async () => {
+    it('trims a pasted key rather than storing the whitespace', async () => {
       await services.updateCredentials({ anthropicApiKey: '  sk-ant-padded  ' });
-      const sealed = await stored('anthropicApiKey');
-      const opened = await new Keyring(new TestBackend()).open(
-        Buffer.from(sealed as string, 'base64'),
-      );
-      expect(opened.value).toBe('sk-ant-padded');
+      expect(await stored('anthropic-api-key')).toBe('sk-ant-padded');
     });
 
     it('reports what it changed and does nothing when given nothing', async () => {

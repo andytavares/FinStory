@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { openDatabase } from '@main/db/client';
 import { runMigrations } from '@main/db/migrate';
+import { Keyring } from '@main/secrets/keyring';
 import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
+import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 /** Reversible stand-in for the OS keychain, which is unavailable in tests. */
 class TestBackend implements SecretBackend {
@@ -31,7 +33,7 @@ describe('database encryption at rest (FR-054, quickstart V0)', () => {
   });
 
   it('creates and persists an encrypted database', async () => {
-    const handle = await openDatabase(dir, new TestBackend());
+    const handle = await openDatabase(dir, new MemorySecretStore());
     runMigrations(handle, join(process.cwd(), 'src/main/db/migrations'));
     handle.raw.prepare("INSERT INTO categories (id,name,is_system,is_hidden) VALUES ('x','SecretCategoryName',0,0)").run();
     handle.close();
@@ -39,7 +41,7 @@ describe('database encryption at rest (FR-054, quickstart V0)', () => {
   });
 
   it('is NOT readable by an unkeyed SQLite client', async () => {
-    const handle = await openDatabase(dir, new TestBackend());
+    const handle = await openDatabase(dir, new MemorySecretStore());
     runMigrations(handle, join(process.cwd(), 'src/main/db/migrations'));
     handle.close();
 
@@ -49,7 +51,7 @@ describe('database encryption at rest (FR-054, quickstart V0)', () => {
   });
 
   it('leaves no plaintext data in the file on disk', async () => {
-    const handle = await openDatabase(dir, new TestBackend());
+    const handle = await openDatabase(dir, new MemorySecretStore());
     runMigrations(handle, join(process.cwd(), 'src/main/db/migrations'));
     handle.raw
       .prepare("INSERT INTO categories (id,name,is_system,is_hidden) VALUES ('y','UberEatsSecretMarker',0,0)")
@@ -63,14 +65,47 @@ describe('database encryption at rest (FR-054, quickstart V0)', () => {
   });
 
   it('reopens with the stored key and reads its data back', async () => {
-    const first = await openDatabase(dir, new TestBackend());
+    const store = new MemorySecretStore();
+    const first = await openDatabase(dir, store);
     runMigrations(first, join(process.cwd(), 'src/main/db/migrations'));
     first.raw.prepare("INSERT INTO categories (id,name,is_system,is_hidden) VALUES ('z','Groceries',0,0)").run();
     first.close();
 
-    const second = await openDatabase(dir, new TestBackend());
+    const second = await openDatabase(dir, store);
     const row = second.raw.prepare("SELECT name FROM categories WHERE id='z'").get() as { name: string };
     expect(row.name).toBe('Groceries');
     second.close();
+  });
+
+  it('generates a key into the store on first run and reuses it', async () => {
+    const store = new MemorySecretStore();
+    (await openDatabase(dir, store)).close();
+    const key = await store.get('database-key');
+    expect(key).toMatch(/^[0-9a-f]{64}$/);
+    (await openDatabase(dir, store)).close();
+    expect(await store.get('database-key')).toBe(key);
+  });
+
+  it('falls back to a legacy money.key, moves it to the store and deletes the file', async () => {
+    const keyring = new Keyring(new TestBackend());
+    const legacyKey = Keyring.generateDatabaseKey();
+    writeFileSync(join(dir, 'money.key'), await keyring.seal(legacyKey));
+    const store = new MemorySecretStore();
+
+    (await openDatabase(dir, store, keyring)).close();
+
+    expect(await store.get('database-key')).toBe(legacyKey);
+    expect(existsSync(join(dir, 'money.key'))).toBe(false);
+  });
+
+  it('refuses to invent a key for a database that already exists', async () => {
+    (await openDatabase(dir, new MemorySecretStore())).close();
+    await expect(openDatabase(dir, new MemorySecretStore())).rejects.toThrow(/key/i);
+  });
+
+  it('keeps temporary tables in memory so they never reach disk unencrypted', async () => {
+    const handle = await openDatabase(dir, new MemorySecretStore());
+    expect(handle.raw.pragma('temp_store', { simple: true })).toBe(2);
+    handle.close();
   });
 });

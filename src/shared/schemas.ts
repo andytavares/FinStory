@@ -167,7 +167,10 @@ export const merchantRenameSchema = z.object({
 // to put it" and the service answers with a native save dialog. Requiring a
 // non-empty string made every Export button in the UI fail validation.
 export const pathSchema = z.object({ destPath: z.string().default('') });
-export const importSchema = z.object({ srcPath: z.string().default('') });
+export const MIN_PASSPHRASE_LENGTH = 8;
+const passphraseSchema = z.string().min(MIN_PASSPHRASE_LENGTH);
+export const exportSchema = pathSchema.extend({ passphrase: passphraseSchema });
+export const importSchema = z.object({ srcPath: z.string().default(''), passphrase: passphraseSchema });
 /** Typed by the user before everything is erased. */
 export const DELETE_ALL_CONFIRMATION = 'DELETE ALL MY DATA';
 export const deleteAllSchema = z.object({ confirmation: z.literal(DELETE_ALL_CONFIRMATION) });

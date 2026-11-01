@@ -21,6 +21,7 @@ import {
   categoryDeleteSchema,
   settingsUpdateSchema,
   pathSchema,
+  exportSchema,
   clearOverrideSchema,
   decideRecurringSchema,
   recategorizeAllSchema,
@@ -162,8 +163,10 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('settings:get', empty, () => services.getSettings());
   registry.handle('models:listOllama', empty, () => services.listOllamaModels());
   registry.handle('settings:update', settingsUpdateSchema, (p) => services.updateSettings(p));
-  registry.handle('data:export', pathSchema, (p) => services.exportData(p.destPath));
-  registry.handle('data:import', importSchema, (p) => services.importData(p.srcPath));
+  registry.handle('data:export', exportSchema, (p) => services.exportData(p.destPath, p.passphrase));
+  registry.handle('data:import', importSchema, (p) =>
+    services.importData(p.srcPath, p.passphrase),
+  );
   registry.handle('data:deleteAll', deleteAllSchema, () => services.deleteAllData());
 
   registry.handle('analysis:refresh', empty, () => services.refreshAnalysis());

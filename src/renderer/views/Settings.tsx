@@ -3,7 +3,7 @@ import { useQuery, call } from '../lib/ipc';
 import { RecategorizeButton } from '../components/RecategorizeButton';
 import { Credentials } from '../components/Credentials';
 import type { AppSettings, SetupStatus } from '@shared/types';
-import { DELETE_ALL_CONFIRMATION } from '@shared/schemas';
+import { DELETE_ALL_CONFIRMATION, MIN_PASSPHRASE_LENGTH } from '@shared/schemas';
 
 const ANTHROPIC_MODELS = [
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5', note: 'Fastest, lowest cost' },
@@ -268,6 +268,74 @@ function ResetData(): React.JSX.Element {
   );
 }
 
+const BACKUP_ACTIONS = {
+  export: { label: 'Back up', channel: 'data:export', pathKey: 'destPath' },
+  import: { label: 'Restore', channel: 'data:import', pathKey: 'srcPath' },
+} as const;
+
+/** Back up and Restore, each asking for the passphrase that locks the backup's key. */
+function BackupControls(): React.JSX.Element {
+  const [action, setAction] = useState<keyof typeof BACKUP_ACTIONS | null>(null);
+  const [passphrase, setPassphrase] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  const run = (): void => {
+    if (!action) return;
+    const { channel, pathKey } = BACKUP_ACTIONS[action];
+    setMessage(null);
+    void call(channel, { [pathKey]: '', passphrase })
+      .then(() => {
+        setAction(null);
+        setPassphrase('');
+        setMessage(action === 'export' ? 'Backup saved.' : null);
+      })
+      .catch((e: { message?: string }) => setMessage(e.message ?? 'That did not work'));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        {(Object.keys(BACKUP_ACTIONS) as (keyof typeof BACKUP_ACTIONS)[]).map((key) => (
+          <button key={key} type="button" onClick={() => setAction(key)} className="btn">
+            {BACKUP_ACTIONS[key].label}
+          </button>
+        ))}
+      </div>
+      {action && (
+        <div className="space-y-2 border border-[var(--color-line)] px-4 py-3 text-[13px]">
+          <label className="block text-[12px] text-[var(--color-ink-faint)]">
+            {action === 'export'
+              ? `Choose a passphrase of at least ${MIN_PASSPHRASE_LENGTH} characters. You need it to restore this backup on any Mac.`
+              : 'Enter the passphrase this backup was made with'}
+            <input
+              autoFocus
+              type="password"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+              aria-label="Backup passphrase"
+              className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px]"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={run}
+              disabled={passphrase.length < MIN_PASSPHRASE_LENGTH}
+              className="btn"
+            >
+              {BACKUP_ACTIONS[action].label}
+            </button>
+            <button type="button" onClick={() => setAction(null)} className="btn">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {message && <p className="text-[12px] text-[var(--color-ink-faint)]">{message}</p>}
+    </div>
+  );
+}
+
 export function Settings(): React.JSX.Element {
   const settings = useQuery<AppSettings>('settings:get');
   const status = useQuery<SetupStatus>('setup:status');
@@ -301,22 +369,7 @@ export function Settings(): React.JSX.Element {
 
       <section className="space-y-3">
         <p className="eyebrow">Your data</p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void call('data:export', { destPath: '' })}
-            className="btn"
-          >
-            Back up
-          </button>
-          <button
-            type="button"
-            onClick={() => void call('data:import', { srcPath: '' })}
-            className="btn"
-          >
-            Restore
-          </button>
-        </div>
+        <BackupControls />
         <p className="text-[12px] text-[var(--color-ink-faint)]">
           Everything lives on this machine. There is no copy anywhere else, so a backup is the only
           way to recover from a lost disk.

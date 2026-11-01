@@ -1,5 +1,6 @@
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { keychainService } from '../../src/main/secrets/secret-store';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -44,8 +45,26 @@ export async function launch(seededDir?: string): Promise<Harness> {
     page,
     userDataDir,
     close: async () => {
+      await clearKeychain(app, userDataDir);
       await app.close();
       rmSync(userDataDir, { recursive: true, force: true });
     },
   };
+}
+
+/**
+ * Test profiles write real Keychain items. Only the app that created them can
+ * delete them without a macOS prompt, so the cleanup runs inside the app.
+ */
+export async function clearKeychain(app: ElectronApplication, userDataDir: string): Promise<void> {
+  const services = [...new Set([userDataDir, realpathSync(userDataDir)])].map((path) =>
+    keychainService(false, path),
+  );
+  await app.evaluate(async (_electron, names) => {
+    const load = process.getBuiltinModule('node:module').createRequire(`${process.cwd()}/package.json`);
+    const { Entry, findCredentials } = load('@napi-rs/keyring');
+    for (const service of names) {
+      for (const { account } of findCredentials(service)) new Entry(service, account).deletePassword();
+    }
+  }, services);
 }

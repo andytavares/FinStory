@@ -32,7 +32,12 @@ import { buildExport, summarizeHealth } from '@main/diagnostics/export';
 import type { DiagnosticLogger } from '@main/diagnostics/logger';
 import { DEFAULT_SETTINGS, mergeSettings } from '@main/settings/index';
 import { deleteAllData, exportBackup, restoreBackup } from '@main/data/backup';
-import type { Keyring } from '@main/secrets/keyring';
+import {
+  accessTokenAccount,
+  CREDENTIAL_ACCOUNTS,
+  type CredentialKey,
+  type SecretStore,
+} from '@main/secrets/secret-store';
 import type { Clock } from '@shared/clock';
 import type { AppSettings } from '@shared/types';
 import { listOllamaModels } from '@main/categorization/ollama';
@@ -82,7 +87,7 @@ export interface ServiceDeps {
   readonly userDataDir: string;
   readonly clock: Clock;
   readonly logger: DiagnosticLogger;
-  readonly keyring: Keyring;
+  readonly store: SecretStore;
   readonly pipeline: CategorizationPipeline;
   /**
    * Builds a categorizer from the CURRENT settings. Needed as a factory rather
@@ -128,8 +133,11 @@ export class Services implements AppServices {
   // ---- Setup and connection ------------------------------------------------
 
   async setupStatus(): Promise<unknown> {
-    const secrets = await this.db.select().from(t.settings).where(eq(t.settings.isSecret, true));
-    const has = (key: string): boolean => secrets.some((s) => s.key === key && s.value.length > 0);
+    const configured = new Set<CredentialKey>();
+    for (const key of Object.keys(CREDENTIAL_ACCOUNTS) as CredentialKey[]) {
+      if (await this.deps.store.get(CREDENTIAL_ACCOUNTS[key])) configured.add(key);
+    }
+    const has = (key: CredentialKey): boolean => configured.has(key);
     const accounts = await this.db.select().from(t.accounts);
     // Presence only — never the values (FR-047).
     return {
@@ -154,16 +162,15 @@ export class Services implements AppServices {
     const p = input as Record<string, string | undefined>;
     const changed: string[] = [];
 
-    for (const key of ['plaidClientId', 'plaidSecret', 'anthropicApiKey'] as const) {
+    for (const key of Object.keys(CREDENTIAL_ACCOUNTS) as CredentialKey[]) {
       const value = p[key];
       if (value === undefined) continue;
       if (value.trim() === '') {
-        await this.db.delete(t.settings).where(eq(t.settings.key, key));
+        await this.deps.store.delete(CREDENTIAL_ACCOUNTS[key]);
         changed.push(`${key} removed`);
         continue;
       }
-      const sealed = (await this.deps.keyring.seal(value.trim())).toString('base64');
-      await this.upsertSetting(key, sealed, true);
+      await this.deps.store.set(CREDENTIAL_ACCOUNTS[key], value.trim());
       changed.push(`${key} updated`);
     }
 
@@ -181,12 +188,9 @@ export class Services implements AppServices {
 
   async saveCredentials(input: unknown): Promise<unknown> {
     const p = input as Record<string, string | undefined>;
-    for (const key of ['plaidClientId', 'plaidSecret', 'anthropicApiKey'] as const) {
+    for (const key of Object.keys(CREDENTIAL_ACCOUNTS) as CredentialKey[]) {
       const value = p[key];
-      if (value) {
-        const sealed = (await this.deps.keyring.seal(value)).toString('base64');
-        await this.upsertSetting(key, sealed, true);
-      }
+      if (value) await this.deps.store.set(CREDENTIAL_ACCOUNTS[key], value);
     }
     if (p['plaidEnv']) await this.upsertSetting('plaidEnv', p['plaidEnv'], false);
     return { ok: true };
@@ -227,11 +231,11 @@ export class Services implements AppServices {
     const fetched = await fetchItemAccounts(client, accessToken);
 
     const institutionId = `inst_${uuid().slice(0, 8)}`;
-    const sealed = (await this.deps.keyring.seal(accessToken)).toString('base64');
+    await this.deps.store.set(accessTokenAccount(institutionId), accessToken);
     await this.db.insert(t.institutions).values({
       id: institutionId,
       plaidItemId: itemId,
-      accessTokenEncrypted: sealed,
+      accessTokenEncrypted: '',
       institutionName: fetched.institutionName,
       syncCursor: null,
       status: 'healthy',
@@ -303,11 +307,8 @@ export class Services implements AppServices {
     return new IpcFailure('INTERNAL', message, true);
   }
 
-  private async readSecret(key: string): Promise<string | null> {
-    const rows = await this.db.select().from(t.settings).where(eq(t.settings.key, key));
-    const value = rows[0]?.value;
-    if (!value) return null;
-    return (await this.deps.keyring.open(Buffer.from(value, 'base64'))).value;
+  private readSecret(key: CredentialKey): Promise<string | null> {
+    return this.deps.store.get(CREDENTIAL_ACCOUNTS[key]);
   }
 
   private async readPlainSetting(key: string): Promise<string | null> {
@@ -353,6 +354,7 @@ export class Services implements AppServices {
 
   async disconnectInstitution(id: string): Promise<unknown> {
     await this.db.delete(t.institutions).where(eq(t.institutions.id, id));
+    await this.deps.store.delete(accessTokenAccount(id));
     return { ok: true };
   }
 
@@ -1548,25 +1550,41 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
-  async exportData(destPath: string): Promise<unknown> {
+  async exportData(destPath: string, passphrase: string): Promise<unknown> {
     const target = destPath || (await this.chooseDirectory());
     if (!target) return { ok: false };
-    const result = exportBackup(this.deps.handle, this.deps.userDataDir, target);
+    const result = await exportBackup({
+      handle: this.deps.handle,
+      store: this.deps.store,
+      userDataDir: this.deps.userDataDir,
+      destDir: target,
+      passphrase,
+    });
     return { ok: true, path: result.databasePath };
   }
 
-  async importData(srcPath: string): Promise<unknown> {
+  async importData(srcPath: string, passphrase: string): Promise<unknown> {
     const source = srcPath || (await this.chooseDirectory());
     if (!source) return { ok: false };
-    restoreBackup(source, this.deps.userDataDir);
-    // The connection holds the old file; a restart is required for the restore
-    // to take effect. Saying so beats silently showing stale data.
+    await restoreBackup({
+      srcDir: source,
+      userDataDir: this.deps.userDataDir,
+      store: this.deps.store,
+      passphrase,
+      handle: this.deps.handle,
+    });
+    // The database handle is closed; the app relaunches to open the restored file.
     return { ok: true, restored: true, requiresRestart: true };
   }
 
   async deleteAllData(): Promise<unknown> {
+    const institutions = await this.db.select({ id: t.institutions.id }).from(t.institutions);
     this.deps.handle.close();
-    deleteAllData(this.deps.userDataDir);
+    await deleteAllData({
+      userDataDir: this.deps.userDataDir,
+      store: this.deps.store,
+      institutionIds: institutions.map((row) => row.id),
+    });
     return { ok: true, requiresRestart: true };
   }
 

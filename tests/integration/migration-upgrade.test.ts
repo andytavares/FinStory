@@ -8,21 +8,9 @@ vi.mock('electron', () => ({ app: { isPackaged: false, getPath: () => tmpdir() }
 const { openDatabase } = await import('@main/db/client');
 const { runMigrations } = await import('@main/db/migrate');
 const schema = await import('@main/db/schema');
-import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
 import type { DatabaseHandle } from '@main/db/client';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-
-class TestBackend implements SecretBackend {
-  async isEncryptionAvailable(): Promise<boolean> {
-    return true;
-  }
-  async encryptString(p: string): Promise<Buffer> {
-    return Buffer.from(p, 'utf8');
-  }
-  async decryptString(c: Buffer): Promise<OpenedSecret> {
-    return { value: c.toString('utf8'), shouldReEncrypt: false };
-  }
-}
+import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
 
@@ -40,7 +28,7 @@ describe('migrating a populated database forward', () => {
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-upgrade-'));
-    handle = await openDatabase(dir, new TestBackend());
+    handle = await openDatabase(dir, new MemorySecretStore());
   });
   afterEach(() => {
     handle.close();
@@ -118,7 +106,7 @@ describe('migration 0006 repairs credit accounts', () => {
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-credit-'));
-    handle = await openDatabase(dir, new TestBackend());
+    handle = await openDatabase(dir, new MemorySecretStore());
   });
   afterEach(() => {
     handle.close();

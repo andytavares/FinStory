@@ -131,8 +131,8 @@ describe('IPC wiring matches the contract', () => {
       'reports:delete': { id: 'rep' },
       'diagnostics:export': { destPath: '/tmp/x' },
       'settings:update': { confidenceThreshold: 0.8 },
-      'data:export': { destPath: '/tmp/x' },
-      'data:import': { srcPath: '/tmp/x' },
+      'data:export': { destPath: '/tmp/x', passphrase: 'correct horse' },
+      'data:import': { srcPath: '/tmp/x', passphrase: 'correct horse' },
       'data:deleteAll': { confirmation: 'DELETE ALL MY DATA' },
     };
 
