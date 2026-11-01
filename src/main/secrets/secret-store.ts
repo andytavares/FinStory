@@ -9,6 +9,8 @@ export interface SecretStore {
 }
 
 export const DATABASE_KEY_ACCOUNT = 'database-key';
+/** A restored database's key, saved before its file is swapped in and promoted after. */
+export const PENDING_DATABASE_KEY_ACCOUNT = 'database-key.pending';
 
 /** Settings key of each credential, mapped to its Keychain account name. */
 export const CREDENTIAL_ACCOUNTS = {

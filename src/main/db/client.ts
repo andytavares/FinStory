@@ -3,7 +3,11 @@ import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { join } from 'node:path';
 import * as schema from './schema';
 import { Keyring } from '@main/secrets/keyring';
-import { DATABASE_KEY_ACCOUNT, type SecretStore } from '@main/secrets/secret-store';
+import {
+  DATABASE_KEY_ACCOUNT,
+  PENDING_DATABASE_KEY_ACCOUNT,
+  type SecretStore,
+} from '@main/secrets/secret-store';
 import { migrateDatabaseKeyFile } from '@main/secrets/migrate-to-keychain';
 import { existsSync } from 'node:fs';
 
@@ -47,14 +51,44 @@ async function loadOrCreateKey(
   return key;
 }
 
+/** True when `key` decrypts the database file at `path`. */
+export function opensWithKey(path: string, key: string): boolean {
+  const probe = new Database(path, { readonly: true, fileMustExist: true });
+  try {
+    probe.pragma(`key='${key}'`);
+    probe.prepare('SELECT count(*) FROM sqlite_master').get();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    probe.close();
+  }
+}
+
+/**
+ * A restore saves the new key as pending, swaps the file, then promotes the key.
+ * If it stopped in between, the file needs the pending key: promote it now.
+ */
+async function settlePendingKey(path: string, store: SecretStore): Promise<void> {
+  const pending = await store.get(PENDING_DATABASE_KEY_ACCOUNT);
+  if (!pending) return;
+  const current = await store.get(DATABASE_KEY_ACCOUNT);
+  const fileNeedsPending =
+    existsSync(path) && !(current && opensWithKey(path, current)) && opensWithKey(path, pending);
+  if (fileNeedsPending) await store.set(DATABASE_KEY_ACCOUNT, pending);
+  await store.delete(PENDING_DATABASE_KEY_ACCOUNT);
+}
+
 /** `keyring` is only needed to read a database key left by the safeStorage-era `money.key`. */
 export async function openDatabase(
   userDataDir: string,
   store: SecretStore,
   keyring?: Keyring,
 ): Promise<DatabaseHandle> {
+  const path = join(userDataDir, DB_FILE);
+  await settlePendingKey(path, store);
   const key = await loadOrCreateKey(userDataDir, store, keyring);
-  const raw = new Database(join(userDataDir, DB_FILE));
+  const raw = new Database(path);
 
   // Must be the first statement on the connection.
   raw.pragma(`key='${key}'`);

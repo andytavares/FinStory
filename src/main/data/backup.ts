@@ -1,12 +1,13 @@
 import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'node:crypto';
 import { copyFileSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { DatabaseHandle } from '@main/db/client';
+import { opensWithKey, type DatabaseHandle } from '@main/db/client';
 import { IpcFailure } from '@main/ipc/registry';
 import {
   accessTokenAccount,
   CREDENTIAL_ACCOUNTS,
   DATABASE_KEY_ACCOUNT,
+  PENDING_DATABASE_KEY_ACCOUNT,
   type SecretStore,
 } from '@main/secrets/secret-store';
 import { MIN_PASSPHRASE_LENGTH } from '@shared/schemas';
@@ -90,7 +91,11 @@ async function unlockKey(file: BackupKeyFile, passphrase: string): Promise<strin
     return plain.toString('utf8');
   } catch {
     // IpcFailure, or the IPC layer would replace this message with a generic one.
-    throw new IpcFailure('VALIDATION_FAILED', 'Wrong passphrase, or the backup key file is damaged. Nothing was changed.', false);
+    throw new IpcFailure(
+      'VALIDATION_FAILED',
+      'Wrong passphrase, or the backup key file is damaged. Nothing was changed.',
+      false,
+    );
   }
 }
 
@@ -148,11 +153,22 @@ export async function restoreBackup(options: RestoreOptions): Promise<void> {
   // Copy beside the live file first so a failed copy leaves the current data intact.
   const staged = join(userDataDir, `${DB_FILE}.restore`);
   copyFileSync(backupDb, staged);
-  await store.set(DATABASE_KEY_ACCOUNT, databaseKey);
+  if (!opensWithKey(staged, databaseKey)) {
+    rmSync(staged, { force: true });
+    throw new IpcFailure(
+      'VALIDATION_FAILED',
+      'The backup database does not open with its key',
+      false,
+    );
+  }
+  // Pending first: if this stops after the swap, startup promotes it (openDatabase).
+  await store.set(PENDING_DATABASE_KEY_ACCOUNT, databaseKey);
   handle?.close();
   rmSync(join(userDataDir, `${DB_FILE}-wal`), { force: true });
   rmSync(join(userDataDir, `${DB_FILE}-shm`), { force: true });
   renameSync(staged, join(userDataDir, DB_FILE));
+  await store.set(DATABASE_KEY_ACCOUNT, databaseKey);
+  await store.delete(PENDING_DATABASE_KEY_ACCOUNT);
 }
 
 export interface DeleteOptions {
@@ -169,6 +185,7 @@ export async function deleteAllData(options: DeleteOptions): Promise<void> {
   }
   const accounts = [
     DATABASE_KEY_ACCOUNT,
+    PENDING_DATABASE_KEY_ACCOUNT,
     ...Object.values(CREDENTIAL_ACCOUNTS),
     ...institutionIds.map(accessTokenAccount),
   ];
