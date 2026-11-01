@@ -78,7 +78,7 @@ describe('Accounts and Alerts branches', () => {
     );
   });
 
-  it('Alerts renders alert history with a dismissed entry', async () => {
+  it('Alerts leaves a dismissed alert out of the list', async () => {
     const { Alerts: A } = await import('@renderer/views/Alerts');
     installMoneyBridge({
       'alertRules:list': [],
@@ -93,9 +93,8 @@ describe('Accounts and Alerts branches', () => {
       ],
     });
     render(<A onOpenMerchant={() => {}} />);
-    await waitFor(() => expect(screen.getByText('Aug 29')).toBeDefined());
-    // A dismissed alert offers no further action.
-    expect(screen.queryByText('Dismiss')).toBeNull();
+    await waitFor(() => expect(screen.getByText('Nothing has needed your attention')).toBeDefined());
+    expect(screen.queryByText(/Aug 29/)).toBeNull();
   });
 
   it('Accounts shows the connect prompt while a link is in progress', async () => {
