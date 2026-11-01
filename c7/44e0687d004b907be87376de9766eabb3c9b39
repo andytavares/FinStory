@@ -1,0 +1,58 @@
+src/renderer/components/Credentials.tsx
+  s_d8b2366061c670::t_762447eb36f41f 102,112
+src/renderer/views/Alerts.tsx
+  s_d8b2366061c670::t_762447eb36f41f 64,149,219
+src/renderer/views/Recurring.tsx
+  s_d8b2366061c670::t_762447eb36f41f 42,188,192,199
+src/renderer/views/RecurringCandidates.tsx
+  s_d8b2366061c670::t_762447eb36f41f 110,119,126
+src/renderer/views/Overrides.tsx
+  s_d8b2366061c670::t_762447eb36f41f 112
+src/renderer/components/TransactionEditor.tsx
+  s_d8b2366061c670::t_16f02ed11f66bd 154,241,253-268,270-285,343,358-359
+  s_d8b2366061c670::t_762447eb36f41f 338,376,386
+src/renderer/views/Income.tsx
+  s_d8b2366061c670::t_762447eb36f41f 19,75,85
+  s_d8b2366061c670::t_16f02ed11f66bd 26-27,37-38,51-52,66
+src/renderer/views/Review.tsx
+  s_d8b2366061c670::t_762447eb36f41f 137,144,177,187,234
+src/renderer/styles.css
+  s_d8b2366061c670::t_3fe6f36a3e8aaa 103-131
+src/renderer/views/Register.tsx
+  s_d8b2366061c670::t_762447eb36f41f 185,192,288
+src/renderer/views/Setup.tsx
+  s_d8b2366061c670::t_762447eb36f41f 141
+src/renderer/views/Accounts.tsx
+  s_d8b2366061c670::t_762447eb36f41f 74,120,132,200
+src/renderer/components/AddIncomeSource.tsx
+  s_d8b2366061c670::t_762447eb36f41f 59,67,142,152
+src/renderer/views/Health.tsx
+  s_d8b2366061c670::t_762447eb36f41f 93
+src/renderer/views/Reports.tsx
+  s_d8b2366061c670::t_762447eb36f41f 71,79,86,135,207
+src/renderer/views/Settings.tsx
+  s_d8b2366061c670::t_ff76478c81ce41 173,182
+  s_d8b2366061c670::t_762447eb36f41f 178,235,242
+src/renderer/views/Categories.tsx
+  s_d8b2366061c670::t_762447eb36f41f 56,120,146,153,242,252,266,283,331,338
+src/renderer/components/RecategorizeButton.tsx
+  s_d8b2366061c670::t_762447eb36f41f 76,86
+src/renderer/components/ErrorBoundary.tsx
+  s_d8b2366061c670::t_762447eb36f41f 49,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c744e0687d004b907be87376de9766eabb3c9b39",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
