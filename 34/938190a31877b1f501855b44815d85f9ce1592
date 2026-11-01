@@ -1,0 +1,61 @@
+src/renderer/components/AddIncomeSource.tsx
+  s_d8b2366061c670::t_8631d0c7e05518 5,14-15,17-25,53,63,66-69,76-79,85-87,93,95-97,107-110,116,123-124,126-127,129,134,136
+src/renderer/views/Alerts.tsx
+  s_d8b2366061c670::t_ba01122c0a4765 4-5,7-9,11,13-16,18-27,29-36,46-47,50-70,74-83
+src/renderer/views/Income.tsx
+  s_d8b2366061c670::t_a1ef030432f443 1,5-17,25-27,30-47,52-77
+src/renderer/views/Recurring.tsx
+  s_d8b2366061c670::t_4300a03b3313df 4-6,8-28,36,40-41,46-48,52-74,84-89,95-97,101-102,106-111,113,115-120,122
+src/renderer/views/RecurringCandidates.tsx
+  s_d8b2366061c670::t_3be2b210438f70 4-5,7-8,66,71,75,77-111,113
+src/renderer/views/alerts/AddRule.tsx
+  s_d8b2366061c670::t_fe3565546090aa 1-48
+src/renderer/views/alerts/RuleRow.tsx
+  s_d8b2366061c670::t_8ec9dd17fa69a6 1-78
+src/renderer/views/alerts/rules.ts
+  s_d8b2366061c670::t_931811671ca507 1-26
+src/renderer/views/income/SourceCard.tsx
+  s_d8b2366061c670::t_07823a03ae8986 1-69
+src/renderer/views/income/monthlyIncome.ts
+  s_d8b2366061c670::t_b03530d449b251 1-17
+src/renderer/views/income/types.ts
+  s_d8b2366061c670::t_86f7b337727aeb 1-13
+src/renderer/views/recurring/ChargeCard.tsx
+  s_d8b2366061c670::t_46e11d3d0d0bf8 1-39
+src/renderer/views/recurring/ConfirmedCard.tsx
+  s_d8b2366061c670::t_9b376787b0ee36 1-111
+src/renderer/views/recurring/Timeline.tsx
+  s_d8b2366061c670::t_61f2ef4fe6ed21 1-73
+src/renderer/views/recurring/cadence.ts
+  s_d8b2366061c670::t_d316aeb0189bf4 1-15
+src/renderer/views/recurring/priceHistory.ts
+  s_d8b2366061c670::t_e99183d47f39ff 1-17
+src/renderer/views/recurring/types.ts
+  s_d8b2366061c670::t_50ef1308e5d271 1-8
+tests/unit/renderer/add-income.test.tsx
+  s_d8b2366061c670::t_c1af45423360a6 20-24,36,57,63,73,82,84,90,95-96,98
+tests/unit/renderer/categories-view.test.tsx
+  s_d8b2366061c670::t_52e980f080586e 189-190,237,239
+tests/unit/renderer/recurring-candidates.test.tsx
+  s_d8b2366061c670::t_a9925c6d5209ea 36,147-149,157,170-171,178
+tests/unit/renderer/screens-recurring-income-alerts.test.tsx
+  s_d8b2366061c670::t_f8be49bc836915 1-164
+tests/unit/renderer/views.test.tsx
+  s_d8b2366061c670::t_9f9f1add0428d3 165-167,174-175,181,196,385,449,451,488,490
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "34938190a31877b1f501855b44815d85f9ce1592",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
