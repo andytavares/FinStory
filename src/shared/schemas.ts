@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UI_ACTION_IDS, VIEW_IDS } from './features';
 
 /**
  * IPC payload schemas.
@@ -13,6 +14,10 @@ const minorUnits = z.number().int();
 export const dateRangeSchema = z.object({
   periodStart: isoDate,
   periodEnd: isoDate,
+});
+
+export const dashboardSchema = dateRangeSchema.extend({
+  period: z.enum(['week', 'month', 'year']).default('month'),
 });
 
 export const saveCredentialsSchema = z.object({
@@ -60,6 +65,7 @@ export const transactionQuerySchema = z.object({
   minAmountMinor: minorUnits.optional(),
   maxAmountMinor: minorUnits.optional(),
   accountIds: z.array(z.string()).optional(),
+  needsReviewOnly: z.boolean().default(false),
   confirmationStatus: z.enum(['all', 'confirmed', 'unconfirmed']).default('all'),
   limit: z.number().int().min(1).max(500).default(100),
   offset: z.number().int().min(0).default(0),
@@ -128,14 +134,15 @@ export const settingsUpdateSchema = z.object({
   ollamaModel: z.string().optional(),
   ollamaBaseUrl: z.string().optional(),
   timeZone: z.string().optional(),
+  usageRetention: z.enum(['365', 'forever']).optional(),
 });
 
 export const transactionUpdateSchema = z.object({
   transactionId: z.string().min(1),
   categoryId: z.string().min(1).optional(),
   userMerchantName: z.string().max(120).nullable().optional(),
-  /** Apply the rename to every transaction from this merchant. Default true. */
-  applyNameToMerchant: z.boolean().default(true),
+  /** 'transaction' changes this one charge; 'merchant' creates or updates the merchant rule. */
+  scope: z.enum(['transaction', 'merchant']).default('transaction'),
   userNote: z.string().max(2000).nullable().optional(),
   userExcluded: z.boolean().optional(),
   userRecurringOverride: z.enum(['recurring', 'not_recurring']).nullable().optional(),
@@ -167,7 +174,10 @@ export const merchantRenameSchema = z.object({
 // to put it" and the service answers with a native save dialog. Requiring a
 // non-empty string made every Export button in the UI fail validation.
 export const pathSchema = z.object({ destPath: z.string().default('') });
-export const importSchema = z.object({ srcPath: z.string().default('') });
+export const MIN_PASSPHRASE_LENGTH = 8;
+const passphraseSchema = z.string().min(MIN_PASSPHRASE_LENGTH);
+export const exportSchema = pathSchema.extend({ passphrase: passphraseSchema });
+export const importSchema = z.object({ srcPath: z.string().default(''), passphrase: passphraseSchema });
 /** Typed by the user before everything is erased. */
 export const DELETE_ALL_CONFIRMATION = 'DELETE ALL MY DATA';
 export const deleteAllSchema = z.object({ confirmation: z.literal(DELETE_ALL_CONFIRMATION) });
@@ -204,8 +214,54 @@ export const clearOverrideSchema = z.object({
   target: z.string().min(1),
 });
 
+export const ruleUpdateSchema = z.object({
+  merchantKey: z.string().min(1),
+  displayName: z.string().max(120).nullable().optional(),
+  categoryId: z.string().min(1).nullable().optional(),
+});
+export const ruleDeleteSchema = z.object({ merchantKey: z.string().min(1) });
+
 export const idSchema = z.object({ id: z.string().min(1) });
 export const alertIdSchema = z.object({ alertId: z.string().min(1) });
 export const transactionIdsSchema = z.object({
   transactionIds: z.array(z.string().min(1)).min(1),
 });
+
+export const usageViewSchema = z.object({ route: z.enum(VIEW_IDS as [string, ...string[]]) });
+export const usageActionSchema = z.object({ feature: z.enum(UI_ACTION_IDS) });
+export const usageSummarySchema = z.object({ days: z.union([z.literal(7), z.literal(30), z.null()]) });
+export const usageRecentSchema = z.object({ limit: z.number().int().min(1).max(200).default(50) });
+
+const columnIndex = z.number().int().min(0).optional();
+export const csvMappingSchema = z.object({
+  date: z.number().int().min(0),
+  payee: z.number().int().min(0),
+  amount: columnIndex,
+  debit: columnIndex,
+  credit: columnIndex,
+  category: columnIndex,
+  memo: columnIndex,
+  account: columnIndex,
+  checkNumber: columnIndex,
+});
+
+const importFileSchema = z.object({
+  fileName: z.string().min(1),
+  text: z.string(),
+  mapping: csvMappingSchema.optional(),
+});
+
+/** `accountId` is an existing account id, or 'new' to create one named `newName`. */
+export const importPreviewSchema = importFileSchema.extend({
+  accountMap: z.array(z.object({ label: z.string(), accountId: z.string().min(1) })).optional(),
+});
+
+export const importCommitSchema = importFileSchema.extend({
+  accountMap: z.array(
+    z.object({ label: z.string(), accountId: z.string().min(1), newName: z.string().max(120).optional() }),
+  ),
+  categoryMap: z.array(z.object({ quickenCategory: z.string(), categoryId: z.string().min(1).nullable() })),
+});
+
+export type ImportPreviewInput = z.infer<typeof importPreviewSchema>;
+export type ImportCommitInput = z.infer<typeof importCommitSchema>;

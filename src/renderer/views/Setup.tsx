@@ -1,5 +1,10 @@
 import { useState } from 'react';
 import { call } from '../lib/ipc';
+import { ConnectStep, type ConnectValues } from './setup/ConnectStep';
+import { SortStep, type SortChoice } from './setup/SortStep';
+import { HistoryStep } from './setup/HistoryStep';
+import { DoneStep } from './setup/DoneStep';
+import { SetupSteps } from './setup/SetupSteps';
 import type { SetupStatus } from '@shared/types';
 
 /**
@@ -18,10 +23,9 @@ export function Setup({
   status: SetupStatus;
   onComplete: () => void;
 }): React.JSX.Element {
-  const [clientId, setClientId] = useState('');
-  const [secret, setSecret] = useState('');
-  const [environment, setEnvironment] = useState<'sandbox' | 'production'>('sandbox');
-  const [anthropicKey, setAnthropicKey] = useState('');
+  const [step, setStep] = useState(0);
+  const [connect, setConnect] = useState<ConnectValues>({ clientId: '', secret: '', environment: 'sandbox' });
+  const [sort, setSort] = useState<SortChoice>({ provider: null, model: '', anthropicKey: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,16 +46,25 @@ export function Setup({
     );
   }
 
+  const anthropicKey = sort.provider === 'anthropic' ? sort.anthropicKey.trim() : '';
+  const ready = connect.clientId.trim().length > 0 && connect.secret.trim().length > 0;
+
   const save = async (): Promise<void> => {
     setSaving(true);
     setError(null);
     try {
       await call('setup:saveCredentials', {
-        plaidClientId: clientId.trim(),
-        plaidSecret: secret.trim(),
-        plaidEnv: environment,
-        ...(anthropicKey.trim() ? { anthropicApiKey: anthropicKey.trim() } : {}),
+        plaidClientId: connect.clientId.trim(),
+        plaidSecret: connect.secret.trim(),
+        plaidEnv: connect.environment,
+        ...(anthropicKey ? { anthropicApiKey: anthropicKey } : {}),
       });
+      if (sort.provider) {
+        await call('settings:update', {
+          modelProvider: sort.provider,
+          ...(sort.provider === 'ollama' && sort.model ? { ollamaModel: sort.model } : {}),
+        });
+      }
       onComplete();
     } catch (e) {
       setError((e as { message?: string }).message ?? 'Could not save your credentials');
@@ -60,88 +73,26 @@ export function Setup({
     }
   };
 
-  const ready = clientId.trim().length > 0 && secret.trim().length > 0;
-
   return (
-    <div className="mx-auto max-w-xl px-8 py-16">
-      <p className="eyebrow">Set up once</p>
-      <h1 className="mt-2 text-[24px] tracking-tight">Connect your accounts</h1>
-      <p className="mt-3 text-[13px] text-[var(--color-ink-muted)]">
-        Money reads your transactions and categorizes them for you. After this screen you will not
-        be asked to enter anything again — no logging, no reconciling, no budgets to allocate.
-      </p>
-
-      <section className="mt-8 space-y-4">
-        <p className="eyebrow">Plaid</p>
-        <p className="text-[12px] text-[var(--color-ink-faint)]">
-          From dashboard.plaid.com. Stored encrypted on this machine and never sent anywhere else.
-          Start with Sandbox — the 10-account production limit is a lifetime cap.
-        </p>
-
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Client ID</span>
-          <input
-            aria-label="Client ID"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px] outline-none"
+    <div className="grid h-full grid-cols-[440px_1fr] overflow-auto bg-[var(--color-ground)]">
+      <SetupSteps step={step} onSelect={setStep} />
+      <main className="flex flex-col gap-[14px] px-14 py-[70px]">
+        {step === 0 && (
+          <ConnectStep
+            form={{ values: connect, onChange: setConnect }}
+            save={{ saving, onSave: () => void save() }}
+            onNext={() => setStep(1)}
           />
-        </label>
-
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Secret</span>
-          <input
-            aria-label="Secret"
-            type="password"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px] outline-none"
-          />
-        </label>
-
-        <fieldset className="flex gap-4 text-[13px]">
-          <legend className="text-[12px] text-[var(--color-ink-faint)]">Environment</legend>
-          {(['sandbox', 'production'] as const).map((env) => (
-            <label key={env} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="environment"
-                checked={environment === env}
-                onChange={() => setEnvironment(env)}
-              />
-              {env === 'sandbox' ? 'Sandbox' : 'Production'}
-            </label>
-          ))}
-        </fieldset>
-      </section>
-
-      <section className="mt-8 space-y-3">
-        <p className="eyebrow">Categorization (optional)</p>
-        <p className="text-[12px] text-[var(--color-ink-faint)]">
-          An Anthropic API key lets Money categorize merchants your own history cannot resolve. It
-          sends the merchant name, amount, date, and your category history for that one merchant —
-          never account numbers, balances, credentials, or totals. Leave it blank to keep
-          everything on this machine; more transactions will need your review.
-        </p>
-        <input
-          type="password"
-          value={anthropicKey}
-          onChange={(e) => setAnthropicKey(e.target.value)}
-          placeholder="sk-ant-..."
-          className="w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px] outline-none placeholder:text-[var(--color-ink-faint)]"
-        />
-      </section>
-
-      {error && <p className="mt-6 text-[13px] text-[var(--color-attention)]">{error}</p>}
-
-      <button
-        type="button"
-        disabled={!ready || saving}
-        onClick={() => void save()}
-        className="btn mt-8"
-      >
-        {saving ? 'Saving…' : 'Save and continue'}
-      </button>
+        )}
+        {step === 1 && (
+          <SortStep sort={{ choice: sort, onChange: setSort }} onBack={() => setStep(0)} onNext={() => setStep(2)} />
+        )}
+        {step === 2 && <HistoryStep onBack={() => setStep(1)} onSkip={() => setStep(3)} />}
+        {step === 3 && (
+          <DoneStep status={{ ready, saving }} onBack={() => setStep(2)} onFinish={() => void save()} />
+        )}
+        {error && <p className="m-0 text-[13px] text-[var(--color-attention)]">{error}</p>}
+      </main>
     </div>
   );
 }

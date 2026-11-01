@@ -1,5 +1,5 @@
 import { app, dialog, shell } from 'electron';
-import { and, desc, eq, gte, isNull, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -9,8 +9,40 @@ import type { AppServices } from '@main/ipc/handlers/services';
 import { IpcFailure } from '@main/ipc/registry';
 import { assessCompleteness, type Completeness, type InstitutionState } from '@main/plaid/health';
 import { breakdownByCategory, spendingTotalMinor } from '@main/analysis/spending';
-import type { SpendingTransaction } from '@main/analysis/spending';
 import { projectBalance } from '@main/analysis/income';
+import {
+  daysUntil,
+  monthlyTotals,
+  monthRange,
+  periodSpan,
+  periodTotals,
+  recurringSeries,
+  type DashboardPeriod,
+  MONTHS_SHOWN,
+  runwaySeries,
+  safeToSpendPerDayMinor,
+  spendByGroup,
+  type DatedTransaction,
+  type Runway,
+} from '@main/analysis/dashboard-kpis';
+import {
+  monthlyCostMinor,
+  nextExpectedDate,
+  upcomingCharges,
+  yearlyCostMinor,
+} from '@main/analysis/recurring-schedule';
+import {
+  dailySpending,
+  reportHeadline,
+  reportSpentMinor,
+  reportSummary,
+  type PriceChange,
+  type StoredContent,
+} from '@main/reports/headline';
+import { kpiSeries, presentReportContent, reportPdfName } from '@main/reports/detail';
+import { categorySpend } from '@main/categories/spend';
+import { suggestCategoryIds } from '@main/categorization/suggestions';
+import { syncHistory } from '@main/diagnostics/sync-history';
 import { buildMonthlyReport, buildWeeklyDigest } from '@main/analysis/reports';
 import { runAnalysisPass } from '@main/analysis/pass';
 import { findRecurringCandidates } from '@main/analysis/recurring-candidates';
@@ -18,16 +50,32 @@ import { monthBoundaries, weekBoundaries } from '@shared/periods';
 import { computeBaseline } from '@main/analysis/baselines';
 import type { CategorizationPipeline } from '@main/categorization/pipeline';
 import { createCategory, mergeCategories, type Category } from '@main/categories/manage';
+import {
+  applyRuleCategory,
+  deleteRule,
+  listRules,
+  setMerchantName,
+  setRuleCategory,
+  supersedeCategorization,
+} from '@main/categories/rules';
 import { liveCategorization, planRetroactive } from '@main/categorization/corrections';
 import type { CategorizationRecord } from '@main/categorization/corrections';
 import { buildExport, summarizeHealth } from '@main/diagnostics/export';
 import type { DiagnosticLogger } from '@main/diagnostics/logger';
 import { DEFAULT_SETTINGS, mergeSettings } from '@main/settings/index';
+import { UsageRecorder } from '@main/usage/recorder';
+import { recentUsage, usageCsv, usageSummary } from '@main/usage/queries';
 import { deleteAllData, exportBackup, restoreBackup } from '@main/data/backup';
-import type { Keyring } from '@main/secrets/keyring';
+import {
+  accessTokenAccount,
+  CREDENTIAL_ACCOUNTS,
+  DATABASE_KEY_ACCOUNT,
+  type CredentialKey,
+  type SecretStore,
+} from '@main/secrets/secret-store';
 import type { Clock } from '@shared/clock';
 import type { AppSettings } from '@shared/types';
-import { listOllamaModels } from '@main/categorization/ollama';
+import { detectOllama, listOllamaModels } from '@main/categorization/ollama';
 import { explainModelError } from '@main/categorization/errors';
 import { createPlaidClient, type PlaidEnvironment } from '@main/plaid/client';
 import { exchangePublicToken, pollForPublicToken, startHostedLink } from '@main/plaid/link';
@@ -37,6 +85,10 @@ import { summarizeSync, type SyncOutcome } from '@main/sync/outcome';
 import { resolveMerchantName } from '@shared/merchant-name';
 import { humanizeCategoryIds } from '@shared/category-names';
 import type { OverrideKind, OverrideRecord } from '@shared/types';
+import type { ImportCommitInput, ImportPreviewInput } from '@shared/schemas';
+import { commitImport } from '@main/import/commit';
+import { selectPlaidInstitutions } from '@main/import/institutions';
+import { previewImport } from '@main/import/preview';
 
 export interface ModelDescription {
   readonly provider: string;
@@ -59,16 +111,23 @@ import { randomUUID as uuid } from 'node:crypto';
 
 const BALANCE_FLOOR_MINOR = 100_000;
 const BURN_WINDOW_DAYS = 30;
+const WHERE_IT_WENT_DAYS: Record<DashboardPeriod, number> = { week: 7, month: BURN_WINDOW_DAYS, year: 365 };
 const UNCATEGORIZABLE = 'uncategorizable';
 /** Stop a bulk recategorization rather than fire one doomed request per row. */
 const MODEL_FAILURE_LIMIT = 5;
+/** Real merchants with no history, so a working model answers with a real category. */
+const MODEL_TEST_MERCHANTS = [
+  { label: 'Whole Foods', descriptor: 'WHOLE FOODS MARKET', amountMinor: -8423 },
+  { label: 'Shell', descriptor: 'SHELL OIL', amountMinor: -4210 },
+  { label: 'Netflix', descriptor: 'NETFLIX.COM', amountMinor: -1549 },
+] as const;
 
 export interface ServiceDeps {
   readonly handle: DatabaseHandle;
   readonly userDataDir: string;
   readonly clock: Clock;
   readonly logger: DiagnosticLogger;
-  readonly keyring: Keyring;
+  readonly store: SecretStore;
   readonly pipeline: CategorizationPipeline;
   /**
    * Builds a categorizer from the CURRENT settings. Needed as a factory rather
@@ -80,9 +139,83 @@ export interface ServiceDeps {
   readonly sync: () => Promise<SyncOutcome>;
   /** Push an event to the renderer. Progress on long jobs, nothing else. */
   readonly emit: (channel: string, payload: unknown) => void;
+  /** Shown on the Health screen. */
+  readonly appVersion?: string;
+  /** Renders the window as a PDF. Supplied by the main process, which owns the window. */
+  readonly printToPdf?: () => Promise<Buffer>;
 }
 
 type TransactionRow = typeof t.transactions.$inferSelect;
+
+interface ReviewContext {
+  readonly aliases: Parameters<typeof resolveMerchantName>[1];
+  readonly categoryNames: ReadonlyMap<string, string>;
+  readonly recurringKeys: Parameters<typeof isRecurringRow>[1];
+  readonly distributions: ReadonlyMap<string, string>;
+  readonly accountLabels: ReadonlyMap<string, { accountName: string; accountMask: string | null }>;
+}
+
+function reviewTransaction(
+  c: CategorizationRecord,
+  tx: TransactionRow,
+  context: ReviewContext,
+) {
+  const { aliases, recurringKeys, accountLabels } = context;
+  return {
+    id: tx.id,
+    amountMinor: tx.amountMinor,
+    merchantName: resolveMerchantName(tx, aliases),
+    merchantKey: tx.merchantKey,
+    isRecurring: isRecurringRow(tx, recurringKeys),
+    description: tx.description,
+    userMerchantName: tx.userMerchantName,
+    userNote: tx.userNote,
+    userExcluded: tx.userExcluded,
+    userRecurringOverride: tx.userRecurringOverride,
+    postedDate: tx.postedDate,
+    categoryId: c.categoryId,
+    confidence: c.confidence,
+    categorySource: c.source,
+    needsReview: true,
+    isInternalTransfer: tx.isInternalTransfer,
+    originalCurrency: tx.originalCurrency,
+    originalAmountMinor: tx.originalAmountMinor,
+    ...accountLabels.get(tx.accountId),
+  };
+}
+
+function reviewItem(
+  c: CategorizationRecord & { reasoning: string | null },
+  tx: TransactionRow,
+  context: ReviewContext,
+) {
+  const { categoryNames, distributions } = context;
+  return {
+    transaction: reviewTransaction(c, tx, context),
+    guessCategoryId: c.categoryId,
+    // The name, because an identifier is not a name. The model quotes
+    // taxonomy ids back in its reasoning, so that text is cleaned too.
+    guessCategoryName: categoryNames.get(c.categoryId) ?? c.categoryId,
+    suggestions: suggestCategoryIds(c.categoryId, distributions.get(tx.merchantKey ?? '')).map((categoryId) => ({
+      categoryId,
+      name: categoryNames.get(categoryId) ?? categoryId,
+    })),
+    confidence: c.confidence,
+    reasoning: c.reasoning ? humanizeCategoryIds(c.reasoning, categoryNames) : null,
+  };
+}
+
+function countOf(counts: ReadonlyMap<string, number>, id: string): number {
+  return counts.get(id) ?? 0;
+}
+
+function cashFlowOf(transactions: Parameters<typeof spendingTotalMinor>[0]) {
+  const incomeMinor = transactions
+    .filter((x) => x.amountMinor > 0 && !x.isInternalTransfer)
+    .reduce((a, x) => a + x.amountMinor, 0);
+  const spendingMinor = spendingTotalMinor(transactions);
+  return { incomeMinor, spendingMinor, netMinor: incomeMinor + spendingMinor };
+}
 
 export class Services implements AppServices {
   private pendingLinkToken: string | null = null;
@@ -90,7 +223,11 @@ export class Services implements AppServices {
   private recategorizeCancelled = false;
   private recategorizeRunning = false;
 
-  constructor(private readonly deps: ServiceDeps) {}
+  readonly usage: UsageRecorder;
+
+  constructor(private readonly deps: ServiceDeps) {
+    this.usage = new UsageRecorder(deps.handle.db, deps.clock, deps.emit);
+  }
 
   private get db(): DatabaseHandle['db'] {
     return this.deps.handle.db;
@@ -101,7 +238,7 @@ export class Services implements AppServices {
   }
 
   async completeness(): Promise<Completeness> {
-    const rows = await this.db.select().from(t.institutions);
+    const rows = await selectPlaidInstitutions(this.db);
     const states: InstitutionState[] = rows.map((r) => ({
       id: r.id,
       name: r.institutionName,
@@ -114,8 +251,11 @@ export class Services implements AppServices {
   // ---- Setup and connection ------------------------------------------------
 
   async setupStatus(): Promise<unknown> {
-    const secrets = await this.db.select().from(t.settings).where(eq(t.settings.isSecret, true));
-    const has = (key: string): boolean => secrets.some((s) => s.key === key && s.value.length > 0);
+    const configured = new Set<CredentialKey>();
+    for (const key of Object.keys(CREDENTIAL_ACCOUNTS) as CredentialKey[]) {
+      if (await this.deps.store.get(CREDENTIAL_ACCOUNTS[key])) configured.add(key);
+    }
+    const has = (key: CredentialKey): boolean => configured.has(key);
     const accounts = await this.db.select().from(t.accounts);
     // Presence only — never the values (FR-047).
     return {
@@ -140,16 +280,15 @@ export class Services implements AppServices {
     const p = input as Record<string, string | undefined>;
     const changed: string[] = [];
 
-    for (const key of ['plaidClientId', 'plaidSecret', 'anthropicApiKey'] as const) {
+    for (const key of Object.keys(CREDENTIAL_ACCOUNTS) as CredentialKey[]) {
       const value = p[key];
       if (value === undefined) continue;
       if (value.trim() === '') {
-        await this.db.delete(t.settings).where(eq(t.settings.key, key));
+        await this.deps.store.delete(CREDENTIAL_ACCOUNTS[key]);
         changed.push(`${key} removed`);
         continue;
       }
-      const sealed = (await this.deps.keyring.seal(value.trim())).toString('base64');
-      await this.upsertSetting(key, sealed, true);
+      await this.deps.store.set(CREDENTIAL_ACCOUNTS[key], value.trim());
       changed.push(`${key} updated`);
     }
 
@@ -167,12 +306,9 @@ export class Services implements AppServices {
 
   async saveCredentials(input: unknown): Promise<unknown> {
     const p = input as Record<string, string | undefined>;
-    for (const key of ['plaidClientId', 'plaidSecret', 'anthropicApiKey'] as const) {
+    for (const key of Object.keys(CREDENTIAL_ACCOUNTS) as CredentialKey[]) {
       const value = p[key];
-      if (value) {
-        const sealed = (await this.deps.keyring.seal(value)).toString('base64');
-        await this.upsertSetting(key, sealed, true);
-      }
+      if (value) await this.deps.store.set(CREDENTIAL_ACCOUNTS[key], value);
     }
     if (p['plaidEnv']) await this.upsertSetting('plaidEnv', p['plaidEnv'], false);
     return { ok: true };
@@ -212,20 +348,19 @@ export class Services implements AppServices {
     const { accessToken, itemId } = await exchangePublicToken(client, publicToken);
     const fetched = await fetchItemAccounts(client, accessToken);
 
-    const institutionId = `inst_${uuid().slice(0, 8)}`;
-    const sealed = (await this.deps.keyring.seal(accessToken)).toString('base64');
-    await this.db.insert(t.institutions).values({
-      id: institutionId,
-      plaidItemId: itemId,
-      accessTokenEncrypted: sealed,
-      institutionName: fetched.institutionName,
-      syncCursor: null,
-      status: 'healthy',
-      lastSyncedAt: null,
-      lastAttemptedSyncAt: null,
-      createdAt: this.deps.clock.now().toISOString(),
-    });
-    for (const a of fetched.accounts) {
+    const institutionId = await this.saveLinkedItem(accessToken, itemId, fetched);
+
+    this.pendingLinkToken = null;
+    // Null cursor means a full historical backfill on this first sync (FR-004).
+    await this.deps.sync();
+    return { institutionId, accountsAdded: fetched.accounts.length };
+  }
+
+  private async saveLinkedAccounts(
+    institutionId: string,
+    accounts: Awaited<ReturnType<typeof fetchItemAccounts>>['accounts'],
+  ): Promise<void> {
+    for (const a of accounts) {
       await this.db.insert(t.accounts).values({
         id: `acct_${uuid().slice(0, 8)}`,
         institutionId,
@@ -241,11 +376,28 @@ export class Services implements AppServices {
         isEveryday: isEverydayAccount(a.type, a.subtype),
       });
     }
+  }
 
-    this.pendingLinkToken = null;
-    // Null cursor means a full historical backfill on this first sync (FR-004).
-    await this.deps.sync();
-    return { institutionId, accountsAdded: fetched.accounts.length };
+  private async saveLinkedItem(
+    accessToken: string,
+    itemId: string,
+    fetched: Awaited<ReturnType<typeof fetchItemAccounts>>,
+  ): Promise<string> {
+    const institutionId = `inst_${uuid().slice(0, 8)}`;
+    await this.deps.store.set(accessTokenAccount(institutionId), accessToken);
+    await this.db.insert(t.institutions).values({
+      id: institutionId,
+      plaidItemId: itemId,
+      accessTokenEncrypted: '',
+      institutionName: fetched.institutionName,
+      syncCursor: null,
+      status: 'healthy',
+      lastSyncedAt: null,
+      lastAttemptedSyncAt: null,
+      createdAt: this.deps.clock.now().toISOString(),
+    });
+    await this.saveLinkedAccounts(institutionId, fetched.accounts);
+    return institutionId;
   }
 
   /** Build a Plaid client from the stored, sealed credentials. */
@@ -289,11 +441,8 @@ export class Services implements AppServices {
     return new IpcFailure('INTERNAL', message, true);
   }
 
-  private async readSecret(key: string): Promise<string | null> {
-    const rows = await this.db.select().from(t.settings).where(eq(t.settings.key, key));
-    const value = rows[0]?.value;
-    if (!value) return null;
-    return (await this.deps.keyring.open(Buffer.from(value, 'base64'))).value;
+  private readSecret(key: CredentialKey): Promise<string | null> {
+    return this.deps.store.get(CREDENTIAL_ACCOUNTS[key]);
   }
 
   private async readPlainSetting(key: string): Promise<string | null> {
@@ -311,6 +460,7 @@ export class Services implements AppServices {
       institutionName: r.institutionName,
       status: r.status,
       lastSyncedAt: r.lastSyncedAt,
+      source: r.source,
       accountCount: accounts.filter((a) => a.institutionId === r.id).length,
       accounts: accounts
         .filter((a) => a.institutionId === r.id)
@@ -338,7 +488,10 @@ export class Services implements AppServices {
   }
 
   async disconnectInstitution(id: string): Promise<unknown> {
+    const [institution] = await this.db.select().from(t.institutions).where(eq(t.institutions.id, id));
+    // Deleting an imported institution deletes its accounts and their transactions.
     await this.db.delete(t.institutions).where(eq(t.institutions.id, id));
+    if (institution?.source !== 'import') await this.deps.store.delete(accessTokenAccount(id));
     return { ok: true };
   }
 
@@ -349,7 +502,11 @@ export class Services implements AppServices {
   // ---- Reading money -------------------------------------------------------
 
   async dashboard(range: unknown): Promise<unknown> {
-    const { periodStart, periodEnd } = range as { periodStart: string; periodEnd: string };
+    const { periodStart, periodEnd, period = 'month' } = range as {
+      periodStart: string;
+      periodEnd: string;
+      period?: DashboardPeriod;
+    };
     const [transactions, names, parents, completeness, accounts, uncounted] = await Promise.all([
       this.spendingIn(periodStart, periodEnd),
       this.categoryNames(),
@@ -360,10 +517,7 @@ export class Services implements AppServices {
     ]);
 
     const breakdown = breakdownByCategory(transactions);
-    const incomeMinor = transactions
-      .filter((x) => x.amountMinor > 0 && !x.isInternalTransfer)
-      .reduce((a, x) => a + x.amountMinor, 0);
-    const spendingMinor = spendingTotalMinor(transactions);
+    const runway = await this.runway();
 
     return {
       balances: accounts.map((a) => ({
@@ -374,14 +528,76 @@ export class Services implements AppServices {
         currentBalanceMinor: a.currentBalanceMinor,
         balanceAsOf: a.balanceAsOf,
       })),
-      cashFlowMinor: { incomeMinor, spendingMinor, netMinor: incomeMinor + spendingMinor },
+      cashFlowMinor: cashFlowOf(transactions),
       categoryBreakdown: {
         ...this.namedRows(breakdown, names, parents, uncounted),
         ...completeness,
       },
       whatChanged: [],
-      runway: await this.runway(),
+      runway,
+      ...(await this.dashboardExtras(runway, period)),
       ...completeness,
+    };
+  }
+
+  /** Headline figures, the runway curve, upcoming charges and the last 30 days by group. */
+  private async dashboardExtras(runway: Runway, period: DashboardPeriod): Promise<Record<string, unknown>> {
+    const now = this.deps.clock.now();
+    const span = periodSpan(now, period);
+    const [dated, recent, sources, charges, names, parents, candidates] = await Promise.all([
+      this.spendingIn(span.start, span.end),
+      this.spendingIn(new Date(now.getTime() - WHERE_IT_WENT_DAYS[period] * 86_400_000).toISOString(), now.toISOString()),
+      this.db.select().from(t.incomeSources),
+      this.db.select().from(t.recurringCharges),
+      this.merchantDisplayNames(),
+      this.categoryParents(),
+      this.recurringCandidates(),
+    ]);
+    const totals = periodTotals(dated, { now, period });
+    const active = charges.filter((c) => c.status === 'active');
+    const nextSource = sources
+      .filter((s) => s.isActive && new Date(s.nextExpectedDate) > now)
+      .sort((a, b) => a.nextExpectedDate.localeCompare(b.nextExpectedDate))[0];
+    return {
+      kpis: {
+        spent: { currentMinor: totals[totals.length - 1]?.spendingMinor ?? 0, seriesMinor: totals.map((m) => m.spendingMinor) },
+        income: {
+          currentMinor: totals[totals.length - 1]?.incomeMinor ?? 0,
+          seriesMinor: totals.map((m) => m.incomeMinor),
+          nextDeposit: nextSource
+            ? {
+                date: new Date(nextSource.nextExpectedDate).toISOString(),
+                amountMinor: nextSource.expectedAmountMinor,
+                merchantName: names.get(nextSource.merchantKey) ?? nextSource.merchantKey,
+              }
+            : null,
+        },
+        recurring: {
+          monthlyMinor: active.reduce((a, c) => a + monthlyCostMinor(c.currentAmountMinor, c.cadence), 0),
+          count: active.length,
+          candidateCount: (candidates as unknown[]).length,
+          seriesMinor: recurringSeries(
+            charges.map((c) => ({
+              monthlyMinor: monthlyCostMinor(c.currentAmountMinor, c.cadence),
+              firstSeenDate: c.firstSeenDate,
+              lastSeenDate: c.lastSeenDate,
+              active: c.status === 'active',
+            })),
+            now,
+          ),
+        },
+        safeToSpendPerDayMinor: safeToSpendPerDayMinor(runway, now),
+      },
+      upcomingRecurring: upcomingCharges(
+        active.map((c) => ({
+          merchantName: names.get(c.merchantKey) ?? c.merchantKey,
+          date: nextExpectedDate(c.lastSeenDate, c.cadence),
+          amountMinor: Math.abs(c.currentAmountMinor),
+        })),
+        now.toISOString().slice(0, 10),
+      ),
+      runwaySeries: runwaySeries(runway, now),
+      whereItWent: spendByGroup(breakdownByCategory(recent).rows, await this.categoryNames(), parents),
     };
   }
 
@@ -440,6 +656,8 @@ export class Services implements AppServices {
       periodStart?: string;
       periodEnd?: string;
       categoryIds?: string[];
+      accountIds?: string[];
+      needsReviewOnly?: boolean;
       merchantKey?: string;
       direction?: 'all' | 'in' | 'out';
       minAmountMinor?: number;
@@ -448,20 +666,30 @@ export class Services implements AppServices {
       limit: number;
       offset: number;
     };
-    const [rows, live, completeness, aliases, everydayIds, recurringKeys] = await Promise.all([
+    const [rows, live, completeness, aliases, everydayIds, recurringKeys, parents, accountLabels] = await Promise.all([
       this.transactionsIn(q.periodStart, q.periodEnd),
       this.liveCategorizations(),
       this.completeness(),
       this.merchantAliases(),
       this.everydayAccountIds(),
       this.activeRecurringKeys(),
+      this.categoryParents(),
+      this.accountLabels(),
     ]);
 
     let filtered = rows;
     if (q.categoryIds?.length) {
+      // A top-level category stands for its subcategories too.
       const wanted = new Set(q.categoryIds);
-      filtered = filtered.filter((r) => wanted.has(live.get(r.id)?.categoryId ?? ''));
+      const inWanted = (categoryId: string): boolean =>
+        wanted.has(categoryId) || wanted.has(parents.get(categoryId) ?? '');
+      filtered = filtered.filter((r) => inWanted(live.get(r.id)?.categoryId ?? ''));
     }
+    if (q.accountIds?.length) {
+      const accountIds = new Set(q.accountIds);
+      filtered = filtered.filter((r) => accountIds.has(r.accountId));
+    }
+    if (q.needsReviewOnly) filtered = filtered.filter((r) => live.get(r.id)?.needsReview ?? true);
     if (q.merchantKey) {
       const needle = q.merchantKey.toLowerCase();
       filtered = filtered.filter(
@@ -514,6 +742,7 @@ export class Services implements AppServices {
           postedDate: r.postedDate,
           categoryId: c?.categoryId ?? UNCATEGORIZABLE,
           confidence: c?.confidence ?? 0,
+          categorySource: c?.source ?? null,
           needsReview: c?.needsReview ?? true,
           isInternalTransfer: r.isInternalTransfer,
           originalCurrency: r.originalCurrency,
@@ -522,6 +751,7 @@ export class Services implements AppServices {
           userNote: r.userNote,
           userExcluded: r.userExcluded,
           userRecurringOverride: r.userRecurringOverride,
+          ...accountLabels.get(r.accountId),
         };
       }),
       totalCount: filtered.length,
@@ -556,20 +786,30 @@ export class Services implements AppServices {
   // ---- Income --------------------------------------------------------------
 
   async listIncome(): Promise<unknown> {
-    const [rows, names] = await Promise.all([
+    const [rows, names, accountLabels] = await Promise.all([
       this.db.select().from(t.incomeSources),
       this.merchantDisplayNames(),
+      this.accountLabels(),
     ]);
     return rows.map((r) => ({
+      ...accountLabels.get(r.accountId),
       id: r.id,
       merchantKey: r.merchantKey,
       merchantName: names.get(r.merchantKey) ?? r.merchantKey,
       expectedAmountMinor: r.expectedAmountMinor,
       cadence: r.cadence,
       nextExpectedDate: r.nextExpectedDate,
+      daysUntilNext: daysUntil(new Date(r.nextExpectedDate), this.deps.clock.now()),
       detectionConfidence: r.detectionConfidence,
       isUserConfirmed: r.isUserConfirmed,
     }));
+  }
+
+  /** Income and spending for each of the last six months. Spending is positive. */
+  async incomeHistory(): Promise<unknown> {
+    const now = this.deps.clock.now();
+    const rows = await this.spendingIn(monthRange(now, MONTHS_SHOWN - 1).start, monthRange(now).end);
+    return monthlyTotals(rows, now);
   }
 
   async confirmIncome(id: string): Promise<unknown> {
@@ -652,49 +892,24 @@ export class Services implements AppServices {
 
   async reviewQueue(page: unknown): Promise<unknown> {
     const { limit, offset } = page as { limit: number; offset: number };
-    const [live, txs, aliases, categoryNames, recurringKeys] = await Promise.all([
+    const [live, txs, aliases, categoryNames, recurringKeys, profiles, accountLabels] = await Promise.all([
       this.liveCategorizations(),
       this.db.select().from(t.transactions),
       this.merchantAliases(),
       this.categoryNames(),
       this.activeRecurringKeys(),
+      this.db.select().from(t.merchantProfiles),
+      this.accountLabels(),
     ]);
+    const distributions = new Map(profiles.map((p) => [p.merchantKey, p.categoryDistribution]));
     const byId = new Map(txs.map((x) => [x.id, x]));
     const flagged = [...live.values()].filter((c) => c.needsReview && !c.isConfirmed);
+    const context = { aliases, categoryNames, recurringKeys, distributions, accountLabels };
 
     return {
       rows: flagged.slice(offset, offset + limit).flatMap((c) => {
         const tx = byId.get(c.transactionId);
-        if (!tx) return [];
-        return [
-          {
-            transaction: {
-              id: tx.id,
-              amountMinor: tx.amountMinor,
-              merchantName: resolveMerchantName(tx, aliases),
-              merchantKey: tx.merchantKey,
-              isRecurring: isRecurringRow(tx, recurringKeys),
-              description: tx.description,
-              userMerchantName: tx.userMerchantName,
-              userNote: tx.userNote,
-              userExcluded: tx.userExcluded,
-              userRecurringOverride: tx.userRecurringOverride,
-              postedDate: tx.postedDate,
-              categoryId: c.categoryId,
-              confidence: c.confidence,
-              needsReview: true,
-              isInternalTransfer: tx.isInternalTransfer,
-              originalCurrency: tx.originalCurrency,
-              originalAmountMinor: tx.originalAmountMinor,
-            },
-            guessCategoryId: c.categoryId,
-            // The name, because an identifier is not a name. The model quotes
-            // taxonomy ids back in its reasoning, so that text is cleaned too.
-            guessCategoryName: categoryNames.get(c.categoryId) ?? c.categoryId,
-            confidence: c.confidence,
-            reasoning: c.reasoning ? humanizeCategoryIds(c.reasoning, categoryNames) : null,
-          },
-        ];
+        return tx ? [reviewItem(c, tx, context)] : [];
       }),
       totalCount: flagged.length,
     };
@@ -730,18 +945,8 @@ export class Services implements AppServices {
 
   async applyRetroactive(input: unknown): Promise<unknown> {
     const { merchantKey, categoryId } = input as { merchantKey: string; categoryId: string };
-    const plan = planRetroactive(
-      await this.categorizationRecords(),
-      await this.transactionIdsForMerchant(merchantKey),
-      categoryId,
-    );
-    const at = this.deps.clock.now().toISOString();
-    for (const id of plan.affectedTransactionIds) await this.supersede(id, categoryId, at);
-    return {
-      updated: plan.affectedCount,
-      skippedUserConfirmed: plan.protectedCount,
-      restatedPeriods: [],
-    };
+    const { updated, skippedOneOffs } = await this.setCategoryRule(merchantKey, categoryId);
+    return { updated, skippedUserConfirmed: skippedOneOffs, restatedPeriods: [] };
   }
 
   /**
@@ -756,39 +961,26 @@ export class Services implements AppServices {
       transactionId: string;
       categoryId?: string;
       userMerchantName?: string | null;
-      applyNameToMerchant?: boolean;
+      scope?: 'transaction' | 'merchant';
       userNote?: string | null;
       userExcluded?: boolean;
       userRecurringOverride?: 'recurring' | 'not_recurring' | null;
     };
+    const wholeMerchant = p.scope === 'merchant';
+    const at = this.deps.clock.now().toISOString();
 
     const target = (
       await this.db.select().from(t.transactions).where(eq(t.transactions.id, p.transactionId))
     )[0];
+    const merchantKey = wholeMerchant ? target?.merchantKey : null;
 
     const patch: Record<string, unknown> = {};
-    if (p.userMerchantName !== undefined) patch['userMerchantName'] = p.userMerchantName;
-
-    // A rename applies to the whole merchant by default. Renaming row by row is
-    // the manual bookkeeping this product exists to avoid.
-    if (p.userMerchantName !== undefined && p.applyNameToMerchant !== false && target?.merchantKey) {
-      if (p.userMerchantName === null) {
-        await this.db
-          .delete(t.merchantAliases)
-          .where(eq(t.merchantAliases.merchantKey, target.merchantKey));
-      } else {
-        await this.db
-          .insert(t.merchantAliases)
-          .values({
-            merchantKey: target.merchantKey,
-            displayName: p.userMerchantName,
-            createdAt: this.deps.clock.now().toISOString(),
-          })
-          .onConflictDoUpdate({
-            target: t.merchantAliases.merchantKey,
-            set: { displayName: p.userMerchantName },
-          });
-      }
+    // Names resolve one-off, then rule: only the single-charge scope writes the row.
+    if (p.userMerchantName !== undefined && !wholeMerchant) {
+      patch['userMerchantName'] = p.userMerchantName;
+    }
+    if (p.userMerchantName !== undefined && merchantKey) {
+      await setMerchantName(this.db, { merchantKey, displayName: p.userMerchantName }, at);
     }
     if (p.userNote !== undefined) patch['userNote'] = p.userNote;
     if (p.userExcluded !== undefined) patch['userExcluded'] = p.userExcluded;
@@ -799,35 +991,23 @@ export class Services implements AppServices {
       await this.db.update(t.transactions).set(patch).where(eq(t.transactions.id, p.transactionId));
     }
 
-    let retroactiveCandidateCount = 0;
-    if (p.categoryId) {
-      await this.supersede(p.transactionId, p.categoryId, this.deps.clock.now().toISOString());
-
-      // A confirmed category becomes the default for this merchant going
-      // forward, so the same correction is never needed twice (FR-016).
-      if (target?.merchantKey) {
-        this.deps.pipeline.confirmCategory(target.merchantKey, p.categoryId);
-        await this.db
-          .insert(t.merchantProfiles)
-          .values({
-            merchantKey: target.merchantKey,
-            categoryDistribution: '{}',
-            userConfirmedCategoryId: p.categoryId,
-            transactionCount: 0,
-            lastUpdatedAt: this.deps.clock.now().toISOString(),
-          })
-          .onConflictDoUpdate({
-            target: t.merchantProfiles.merchantKey,
-            set: { userConfirmedCategoryId: p.categoryId },
-          });
-
-        // Report what a retroactive pass WOULD change; do not apply it (FR-074).
-        retroactiveCandidateCount = planRetroactive(
-          await this.categorizationRecords(),
-          await this.transactionIdsForMerchant(target.merchantKey),
-          p.categoryId,
-        ).affectedCount;
-      }
+    let outcome = { updated: 0, skippedOneOffs: 0 };
+    if (p.categoryId && merchantKey) {
+      // The edited charge joins the rule even if it was a one-off: the user chose All.
+      await supersedeCategorization(
+        this.db,
+        { transactionId: p.transactionId, categoryId: p.categoryId, source: 'rule' },
+        at,
+      );
+      const applied = await this.setCategoryRule(merchantKey, p.categoryId);
+      outcome = { ...applied, updated: applied.updated + 1 };
+    } else if (p.categoryId) {
+      await supersedeCategorization(
+        this.db,
+        { transactionId: p.transactionId, categoryId: p.categoryId, source: 'user' },
+        at,
+      );
+      outcome = { updated: 1, skippedOneOffs: 0 };
     }
 
     // A user marking something recurring is authoritative over detection.
@@ -844,7 +1024,8 @@ export class Services implements AppServices {
     return {
       ok: true,
       merchantKey: target?.merchantKey ?? null,
-      retroactiveCandidateCount,
+      retroactiveCandidateCount: 0,
+      ...outcome,
     };
   }
 
@@ -861,10 +1042,16 @@ export class Services implements AppServices {
   // ---- Categories ----------------------------------------------------------
 
   async listCategories(): Promise<unknown> {
-    const [categories, categorizations] = await Promise.all([
+    const month = monthRange(this.deps.clock.now());
+    const [categories, categorizations, monthRows] = await Promise.all([
       this.db.select().from(t.categories),
       this.db.select().from(t.categorizations).where(isNull(t.categorizations.supersededBy)),
+      this.spendingIn(month.start, month.end),
     ]);
+    const spend = categorySpend(
+      breakdownByCategory(monthRows).rows,
+      new Map(categories.map((c) => [c.id, c.parentId])),
+    );
     const usage = new Map<string, number>();
     for (const c of categorizations) {
       usage.set(c.categoryId, (usage.get(c.categoryId) ?? 0) + 1);
@@ -875,13 +1062,17 @@ export class Services implements AppServices {
     }
     return categories.map((c) => ({
       ...c,
-      usageCount: usage.get(c.id) ?? 0,
-      childCount: childCount.get(c.id) ?? 0,
+      usageCount: countOf(usage, c.id),
+      childCount: countOf(childCount, c.id),
+      /** This month's spending in this category alone, positive. */
+      spentMinor: countOf(spend.direct, c.id),
+      /** This month's spending in this category and its subcategories, positive. */
+      rolledUpSpentMinor: countOf(spend.rolledUp, c.id),
       // Only an unused, childless, non-system category can be deleted; anything
       // else would orphan history or break reconciliation.
       // Anything can be deleted; whether it needs a destination first is the
       // question the UI asks.
-      needsReassignment: (usage.get(c.id) ?? 0) > 0 || (childCount.get(c.id) ?? 0) > 0,
+      needsReassignment: countOf(usage, c.id) > 0 || countOf(childCount, c.id) > 0,
     }));
   }
 
@@ -1017,22 +1208,44 @@ export class Services implements AppServices {
   /** Rename a merchant everywhere it appears. */
   async renameMerchant(input: unknown): Promise<unknown> {
     const p = input as { merchantKey: string; displayName: string | null };
-    if (p.displayName === null || p.displayName.trim() === '') {
-      await this.db.delete(t.merchantAliases).where(eq(t.merchantAliases.merchantKey, p.merchantKey));
-      return { ok: true };
-    }
-    await this.db
-      .insert(t.merchantAliases)
-      .values({
-        merchantKey: p.merchantKey,
-        displayName: p.displayName,
-        createdAt: this.deps.clock.now().toISOString(),
-      })
-      .onConflictDoUpdate({
-        target: t.merchantAliases.merchantKey,
-        set: { displayName: p.displayName },
-      });
+    await setMerchantName(
+      this.db,
+      { merchantKey: p.merchantKey, displayName: p.displayName },
+      this.deps.clock.now().toISOString(),
+    );
     return { ok: true };
+  }
+
+  async listRules(): Promise<unknown> {
+    return listRules(this.db);
+  }
+
+  async updateRule(input: unknown): Promise<unknown> {
+    const p = input as { merchantKey: string; displayName?: string | null; categoryId?: string | null };
+    const at = this.deps.clock.now().toISOString();
+    if (p.displayName !== undefined) await setMerchantName(this.db, { merchantKey: p.merchantKey, displayName: p.displayName }, at);
+    if (p.categoryId === undefined) return { updated: 0, skippedOneOffs: 0 };
+    if (p.categoryId === null) {
+      await setRuleCategory(this.db, { merchantKey: p.merchantKey, categoryId: null }, at);
+      return { updated: 0, skippedOneOffs: 0 };
+    }
+    return this.setCategoryRule(p.merchantKey, p.categoryId);
+  }
+
+  async deleteRule(input: unknown): Promise<unknown> {
+    await deleteRule(this.db, (input as { merchantKey: string }).merchantKey);
+    return { ok: true };
+  }
+
+  /** Make the category the merchant's rule and re-apply it to every charge that is not a one-off. */
+  private async setCategoryRule(
+    merchantKey: string,
+    categoryId: string,
+  ): Promise<{ updated: number; skippedOneOffs: number }> {
+    const at = this.deps.clock.now().toISOString();
+    this.deps.pipeline.confirmCategory(merchantKey, categoryId);
+    await setRuleCategory(this.db, { merchantKey, categoryId }, at);
+    return applyRuleCategory(this.db, { merchantKey, categoryId }, at);
   }
 
   async listRecurring(): Promise<unknown> {
@@ -1051,6 +1264,9 @@ export class Services implements AppServices {
       firstSeenDate: r.firstSeenDate,
       cumulativePaidMinor: r.cumulativePaidMinor,
       status: r.status,
+      nextExpectedDate: nextExpectedDate(r.lastSeenDate, r.cadence),
+      monthlyCostMinor: monthlyCostMinor(r.currentAmountMinor, r.cadence),
+      yearlyCostMinor: yearlyCostMinor(r.currentAmountMinor, r.cadence),
       amountChanges: changes
         .filter((c) => c.recurringChargeId === r.id)
         .map((c) => ({
@@ -1208,21 +1424,30 @@ export class Services implements AppServices {
   // ---- Alerts and reports --------------------------------------------------
 
   async listAlerts(): Promise<unknown> {
-    const [rows, rules] = await Promise.all([
+    const [rows, rules, transactions, aliases] = await Promise.all([
       this.db.select().from(t.alerts).orderBy(desc(t.alerts.eventOccurredAt)),
       this.db.select().from(t.alertRules),
+      this.db.select().from(t.transactions),
+      this.merchantAliases(),
     ]);
     const byRule = new Map(rules.map((r) => [r.id, r.type]));
-    return rows.map((a) => ({
-      id: a.id,
-      // Falls back to the type captured at fire time, so an alert from a since
-      // deleted rule still describes itself.
-      type: (a.ruleId ? byRule.get(a.ruleId) : null) ?? a.ruleType,
-      // Both surfaced, so a replayed alert is never mistaken for live (FR-057).
-      eventOccurredAt: a.eventOccurredAt,
-      detectedAt: a.detectedAt,
-      dismissed: a.dismissedAsFalsePositive,
-    }));
+    const byId = new Map(transactions.map((x) => [x.id, x]));
+    return rows.map((a) => {
+      const tx = a.triggeredByTransactionId ? byId.get(a.triggeredByTransactionId) : undefined;
+      return {
+        id: a.id,
+        // Falls back to the type captured at fire time, so an alert from a since
+        // deleted rule still describes itself.
+        type: (a.ruleId ? byRule.get(a.ruleId) : null) ?? a.ruleType,
+        // Both surfaced, so a replayed alert is never mistaken for live (FR-057).
+        eventOccurredAt: a.eventOccurredAt,
+        detectedAt: a.detectedAt,
+        dismissed: a.dismissedAsFalsePositive,
+        transactionId: tx?.id ?? null,
+        merchantName: tx ? resolveMerchantName(tx, aliases) : null,
+        amountMinor: tx?.amountMinor ?? null,
+      };
+    });
   }
 
   async dismissAlert(id: string): Promise<unknown> {
@@ -1284,14 +1509,54 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
+  /** Every recurring-charge price change, with the merchant's display name. */
+  private async priceChanges(): Promise<PriceChange[]> {
+    const [changes, charges, names] = await Promise.all([
+      this.db.select().from(t.recurringChargeAmountChanges),
+      this.db.select().from(t.recurringCharges),
+      this.merchantDisplayNames(),
+    ]);
+    const keyById = new Map(charges.map((c) => [c.id, c.merchantKey]));
+    return changes.map((c) => {
+      const key = keyById.get(c.recurringChargeId) ?? '';
+      return { ...c, merchantName: names.get(key) ?? key };
+    });
+  }
+
   async listReports(): Promise<unknown> {
     const rows = await this.db
       .select()
       .from(t.periodReports)
       .orderBy(desc(t.periodReports.periodStart));
-    return rows.map((r) => {
-      const content = JSON.parse(r.content) as { totalSpendingMinor?: number; savingsRate?: number };
+    const stored = rows.map((r) => JSON.parse(r.content) as Parameters<typeof presentReportContent>[0]);
+    const [purchases, aliases, merchantNames, priceChanges] = await Promise.all([
+      this.db
+        .select()
+        .from(t.transactions)
+        .where(inArray(t.transactions.id, stored.flatMap((c) => c.largestPurchases?.map((p) => p.id) ?? []))),
+      this.merchantAliases(),
+      this.merchantDisplayNames(),
+      this.priceChanges(),
+    ]);
+    const lookups = { transactions: new Map(purchases.map((tx) => [tx.id, tx])), aliases, merchantNames };
+    const contents = stored.map((c) => presentReportContent(c, lookups) as unknown as StoredContent);
+    const spent = contents.map((c) => reportSpentMinor(c));
+    const dated = rows.length
+      ? await this.spendingIn(
+          rows.reduce((a, r) => (r.periodStart < a ? r.periodStart : a), rows[0]?.periodStart ?? ''),
+          rows.reduce((a, r) => (r.periodEnd > a ? r.periodEnd : a), ''),
+        )
+      : [];
+    return rows.map((r, index) => {
+      const content = contents[index] ?? {};
+      const others = rows.flatMap((o, i) => (i !== index && o.type === r.type ? [spent[i] ?? 0] : []));
       return {
+        headline: reportHeadline(spent[index] ?? 0, others),
+        summary: reportSummary(
+          content,
+          priceChanges.filter((c) => c.changedAt >= r.periodStart && c.changedAt < r.periodEnd),
+        ),
+        series: dailySpending(r.periodStart, r.periodEnd, dated),
         id: r.id,
         type: r.type,
         label: r.label,
@@ -1447,7 +1712,33 @@ export class Services implements AppServices {
     const rows = await this.db.select().from(t.periodReports).where(eq(t.periodReports.id, id));
     const row = rows[0];
     if (!row) throw new IpcFailure('INTERNAL', 'Report not found', false);
-    return { ...row, content: JSON.parse(row.content) };
+    const content = JSON.parse(row.content) as Parameters<typeof presentReportContent>[0];
+    const [transactions, aliases, merchantNames, sameType] = await Promise.all([
+      this.db.select().from(t.transactions).where(inArray(t.transactions.id, content.largestPurchases?.map((p) => p.id) ?? [])),
+      this.merchantAliases(),
+      this.merchantDisplayNames(),
+      this.db.select().from(t.periodReports).where(eq(t.periodReports.type, row.type)),
+    ]);
+    return {
+      ...row,
+      content: presentReportContent(content, {
+        transactions: new Map(transactions.map((tx) => [tx.id, tx])),
+        aliases,
+        merchantNames,
+      }),
+      kpiSeries: kpiSeries(sameType, row),
+    };
+  }
+
+  async exportReportPdf(input: unknown): Promise<unknown> {
+    const { id } = input as { id: string };
+    const row = (await this.db.select().from(t.periodReports).where(eq(t.periodReports.id, id)))[0];
+    if (!row) throw new IpcFailure('INTERNAL', 'Report not found', false);
+    if (!this.deps.printToPdf) throw new IpcFailure('INTERNAL', 'Printing is not available', false);
+    const target = await this.chooseSavePath(reportPdfName(row));
+    if (!target) return { ok: false };
+    writeFileSync(target, await this.deps.printToPdf());
+    return { ok: true, path: target };
   }
 
   // ---- Diagnostics, settings, data -----------------------------------------
@@ -1455,7 +1746,7 @@ export class Services implements AppServices {
   async health(): Promise<unknown> {
     const [events, institutions, transactions] = await Promise.all([
       this.db.select().from(t.diagnosticEvents).orderBy(desc(t.diagnosticEvents.occurredAt)).limit(1000),
-      this.db.select().from(t.institutions),
+      selectPlaidInstitutions(this.db),
       this.db.select().from(t.transactions),
     ]);
     const summary = summarizeHealth(events.map((e) => this.toDiagnosticEvent(e)));
@@ -1473,6 +1764,13 @@ export class Services implements AppServices {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
 
     return {
+      categorization: await this.deps.describeModel(),
+      encryption: {
+        databaseEncrypted: true,
+        keysInKeychain: (await this.deps.store.get(DATABASE_KEY_ACCOUNT)) !== null,
+      },
+      updates: { version: this.deps.appVersion ?? 'unknown' },
+      syncHistory: syncHistory(events),
       contents: {
         institutions: institutions.length,
         accounts: accounts.length,
@@ -1540,6 +1838,10 @@ export class Services implements AppServices {
       ...(map.has('ollamaModel') ? { ollamaModel: map.get('ollamaModel') as string } : {}),
       ...(map.has('ollamaBaseUrl') ? { ollamaBaseUrl: map.get('ollamaBaseUrl') as string } : {}),
       ...(map.has('timeZone') ? { timeZone: map.get('timeZone') as string } : {}),
+      ...(map.has('usageRetention')
+        ? { usageRetention: map.get('usageRetention') as AppSettings['usageRetention'] }
+        : {}),
+      ...(map.has('lastBackupAt') ? { lastBackupAt: map.get('lastBackupAt') as string } : {}),
     });
   }
 
@@ -1550,36 +1852,97 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
-  async exportData(destPath: string): Promise<unknown> {
+  async usageSummary(days: 7 | 30 | null): Promise<unknown> {
+    return usageSummary(this.db, days, this.deps.clock.now());
+  }
+
+  async recentUsage(limit: number): Promise<unknown> {
+    return recentUsage(this.db, limit);
+  }
+
+  async exportUsage(): Promise<unknown> {
+    const target = await this.chooseSavePath('money-usage.csv');
+    if (!target) return { ok: false };
+    writeFileSync(target, await usageCsv(this.db), 'utf8');
+    return { ok: true, path: target };
+  }
+
+  async recordView(route: string): Promise<unknown> {
+    await this.usage.record({ feature: `view:${route}`, kind: 'view', outcome: 'success' });
+    return { ok: true };
+  }
+
+  async recordAction(feature: string): Promise<unknown> {
+    await this.usage.record({ feature, kind: 'action', outcome: 'success' });
+    return { ok: true };
+  }
+
+  async exportData(destPath: string, passphrase: string): Promise<unknown> {
     const target = destPath || (await this.chooseDirectory());
     if (!target) return { ok: false };
-    const result = exportBackup(this.deps.handle, this.deps.userDataDir, target);
+    const result = await exportBackup({
+      handle: this.deps.handle,
+      store: this.deps.store,
+      userDataDir: this.deps.userDataDir,
+      destDir: target,
+      passphrase,
+    });
+    await this.upsertSetting('lastBackupAt', this.deps.clock.now().toISOString(), false);
     return { ok: true, path: result.databasePath };
   }
 
-  async importData(srcPath: string): Promise<unknown> {
+  async importData(srcPath: string, passphrase: string): Promise<unknown> {
     const source = srcPath || (await this.chooseDirectory());
     if (!source) return { ok: false };
-    restoreBackup(source, this.deps.userDataDir);
-    // The connection holds the old file; a restart is required for the restore
-    // to take effect. Saying so beats silently showing stale data.
+    await restoreBackup({
+      srcDir: source,
+      userDataDir: this.deps.userDataDir,
+      store: this.deps.store,
+      passphrase,
+      handle: this.deps.handle,
+    });
+    // The database handle is closed; the app relaunches to open the restored file.
     return { ok: true, restored: true, requiresRestart: true };
   }
 
   async deleteAllData(): Promise<unknown> {
+    const institutions = await this.db.select({ id: t.institutions.id }).from(t.institutions);
     this.deps.handle.close();
-    deleteAllData(this.deps.userDataDir);
+    await deleteAllData({
+      userDataDir: this.deps.userDataDir,
+      store: this.deps.store,
+      institutionIds: institutions.map((row) => row.id),
+    });
     return { ok: true, requiresRestart: true };
   }
 
-  /** Installed Ollama models, for the settings picker. Empty when Ollama is off. */
+  async previewImport(input: unknown): Promise<unknown> {
+    return previewImport(this.db, input as ImportPreviewInput);
+  }
+
+  async commitImport(input: unknown): Promise<unknown> {
+    const result = await commitImport(
+      { handle: this.deps.handle, clock: this.deps.clock, buildPipeline: this.deps.buildPipeline },
+      input as ImportCommitInput,
+    );
+    // Recurring and income detection need the imported history.
+    if (result.imported > 0) await this.refreshAnalysis();
+    return result;
+  }
+
+  /** Whether Ollama answers at the saved address, within two seconds. */
+  async detectOllama(): Promise<unknown> {
+    return detectOllama((await this.readPlainSetting('ollamaBaseUrl')) ?? undefined);
+  }
+
+  /** Installed Ollama chat models, for the settings picker. Throws the explained reason on failure. */
   async listOllamaModels(): Promise<unknown> {
     const baseUrl = (await this.readPlainSetting('ollamaBaseUrl')) ?? undefined;
     try {
       return await listOllamaModels(baseUrl);
-    } catch {
-      // Ollama not running is a normal state, not an error to surface.
-      return [];
+    } catch (error) {
+      const reason = explainModelError(error instanceof Error ? error.message : String(error));
+      throw new IpcFailure('CATEGORIZATION_UNAVAILABLE', reason, true);
     }
   }
 
@@ -1748,29 +2111,29 @@ export class Services implements AppServices {
     }
 
     const pipeline = await this.deps.buildPipeline();
-    const result = await pipeline.categorize({
-      // A descriptor with no history and no heuristic match, so the model stage
-      // is genuinely exercised rather than short-circuited.
-      transactionId: 'model-test',
-      descriptor: 'ZZQX TEST MERCHANT 4417',
-      amountMinor: -1234,
-      occurredAt: this.deps.clock.now(),
-    });
+    const names = new Map(
+      (await this.db.select().from(t.categories)).map((c) => [c.id, c.name]),
+    );
+    const answers: string[] = [];
+    const startedAt = performance.now();
+    for (const probe of MODEL_TEST_MERCHANTS) {
+      const result = await pipeline.categorize({
+        transactionId: `model-test-${probe.label}`,
+        descriptor: probe.descriptor,
+        amountMinor: probe.amountMinor,
+        occurredAt: this.deps.clock.now(),
+      });
+      answers.push(`${probe.label} → ${names.get(result.categoryId) ?? result.categoryId}`);
+    }
+    const seconds = ((performance.now() - startedAt) / 1000).toFixed(1);
 
     if (pipeline.lastModelError) {
       return { ok: false, ...description, message: explainModelError(pipeline.lastModelError) };
     }
-    if (result.source !== 'model') {
-      return {
-        ok: false,
-        ...description,
-        message: 'The model was not reached and no error was reported.',
-      };
-    }
     return {
       ok: true,
       ...description,
-      message: `${description.model ?? description.provider} answered: ${result.categoryId}`,
+      message: `${description.model ?? description.provider} answered in ${seconds} s: ${answers.join(', ')}`,
     };
   }
 
@@ -1914,59 +2277,16 @@ export class Services implements AppServices {
    * turns up wrong in a report, with no way to find what caused it.
    */
   async listOverrides(): Promise<unknown> {
-    const [aliases, profiles, transactions, categorizations, categoryNames, recurringRules] =
+    const [aliases, transactions, categorizations, categoryNames, recurringRules] =
       await Promise.all([
         this.db.select().from(t.merchantAliases),
-        this.db.select().from(t.merchantProfiles),
         this.db.select().from(t.transactions),
         this.liveCategorizations(),
         this.categoryNames(),
         this.db.select().from(t.recurringRules),
       ]);
 
-    const byMerchant = new Map<string, TransactionRow[]>();
-    for (const row of transactions) {
-      if (!row.merchantKey) continue;
-      const list = byMerchant.get(row.merchantKey) ?? [];
-      list.push(row);
-      byMerchant.set(row.merchantKey, list);
-    }
-    const bankName = (merchantKey: string): string | null =>
-      byMerchant.get(merchantKey)?.[0]?.merchantName ?? null;
-
     const out: OverrideRecord[] = [];
-
-    for (const alias of aliases) {
-      out.push({
-        id: `merchant_name:${alias.merchantKey}`,
-        kind: 'merchant_name',
-        target: alias.merchantKey,
-        label: alias.displayName,
-        original: bankName(alias.merchantKey),
-        current: alias.displayName,
-        affectedCount: byMerchant.get(alias.merchantKey)?.length ?? 0,
-        occurredAt: alias.createdAt,
-      });
-    }
-
-    for (const profile of profiles) {
-      if (!profile.userConfirmedCategoryId) continue;
-      out.push({
-        id: `merchant_category:${profile.merchantKey}`,
-        kind: 'merchant_category',
-        target: profile.merchantKey,
-        label:
-          aliases.find((a) => a.merchantKey === profile.merchantKey)?.displayName ??
-          bankName(profile.merchantKey) ??
-          profile.merchantKey,
-        original: null,
-        current:
-          categoryNames.get(profile.userConfirmedCategoryId) ?? profile.userConfirmedCategoryId,
-        affectedCount: byMerchant.get(profile.merchantKey)?.length ?? 0,
-        occurredAt: profile.lastUpdatedAt,
-      });
-    }
-
     const aliasMap = new Map(aliases.map((a) => [a.merchantKey, a.displayName]));
     const ruledMerchants = new Set(recurringRules.map((r) => `${r.merchantKey}:${r.amountMinor}`));
 
@@ -2264,7 +2584,7 @@ export class Services implements AppServices {
     return new Map(rows.map((r) => [r.id, r.parentId]));
   }
 
-  private async runway(): Promise<unknown> {
+  private async runway(): Promise<Runway> {
     const [sources, accounts] = await Promise.all([
       this.db.select().from(t.incomeSources),
       this.db.select().from(t.accounts),
@@ -2273,9 +2593,10 @@ export class Services implements AppServices {
       .filter((a) => a.isEveryday)
       .reduce((a, x) => a + (x.currentBalanceMinor ?? 0), 0);
 
+    const dailyBurnMinor = await this.dailyBurn();
     const projection = projectBalance({
       currentBalanceMinor,
-      dailyBurnMinor: await this.dailyBurn(),
+      dailyBurnMinor,
       asOf: this.deps.clock.now(),
       incomeSources: sources.map((s) => ({
         id: s.id,
@@ -2296,6 +2617,7 @@ export class Services implements AppServices {
       currentBalanceMinor,
       projectedMinor: projection.projectedMinor,
       floorMinor: BALANCE_FLOOR_MINOR,
+      dailyBurnMinor,
       nextIncomeDate: projection.nextIncomeDate?.toISOString() ?? null,
       reason: projection.reason,
     };
@@ -2310,7 +2632,7 @@ export class Services implements AppServices {
     return Math.round(Math.abs(recent.reduce((a, r) => a + r.amountMinor, 0)) / BURN_WINDOW_DAYS);
   }
 
-  private async spendingIn(start: string, end: string): Promise<SpendingTransaction[]> {
+  private async spendingIn(start: string, end: string): Promise<DatedTransaction[]> {
     const [allRows, live, everydayIds] = await Promise.all([
       this.transactionsIn(start, end),
       this.liveCategorizations(),
@@ -2325,6 +2647,7 @@ export class Services implements AppServices {
       isInternalTransfer: r.isInternalTransfer,
       reversesTransactionId: r.reversesTransactionId,
       userExcluded: r.userExcluded,
+      postedDate: r.postedDate,
     }));
   }
 
@@ -2339,6 +2662,12 @@ export class Services implements AppServices {
           lte(t.transactions.postedDate, end.slice(0, 10)),
         ),
       );
+  }
+
+  /** Name and last digits of every account, by id, for rows that say where money moved. */
+  private async accountLabels(): Promise<Map<string, { accountName: string; accountMask: string | null }>> {
+    const rows = await this.db.select().from(t.accounts);
+    return new Map(rows.map((a) => [a.id, { accountName: a.name, accountMask: a.mask }]));
   }
 
   /** Accounts that count as day-to-day money. Savings is deliberately excluded. */
@@ -2411,26 +2740,7 @@ export class Services implements AppServices {
   }
 
   private async supersede(transactionId: string, categoryId: string, at: string): Promise<void> {
-    const current = liveCategorization(await this.categorizationRecords(), transactionId);
-    const id = `cat_${randomUUID().slice(0, 12)}`;
-    await this.db.insert(t.categorizations).values({
-      id,
-      transactionId,
-      categoryId,
-      confidence: 1,
-      source: 'user',
-      isConfirmed: true,
-      needsReview: false,
-      reasoning: null,
-      supersededBy: null,
-      createdAt: at,
-    });
-    if (current) {
-      await this.db
-        .update(t.categorizations)
-        .set({ supersededBy: id })
-        .where(eq(t.categorizations.id, current.id));
-    }
+    await supersedeCategorization(this.db, { transactionId, categoryId, source: 'user' }, at);
   }
 
   /** merchantKey -> user display name (FR-016-style merchant-wide override). */
@@ -2472,7 +2782,8 @@ export class Services implements AppServices {
   private async localResolutionRate(): Promise<number | null> {
     const rows = await this.db.select().from(t.categorizations);
     if (rows.length === 0) return null;
-    return rows.filter((r) => r.source === 'local_history').length / rows.length;
+    // A merchant rule is resolved locally too; classifyLocally labels it 'rule'.
+    return rows.filter((r) => r.source === 'local_history' || r.source === 'rule').length / rows.length;
   }
 
   private medianDuration(events: Array<{ durationMs: number | null }>): number | null {

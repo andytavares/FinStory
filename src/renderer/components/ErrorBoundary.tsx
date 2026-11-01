@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Button, Card } from './ui';
 
 interface State {
   readonly error: Error | null;
@@ -30,35 +31,27 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     if (!error) return this.props.children;
 
     return (
-      <div className="mx-auto max-w-2xl px-8 py-16">
+      <Card className="mx-auto mt-16 max-w-2xl !border-dashed !p-8">
         <p className="eyebrow">Something broke</p>
         <h1 className="mt-2 text-[20px]">This screen could not be displayed</h1>
         <p className="mt-3 text-[13px] text-[var(--color-ink-muted)]">
           Your data is safe and unchanged — this is a display problem, not a data one.
         </p>
 
-        <pre className="mt-6 max-h-64 overflow-auto border border-[var(--color-line)] bg-[var(--color-surface)] p-3 text-[12px] whitespace-pre-wrap">
+        <pre className="mt-6 max-h-64 overflow-auto rounded-[var(--radius-control)] border border-[var(--color-line)] bg-[var(--color-ground)] p-3 text-[12px] whitespace-pre-wrap">
           {error.message}
           {componentStack ? `\n${componentStack}` : ''}
         </pre>
 
         <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={() => this.setState({ error: null, componentStack: null })}
-            className="btn"
-          >
+          <Button onClick={() => this.setState({ error: null, componentStack: null })}>
             Try again
-          </button>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="btn"
-          >
+          </Button>
+          <Button variant="primary" onClick={() => window.location.reload()}>
             Reload
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     );
   }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
 import { call } from '../lib/ipc';
+import { Button, ProgressBar, Segmented } from './ui';
 
 interface RecategorizeResult {
   readonly message: string;
@@ -25,7 +25,15 @@ interface Progress {
  * A run is one model call per transaction and can take minutes, so it reports
  * where it is and can be stopped. Stopping keeps everything already done.
  */
-export function RecategorizeButton({ onDone }: { onDone?: () => void }): React.JSX.Element {
+export function RecategorizeButton({
+  onDone,
+  variant = 'card',
+}: {
+  onDone?: () => void;
+  /** `compact`: page-header button, unresolved only, status as caption. `card`: Settings scope switch, "Run" and progress bar. */
+  variant?: 'card' | 'compact';
+}): React.JSX.Element {
+  const compact = variant === 'compact';
   const [scope, setScope] = useState<'unresolved' | 'all'>('unresolved');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -66,65 +74,51 @@ export function RecategorizeButton({ onDone }: { onDone?: () => void }): React.J
       ? Math.round((progress.processed / progress.total) * 100)
       : 0;
 
+  const label = compact ? 'Sort these with AI' : 'Run';
+  const busyLabel = 'Sorting…';
+  const status = progress
+    ? `${progress.processed} of ${progress.total} · ${progress.changed} recategorized${stopping ? ' · finishing the one in flight' : ''}`
+    : null;
+
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void run()}
-          disabled={busy}
-          className="btn [&>svg]:h-4 [&>svg]:w-4"
-        >
-          <Sparkles aria-hidden />
-          {busy ? 'Recategorizing…' : 'Recategorize with AI'}
-        </button>
-        {busy ? (
-          <button
-            type="button"
-            onClick={() => void stop()}
-            disabled={stopping}
-            className="btn"
-          >
+    <div className={compact ? 'ds-row' : 'space-y-2'}>
+      {compact && status && <span className="ds-caption">{status}</span>}
+      {compact && note && !progress && (
+        <span role="status" className="ds-caption">
+          {note}
+        </span>
+      )}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {!compact && !busy && (
+          <Segmented
+            label="What to recategorize"
+            value={scope}
+            onChange={setScope}
+            options={[
+              { value: 'unresolved', label: 'Unresolved only' },
+              { value: 'all', label: 'Everything' },
+            ]}
+          />
+        )}
+        <Button onClick={() => void run()} disabled={busy}>
+          {busy ? busyLabel : label}
+        </Button>
+        {busy && (
+          <Button onClick={() => void stop()} disabled={stopping}>
             {stopping ? 'Stopping…' : 'Stop'}
-          </button>
-        ) : (
-          <label className="text-[12px] text-[var(--color-ink-faint)]">
-            <span className="sr-only">What to recategorize</span>
-            <select
-              value={scope}
-              onChange={(e) => setScope(e.target.value as 'unresolved' | 'all')}
-              aria-label="What to recategorize"
-              className="border border-[var(--color-line)] bg-[var(--color-surface)] px-2 py-2 text-[12px]"
-            >
-              <option value="unresolved">Only what is unresolved</option>
-              <option value="all">Everything except my own corrections</option>
-            </select>
-          </label>
+          </Button>
         )}
       </div>
 
-      {progress && (
+      {!compact && progress && (
         <div className="space-y-1">
-          <div
-            role="progressbar"
-            aria-valuenow={progress.processed}
-            aria-valuemin={0}
-            aria-valuemax={progress.total}
-            aria-label="Recategorization progress"
-            className="h-1 w-full bg-[var(--color-surface-raised)]"
-          >
-            {/* The validated data hue, not a reserved status colour. */}
-            <div className="h-full bg-[#4897cd]" style={{ width: `${pct}%` }} />
-          </div>
-          <p className="text-[12px] text-[var(--color-ink-faint)]">
-            {progress.processed} of {progress.total} · {progress.changed} recategorized
-            {stopping && ' · finishing the one in flight'}
-          </p>
+          <ProgressBar value={pct / 100} label="Recategorization progress" />
+          <p className="ds-caption">{status}</p>
         </div>
       )}
 
-      {note && !progress && (
-        <p role="status" className="text-[12px] text-[var(--color-ink-faint)]">
+      {!compact && note && !progress && (
+        <p role="status" className="ds-caption">
           {note}
         </p>
       )}

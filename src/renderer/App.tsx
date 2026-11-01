@@ -1,20 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  LayoutDashboard,
-  Receipt,
-  RefreshCw,
-  Wallet,
-  Inbox,
-  FileText,
-  Activity,
-  Settings as SettingsIcon,
-  Tags,
-  Bell,
-  Landmark,
-  Undo2,
-  ArrowLeft,
-  ArrowRight,
-} from 'lucide-react';
+import { UpdateToast } from './components/UpdateToast';
 import { Dashboard } from './views/Dashboard';
 import { Register } from './views/Register';
 import { Recurring } from './views/Recurring';
@@ -28,48 +13,113 @@ import { Overrides } from './views/Overrides';
 import { Alerts } from './views/Alerts';
 import { Setup } from './views/Setup';
 import { Accounts } from './views/Accounts';
-import { useQuery } from './lib/ipc';
+import { Usage } from './views/Usage';
+import { Import } from './views/Import';
+import { call, useQuery } from './lib/ipc';
+import type { ViewId } from '@shared/features';
 import type { SetupStatus } from '@shared/types';
-import { useNavigation } from './lib/navigation';
+import { useNavigation, type Navigation } from './lib/navigation';
+import { AppShell, type NavGroup } from './components/AppShell';
+import { DesignSystem } from './views/DesignSystem';
 
-type ViewId =
-  | 'dashboard'
-  | 'register'
-  | 'recurring'
-  | 'income'
-  | 'review'
-  | 'alerts'
-  | 'reports'
-  | 'health'
-  | 'overrides'
-  | 'categories'
-  | 'accounts'
-  | 'settings';
-
-const NAV: ReadonlyArray<{ id: ViewId; label: string; Icon: typeof LayoutDashboard }> = [
-  { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { id: 'register', label: 'Transactions', Icon: Receipt },
-  { id: 'recurring', label: 'Recurring', Icon: RefreshCw },
-  { id: 'income', label: 'Income', Icon: Wallet },
-  { id: 'review', label: 'Review', Icon: Inbox },
-  { id: 'alerts', label: 'Alerts', Icon: Bell },
-  { id: 'reports', label: 'Reports', Icon: FileText },
-  { id: 'health', label: 'Health', Icon: Activity },
-  { id: 'overrides', label: 'Overrides', Icon: Undo2 },
-  { id: 'categories', label: 'Categories', Icon: Tags },
-  { id: 'accounts', label: 'Accounts', Icon: Landmark },
-  { id: 'settings', label: 'Settings', Icon: SettingsIcon },
+const NAV_GROUPS: readonly NavGroup[] = [
+  {
+    title: 'Overview',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'dash' },
+      { id: 'register', label: 'Transactions', icon: 'tx' },
+      { id: 'recurring', label: 'Recurring', icon: 'rec' },
+      { id: 'income', label: 'Income', icon: 'inc' },
+    ],
+  },
+  {
+    title: 'To do',
+    items: [
+      { id: 'review', label: 'Review', icon: 'rev' },
+      { id: 'alerts', label: 'Alerts', icon: 'bell' },
+    ],
+  },
+  {
+    title: 'Insights',
+    items: [
+      { id: 'reports', label: 'Reports', icon: 'rep' },
+      { id: 'usage', label: 'Usage', icon: 'use' },
+    ],
+  },
+  {
+    title: 'Manage',
+    items: [
+      { id: 'categories', label: 'Categories', icon: 'cat' },
+      { id: 'overrides', label: 'Rules', icon: 'rule' },
+      { id: 'accounts', label: 'Accounts', icon: 'acct' },
+      { id: 'import', label: 'Import', icon: 'imp' },
+    ],
+  },
+  {
+    title: 'System',
+    items: [
+      { id: 'health', label: 'Health', icon: 'health' },
+      { id: 'settings', label: 'Settings', icon: 'gear' },
+    ],
+  },
+  ...(import.meta.env.DEV
+    ? [{ title: 'Dev', items: [{ id: 'design', label: 'Design system', icon: 'design' }] } as const]
+    : []),
 ];
 
-export function App(): React.JSX.Element {
-  const nav = useNavigation({ view: 'dashboard' });
-  const [setupDismissed, setSetupDismissed] = useState(false);
-  const status = useQuery<SetupStatus>('setup:status');
+const LABELS = new Map(NAV_GROUPS.flatMap((g) => g.items.map((i) => [i.id, i.label] as const)));
 
-  const view = nav.current.view as ViewId;
-  const setView = (next: ViewId): void => nav.navigate({ view: next });
+interface ViewContext {
+  readonly nav: Navigation;
+  readonly setView: (view: string) => void;
+}
 
-  // Standard back/forward chords, plus the mouse buttons some pointers have.
+const VIEWS: Record<ViewId, (context: ViewContext) => React.JSX.Element> = {
+  dashboard: ({ nav, setView }) => (
+    <Dashboard
+      onDrill={(categoryId) => nav.navigate({ view: 'register', categoryId })}
+      onReconnect={() => setView('accounts')}
+    />
+  ),
+  register: ({ nav }) => {
+    const route = nav.current;
+    return (
+      <Register
+        key={`${route.categoryId ?? 'all'}-${route.merchantKey ?? ''}-${route.search ?? ''}`}
+        initialCategoryId={route.categoryId ?? null}
+        initialMerchantKey={route.search ?? route.merchantKey ?? null}
+      />
+    );
+  },
+  recurring: ({ nav }) => (
+    <Recurring onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })} />
+  ),
+  income: ({ nav }) => (
+    <Income onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })} />
+  ),
+  review: () => <Review />,
+  alerts: ({ nav }) => (
+    <Alerts onOpenMerchant={(search) => nav.navigate({ view: 'register', search })} />
+  ),
+  reports: ({ nav }) => (
+    <Reports
+      openReportId={nav.current.reportId ?? null}
+      onOpenReport={(reportId) => nav.navigate({ view: 'reports', reportId })}
+      onCloseReport={nav.back}
+    />
+  ),
+  usage: () => <Usage />,
+  import: ({ nav }) => <Import onViewTransactions={() => nav.navigate({ view: 'register' })} />,
+  health: () => <Health />,
+  overrides: () => <Overrides />,
+  categories: () => <Categories />,
+  accounts: () => <Accounts />,
+  settings: () => <Settings />,
+  design: () => (import.meta.env.DEV ? <DesignSystem /> : <></>),
+};
+
+/** Standard back/forward chords, plus the mouse buttons some pointers have. */
+function useHistoryKeys(nav: Navigation): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (!(e.metaKey || e.altKey)) return;
@@ -84,6 +134,22 @@ export function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [nav]);
+}
+
+export function App(): React.JSX.Element {
+  const nav = useNavigation({ view: 'dashboard' });
+  const [setupDismissed, setSetupDismissed] = useState(false);
+  const status = useQuery<SetupStatus>('setup:status');
+
+  const view = nav.current.view as ViewId;
+  const setView = (next: string): void => nav.navigate({ view: next });
+
+  // Every arrival on a screen, including the first and back/forward, is one usage event.
+  useEffect(() => {
+    void call('usage:view', { route: view }).catch(() => {});
+  }, [view]);
+
+  useHistoryKeys(nav);
 
   // Hold the frame until setup status resolves. Rendering the shell first and
   // swapping to Setup a moment later flashes a UI the user cannot act on.
@@ -109,95 +175,21 @@ export function App(): React.JSX.Element {
     );
   }
 
-  const drill = (categoryId: string): void => {
-    nav.navigate({ view: 'register', categoryId });
-  };
+  const crumb = [LABELS.get(view) ?? '', nav.current.categoryId].filter(Boolean).join(' · ');
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <nav className="flex w-52 shrink-0 flex-col overflow-y-auto overscroll-contain border-r border-[var(--color-line)] bg-[var(--color-surface)] pt-10">
-        <p className="px-5 pb-4 text-[13px] tracking-[0.2em] text-[var(--color-ink-faint)]">MONEY</p>
-        {NAV.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setView(id)}
-            className={`icon flex items-center gap-3 px-5 py-2 text-left text-[13px] ${
-              view === id
-                ? 'text-[var(--color-ink)]'
-                : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink-muted)]'
-            }`}
-          >
-            <Icon aria-hidden className={view === id ? '' : 'opacity-70'} />
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      <main className="flex-1 overflow-y-auto overscroll-contain">
-        {/* History controls: a drill-down is a navigation, so it needs a way back. */}
-        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-[var(--color-line)] bg-[var(--color-ground)] px-8 py-2">
-          <button
-            type="button"
-            onClick={nav.back}
-            disabled={!nav.canGoBack}
-            aria-label="Back"
-            title="Back (⌘[)"
-            className="icon p-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-30"
-          >
-            <ArrowLeft aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={nav.forward}
-            disabled={!nav.canGoForward}
-            aria-label="Forward"
-            title="Forward (⌘])"
-            className="icon p-1 text-[var(--color-ink-faint)] hover:text-[var(--color-ink)] disabled:opacity-30"
-          >
-            <ArrowRight aria-hidden />
-          </button>
-          <span className="ml-2 text-[12px] text-[var(--color-ink-faint)]">
-            {NAV.find((n) => n.id === view)?.label ?? ''}
-            {nav.current.categoryId ? ` · ${nav.current.categoryId}` : ''}
-          </span>
-        </div>
-
-        <div className="mx-auto max-w-4xl px-8 py-10">
-          {view === 'dashboard' && <Dashboard onDrill={drill} />}
-          {view === 'register' && (
-            <Register
-              key={`${nav.current.categoryId ?? 'all'}-${nav.current.merchantKey ?? ''}`}
-              initialCategoryId={nav.current.categoryId ?? null}
-              initialMerchantKey={nav.current.merchantKey ?? null}
-            />
-          )}
-          {view === 'recurring' && (
-            <Recurring
-              onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
-            />
-          )}
-          {view === 'income' && (
-            <Income
-              onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
-            />
-          )}
-          {view === 'review' && <Review />}
-          {view === 'alerts' && <Alerts />}
-          {view === 'reports' && (
-            <Reports
-              openReportId={nav.current.reportId ?? null}
-              onOpenReport={(reportId) => nav.navigate({ view: 'reports', reportId })}
-              onCloseReport={nav.back}
-            />
-          )}
-          {view === 'health' && <Health />}
-          {view === 'overrides' && <Overrides />}
-          {view === 'categories' && <Categories />}
-          {view === 'accounts' && <Accounts />}
-          {view === 'settings' && <Settings />}
-        </div>
-      </main>
-    </div>
+    <>
+      <AppShell
+        sidebar={{ groups: NAV_GROUPS, view, onSelect: setView }}
+        topBar={{
+          crumb,
+          history: nav,
+          onSearch: (search) => nav.navigate({ view: 'register', search }),
+        }}
+      >
+        {(VIEWS as Partial<typeof VIEWS>)[view]?.({ nav, setView }) ?? null}
+      </AppShell>
+      <UpdateToast />
+    </>
   );
 }

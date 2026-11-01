@@ -25,6 +25,23 @@ describe('explainModelError points at the fix without hiding the error', () => {
     expect(explainModelError('429 rate_limit_error')).toContain('run it again');
   });
 
+  it('tells the user to start Ollama when it is not running', () => {
+    const out = explainModelError('Ollama is not running at http://localhost:11434. Start Ollama and try again.');
+    expect(out).toBe('Ollama is not running at http://localhost:11434. Start Ollama and try again.');
+  });
+
+  it('tells the user to pick a chat model when the model cannot chat', () => {
+    const out = explainModelError('Ollama: "nomic-embed-text:latest" does not support chat');
+    expect(out).toContain('does not support chat');
+    expect(out).toContain('choose a different model in Settings');
+  });
+
+  it('tells the user to pull a model that is not installed', () => {
+    const out = explainModelError("Ollama: model 'x' not found");
+    expect(out).toContain("model 'x' not found");
+    expect(out).toContain('ollama pull');
+  });
+
   it('says to retry when the API is overloaded', () => {
     expect(explainModelError('overloaded_error')).toContain('usually works');
   });

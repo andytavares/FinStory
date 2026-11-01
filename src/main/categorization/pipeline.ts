@@ -40,7 +40,7 @@ export interface CategorizationResult {
   readonly transactionId: string;
   readonly categoryId: string;
   readonly confidence: number;
-  readonly source: 'local_history' | 'model' | 'user';
+  readonly source: 'local_history' | 'model' | 'user' | 'rule';
   readonly needsReview: boolean;
   readonly reasoning: string;
 }
@@ -133,7 +133,7 @@ export class CategorizationPipeline {
         transactionId: input.transactionId,
         categoryId: local.categoryId,
         confidence: local.confidence,
-        source: 'local_history',
+        source: local.source,
         needsReview: local.confidence < this.options.confidenceThreshold,
         reasoning: local.reasoning,
       };

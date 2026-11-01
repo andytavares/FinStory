@@ -21,7 +21,9 @@ describe('the preload allowlist matches the registered handlers', () => {
   const registry = new IpcRegistry();
   registerHandlers(registry, stubServices());
   const registered = [...registry.channels()];
-  const allowed = [...INVOKE_CHANNELS] as string[];
+  // Registered in src/main/index.ts because they need Electron's app and updater.
+  const registeredInMain = ['update:install', 'app:version'];
+  const allowed = [...INVOKE_CHANNELS].filter((c) => !registeredInMain.includes(c)) as string[];
 
   it('permits every channel the main process registers', () => {
     const missing = registered.filter((c) => !allowed.includes(c));

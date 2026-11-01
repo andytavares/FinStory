@@ -1,27 +1,49 @@
+import { recordSyncAttempt } from '@main/sync/record-attempt';
 import { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { assertEncryptionAvailable, EncryptionUnavailableError } from './secrets/availability';
 import { ElectronSecretBackend } from './secrets/electron-backend';
 import { Keyring } from './secrets/keyring';
+import {
+  accessTokenAccount,
+  CREDENTIAL_ACCOUNTS,
+  KeychainSecretStore,
+  keychainService,
+  type CredentialKey,
+} from './secrets/secret-store';
+import { migrateSecretsToKeychain } from './secrets/migrate-to-keychain';
 import { openDatabase, type DatabaseHandle } from './db/client';
 import { runMigrations } from './db/migrate';
 import { defaultCategories, defaultAlertRules } from './db/seed-categories';
 import { categories as categoriesTable } from './db/schema';
+import { selectPlaidInstitutions } from './import/institutions';
 import { IpcRegistry } from './ipc/registry';
 import { registerHandlers } from './ipc/handlers/index';
 import { Services, type ModelDescription } from './services/index';
 import { CategorizationPipeline } from './categorization/pipeline';
-import { buildClassifier, DEFAULT_ANTHROPIC_MODEL, type ModelProvider } from './categorization/factory';
+import { loadMerchantProfiles } from './categorization/profiles';
+import {
+  buildClassifier,
+  DEFAULT_ANTHROPIC_MODEL,
+  type ModelProvider,
+} from './categorization/factory';
 import { taxonomyPromptList } from './db/seed-categories';
 import { EMPTY_SYNC, type SyncOutcome } from '@main/sync/outcome';
 import { SyncEngine, type SyncPage } from './sync/engine';
 import { DrizzleSyncStore } from './sync/store';
 import { createPlaidClient } from './plaid/client';
-import { settings as settingsTable, institutions as institutionsTable, alertRules as alertRulesTable } from './db/schema';
+import {
+  settings as settingsTable,
+  alertRules as alertRulesTable,
+  merchantProfiles as merchantProfilesTable,
+} from './db/schema';
 import { eq } from 'drizzle-orm';
+import electronUpdater from 'electron-updater';
+import { startUpdates, installUpdate } from './updates';
 import { DiagnosticLogger } from './diagnostics/logger';
-import { MemorySink } from './diagnostics/sink';
+import { DatabaseSink } from './diagnostics/sink';
 import { SystemClock } from '@shared/clock';
+import type { UsageRecorder } from './usage/recorder';
 
 /**
  * Application lifecycle.
@@ -36,6 +58,8 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let databaseHandle: DatabaseHandle | null = null;
 let syncNow: (() => Promise<SyncOutcome>) | null = null;
+let launchCatchUp: (() => Promise<SyncOutcome>) | null = null;
+let trackUpdateCheck: ((run: () => Promise<unknown>) => Promise<unknown>) | undefined;
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
@@ -50,9 +74,13 @@ async function bootstrap(): Promise<void> {
   const backend = new ElectronSecretBackend();
   const keyring = new Keyring(backend);
 
-  const handle = await openDatabase(userDataDir, backend);
+  const secretStore = new KeychainSecretStore(keychainService(app.isPackaged, userDataDir));
+
+  const handle = await openDatabase(userDataDir, secretStore, keyring);
   databaseHandle = handle;
   runMigrations(handle);
+  // Failures keep their original and retry next launch, so they never block startup.
+  await migrateSecretsToKeychain({ db: handle.db, store: secretStore, keyring, userDataDir });
 
   // Seed once: the app must be usable with no configuration (FR-078).
   const existing = await handle.db.select().from(categoriesTable);
@@ -67,17 +95,14 @@ async function bootstrap(): Promise<void> {
   }
 
   const clock = new SystemClock();
-  const logger = new DiagnosticLogger(new MemorySink(), clock);
+  const logger = new DiagnosticLogger(new DatabaseSink(handle.db), clock);
 
   const readSetting = async (key: string): Promise<string | null> => {
     const rows = await handle.db.select().from(settingsTable).where(eq(settingsTable.key, key));
     return rows[0]?.value ?? null;
   };
-  const readSecret = async (key: string): Promise<string | null> => {
-    const value = await readSetting(key);
-    if (!value) return null;
-    return (await keyring.open(Buffer.from(value, 'base64'))).value;
-  };
+  const readSecret = (key: CredentialKey): Promise<string | null> =>
+    secretStore.get(CREDENTIAL_ACCOUNTS[key]);
 
   // The categorizer is rebuilt from settings each time it is needed, so
   // switching provider or model in the UI takes effect without a restart.
@@ -93,15 +118,19 @@ async function bootstrap(): Promise<void> {
       ollamaBaseUrl: (await readSetting('ollamaBaseUrl')) ?? undefined,
     });
     const threshold = Number((await readSetting('confidenceThreshold')) ?? 0.8);
-    return new CategorizationPipeline(
+    const pipeline = new CategorizationPipeline(
       built.classifier ?? { classify: () => Promise.reject(new Error(built.reason)) },
       {
         confidenceThreshold: threshold,
         localOnly: built.localOnly,
         // Read fresh each build: the user can delete categories at any time.
-        validCategoryIds: new Set(categories.filter((c) => c.mergedIntoId === null).map((c) => c.id)),
+        validCategoryIds: new Set(
+          categories.filter((c) => c.mergedIntoId === null).map((c) => c.id),
+        ),
       },
     );
+    loadMerchantProfiles(await handle.db.select().from(merchantProfilesTable), pipeline);
+    return pipeline;
   };
 
   const pipeline = await buildPipeline();
@@ -125,40 +154,51 @@ async function bootstrap(): Promise<void> {
     return { provider, model, localOnly: built.localOnly, reason: built.reason };
   };
 
-  /** Sync every connected institution. Called on launch, on a timer, and after linking. */
-  const runSync = async (): Promise<SyncOutcome> => {
-    const rows = await handle.db.select().from(institutionsTable);
-    if (rows.length === 0) return { ...EMPTY_SYNC, blocked: 'no_institutions' };
-
+  /** The Plaid client, or null while the credentials are missing. */
+  const plaidClient = async (): Promise<ReturnType<typeof createPlaidClient> | null> => {
     const clientId = await readSecret('plaidClientId');
     const secret = await readSecret('plaidSecret');
-    if (!clientId || !secret) return { ...EMPTY_SYNC, blocked: 'no_credentials' };
-    const client = createPlaidClient({
-      clientId,
-      secret,
-      environment: (await readSetting('plaidEnv')) === 'production' ? 'production' : 'sandbox',
-    });
+    if (!clientId || !secret) return null;
+    const environment = (await readSetting('plaidEnv')) === 'production' ? 'production' : 'sandbox';
+    return createPlaidClient({ clientId, secret, environment });
+  };
+
+  type PlaidInstitution = Awaited<ReturnType<typeof selectPlaidInstitutions>>[number];
+  const plaidSource = (inst: PlaidInstitution, client: ReturnType<typeof createPlaidClient>) => ({
+    institutionId: inst.id,
+    cursor: inst.syncCursor,
+    fetch: async (cursor: string | null) => {
+      const accessToken = await secretStore.get(accessTokenAccount(inst.id));
+      if (!accessToken)
+        throw new Error(`No access token in the Keychain for ${inst.institutionName}`);
+      const response = await client.transactionsSync({
+        access_token: accessToken,
+        ...(cursor ? { cursor } : {}),
+      });
+      // Plaid's Transaction type carries more fields than ingestion reads;
+      // the shape is structurally compatible with PlaidTransactionLike.
+      return response.data as unknown as SyncPage;
+    },
+  });
+
+  /** Sync every connected institution. Called on launch, on a timer, and after linking. */
+  const syncAll = async (): Promise<SyncOutcome> => {
+    const rows = await selectPlaidInstitutions(handle.db);
+    if (rows.length === 0) return { ...EMPTY_SYNC, blocked: 'no_institutions' };
+
+    const client = await plaidClient();
+    if (!client) return { ...EMPTY_SYNC, blocked: 'no_credentials' };
 
     const store = new DrizzleSyncStore(handle, clock);
     const syncPipeline = await buildPipeline();
-    const engine = new SyncEngine({ store, clock, pipeline: syncPipeline });
+    const engine = new SyncEngine({
+      store,
+      clock,
+      pipeline: syncPipeline,
+      trackAlerts: (run) => services.usage.track('job:alerts', 'background', run),
+    });
 
-    const sources = await Promise.all(
-      rows.map(async (inst) => ({
-        institutionId: inst.id,
-        cursor: inst.syncCursor,
-        fetch: async (cursor: string | null) => {
-          const accessToken = (await keyring.open(Buffer.from(inst.accessTokenEncrypted, 'base64'))).value;
-          const response = await client.transactionsSync({
-            access_token: accessToken,
-            ...(cursor ? { cursor } : {}),
-          });
-          // Plaid's Transaction type carries more fields than ingestion reads;
-          // the shape is structurally compatible with PlaidTransactionLike.
-          return response.data as unknown as SyncPage;
-        },
-      })),
-    );
+    const sources = rows.map((inst) => plaidSource(inst, client));
 
     const result = await engine.run(sources);
     for (const failure of result.failures) {
@@ -167,55 +207,84 @@ async function bootstrap(): Promise<void> {
 
     // Rebuild the derived ledgers from what was just ingested. Without this the
     // recurring and income lists stay permanently empty.
-    await services.refreshAnalysis();
+    await refreshAnalysisJob();
 
-    const outcome: SyncOutcome = {
-      added: result.added,
-      updated: result.updated,
-      removed: result.removed,
-      skipped: result.skipped,
-      institutionCount: rows.length,
-      failures: result.failures.map((f) => f.message),
-      modelFailures: syncPipeline.modelFailures,
-      modelError: syncPipeline.lastModelError,
-      blocked: null,
-    };
+    const outcome = syncOutcome(result, rows.length, syncPipeline);
     mainWindow?.webContents.send('sync:complete', outcome);
     return outcome;
   };
+
+  const runSync = (): Promise<SyncOutcome> =>
+    services.usage.track('job:sync', 'background', () => recordSyncAttempt(logger, syncAll));
+  const refreshAnalysisJob = (): Promise<unknown> =>
+    services.usage.track('job:analysis', 'background', () => services.refreshAnalysis());
 
   const services = new Services({
     handle,
     userDataDir,
     clock,
     logger,
-    keyring,
+    store: secretStore,
     pipeline,
     buildPipeline,
     describeModel,
     sync: () => runSync(),
     emit: (channel, payload) => mainWindow?.webContents.send(channel, payload),
+    appVersion: app.getVersion(),
+    printToPdf: async () => {
+      if (!mainWindow) throw new Error('The window is not open');
+      return mainWindow.webContents.printToPDF({ printBackground: true });
+    },
   });
 
   syncNow = runSync;
+  void services.usage.prune(
+    clock.now(),
+    ((await readSetting('usageRetention')) ?? '365') as '365' | 'forever',
+  );
+  launchCatchUp = () => services.usage.track('job:catch-up', 'background', runSync);
 
   // Build the derived ledgers from whatever is already stored, so a database
   // imported before this pass existed is not left with empty lists.
-  void services.refreshAnalysis().catch(() => {
+  void refreshAnalysisJob().catch(() => {
     /* surfaced in the health view rather than blocking startup */
   });
 
   const registry = new IpcRegistry();
   registerHandlers(registry, services);
+  // usage:* channels are not tracked, or reading the usage screen would fill it.
+  const trackIpc = <T>(channel: string, run: () => Promise<T>): Promise<T> =>
+    channel.startsWith('usage:') ? run() : services.usage.track(channel, 'action', run);
   for (const channel of registry.channels()) {
-    ipcMain.handle(channel, async (_event, payload: unknown) => registry.invoke(channel, payload));
+    ipcMain.handle(channel, (_event, payload: unknown) =>
+      trackIpc(channel, () => registry.invoke(channel, payload)),
+    );
   }
-  // The reset closes the database and deletes its files; only a fresh start reopens one.
-  ipcMain.removeHandler('data:deleteAll');
-  ipcMain.handle('data:deleteAll', async (_event, payload: unknown) => {
-    const result = await registry.invoke('data:deleteAll', payload);
-    app.relaunch();
-    app.exit(0);
+  // Both channels close the database and replace its files; only a fresh start reopens one.
+  for (const channel of ['data:deleteAll', 'data:import'] as const) {
+    relaunchAfter(registry, channel, services.usage);
+  }
+  ipcMain.handle('app:version', () => trackIpc('app:version', async () => app.getVersion()));
+  ipcMain.handle('update:install', () =>
+    trackIpc('update:install', async () =>
+      installUpdate(electronUpdater.autoUpdater, () => {
+        isQuitting = true;
+      }),
+    ),
+  );
+  trackUpdateCheck = (run) => services.usage.track('job:update-check', 'background', run);
+}
+
+function relaunchAfter(registry: IpcRegistry, channel: string, usage: UsageRecorder): void {
+  ipcMain.removeHandler(channel);
+  ipcMain.handle(channel, async (_event, payload: unknown) => {
+    // Recorded first: the database is closed by the time the call returns.
+    await usage.record({ feature: channel, kind: 'action', outcome: 'success' });
+    const result = await registry.invoke(channel, payload);
+    if ((result as { ok?: boolean }).ok) {
+      app.relaunch();
+      app.exit(0);
+    }
     return result;
   });
 }
@@ -286,6 +355,59 @@ function createTray(): Tray {
 
 // One instance only: two processes writing one SQLite database is a corruption
 // risk, and two schedulers would double every alert.
+function syncOutcome(
+  result: Awaited<ReturnType<SyncEngine['run']>>,
+  institutionCount: number,
+  pipeline: CategorizationPipeline,
+): SyncOutcome {
+  return {
+    added: result.added,
+    updated: result.updated,
+    removed: result.removed,
+    skipped: result.skipped,
+    institutionCount,
+    failures: result.failures.map((f) => f.message),
+    modelFailures: pipeline.modelFailures,
+    modelError: pipeline.lastModelError,
+    blocked: null,
+  };
+}
+
+/** Gate startup on encryption (constitution VII): fail loudly rather than write an unencrypted database. */
+async function encryptionAvailable(): Promise<boolean> {
+  try {
+    await assertEncryptionAvailable(new ElectronSecretBackend());
+    return true;
+  } catch (error) {
+    if (error instanceof EncryptionUnavailableError) {
+      dialog.showErrorBox('Money cannot start', error.message);
+    }
+    app.quit();
+    return false;
+  }
+}
+
+/** A native dialog can be missed or dismissed, so also show the reason in a window: never a silent blank screen. */
+const HTML_UNSAFE = /[<>&]/g;
+
+function failurePageHtml(message: string): string {
+  const safe = message.replace(HTML_UNSAFE, '');
+  return [
+    '<body style="background:#0d151c;color:#e8eaed;font:13px system-ui;padding:32px">',
+    '<h1 style="font-size:16px;margin:0 0 12px">Money could not start</h1>',
+    '<p style="color:#8b95a1;margin:0 0 16px">Your data has not been changed.</p>',
+    `<pre style="white-space:pre-wrap;background:#161e26;padding:12px;border:1px solid #2a3441">${safe}</pre>`,
+    '</body>',
+  ].join('\n');
+}
+
+function showStartupFailure(error: unknown): void {
+  const message = error instanceof Error ? error.message : 'The local database could not be opened.';
+  dialog.showErrorBox('Money could not start', message);
+  const failureWindow = new BrowserWindow({ width: 620, height: 320, show: true });
+  void failureWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(failurePageHtml(message))}`);
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -294,67 +416,51 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow?.focus();
   });
 
-  app.whenReady().then(async () => {
-    // Gate startup on encryption. Constitution VII: fail loudly rather than
-    // writing an unencrypted financial database.
-    try {
-      await assertEncryptionAvailable(new ElectronSecretBackend());
-    } catch (error) {
-      if (error instanceof EncryptionUnavailableError) {
-        dialog.showErrorBox('Money cannot start', error.message);
+  app.whenReady().then(
+    async () => {
+      if (!(await encryptionAvailable())) return;
+      // Everything below is real wiring: without it no IPC channel is answered.
+      try {
+        await bootstrap();
+      } catch (error) {
+        showStartupFailure(error);
+        return;
       }
-      app.quit();
-      return;
-    }
 
-    // Launch at login so background sync resumes without the user thinking
-    // about it. The window stays hidden until asked for.
-    // Compose the application. Everything below this point is real wiring:
-    // without it the process runs but no IPC channel is answered.
-    try {
-      await bootstrap();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'The local database could not be opened.';
-      // A native dialog can be missed or dismissed; show the reason in a window
-      // too, so the failure is never a silent blank screen.
-      dialog.showErrorBox('Money could not start', message);
-      const failureWindow = new BrowserWindow({ width: 620, height: 320, show: true });
-      void failureWindow.loadURL(
-        `data:text/html;charset=utf-8,${encodeURIComponent(
-          `<body style="background:#0d151c;color:#e8eaed;font:13px system-ui;padding:32px">
-             <h1 style="font-size:16px;margin:0 0 12px">Money could not start</h1>
-             <p style="color:#8b95a1;margin:0 0 16px">Your data has not been changed.</p>
-             <pre style="white-space:pre-wrap;background:#161e26;padding:12px;border:1px solid #2a3441">${message.replace(/[<>&]/g, '')}</pre>
-           </body>`,
-        )}`,
+      // Launch at login so background sync resumes; the window stays hidden until asked for.
+      app.setLoginItemSettings({ openAtLogin: true });
+      mainWindow = createWindow();
+      tray = createTray();
+
+      if (app.isPackaged) {
+        startUpdates({
+          updater: electronUpdater.autoUpdater,
+          send: (channel, payload) => mainWindow?.webContents.send(channel, payload),
+          track: trackUpdateCheck,
+        });
+      }
+
+      // Catch up on launch, then poll. A gap of minutes and a gap of weeks are
+      // the same call (research.md R2, R6).
+      void launchCatchUp?.().catch(() => {
+        /* surfaced in the health view rather than blocking startup */
+      });
+      syncTimer = setInterval(
+        () => {
+          void syncNow?.().catch(() => {});
+        },
+        60 * 60 * 1000,
       );
-      return;
-    }
 
-    app.setLoginItemSettings({ openAtLogin: true });
-    mainWindow = createWindow();
-    tray = createTray();
-
-    // Catch up on launch, then poll. A gap of minutes and a gap of weeks are
-    // the same call (research.md R2, R6).
-    void syncNow?.().catch(() => {
-      /* surfaced in the health view rather than blocking startup */
-    });
-    syncTimer = setInterval(
-      () => {
-        void syncNow?.().catch(() => {});
-      },
-      60 * 60 * 1000,
-    );
-
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
-      else mainWindow?.show();
-    });
-  }, () => {
-    app.quit();
-  });
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
+        else mainWindow?.show();
+      });
+    },
+    () => {
+      app.quit();
+    },
+  );
 
   app.on('before-quit', () => {
     isQuitting = true;

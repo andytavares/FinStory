@@ -21,5 +21,11 @@ export function explainModelError(message: string | null): string {
   if (/overloaded/i.test(message)) {
     return `${message} — the API is busy; running it again usually works.`;
   }
+  if (/does not support chat/i.test(message)) {
+    return `${message} — choose a different model in Settings; this one cannot answer chat requests.`;
+  }
+  if (/model .*not found/i.test(message)) {
+    return `${message} — install it with \`ollama pull <model>\`, or choose an installed model in Settings.`;
+  }
   return message;
 }

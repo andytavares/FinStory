@@ -1,319 +1,119 @@
-import { useState } from 'react';
-import { useQuery, call } from '../lib/ipc';
-import { RecategorizeButton } from '../components/RecategorizeButton';
+import { useEffect, useState } from 'react';
+import { useQuery } from '../lib/ipc';
 import { Credentials } from '../components/Credentials';
+import { Card, NavList, PageHeader } from '../components/ui';
+import { CategorizationSection } from './settings/CategorizationSection';
+import { GeneralSection } from './settings/GeneralSection';
+import { PrivacySection, type Protection } from './settings/PrivacySection';
 import type { AppSettings, SetupStatus } from '@shared/types';
-import { DELETE_ALL_CONFIRMATION } from '@shared/schemas';
 
-const ANTHROPIC_MODELS = [
-  { id: 'claude-haiku-4-5', label: 'Haiku 4.5', note: 'Fastest, lowest cost' },
-  { id: 'claude-sonnet-5', label: 'Sonnet 5', note: 'Balanced' },
-  { id: 'claude-opus-5', label: 'Opus 5', note: 'Most capable' },
-];
-
-/** FR-061: the disclosure lives here, and the switch that governs it. */
-interface OllamaModel {
-  readonly name: string;
+interface Health {
+  readonly encryption: Protection;
+  readonly updates: { readonly version: string };
 }
 
-/**
- * Where categorization runs, and with which model.
- *
- * The three options differ in exactly one way that matters: what leaves this
- * machine. That is stated on each, not buried in a help page (FR-061).
- */
-function ModelSection({ settings }: { settings: AppSettings }): React.JSX.Element {
-  const [provider, setProvider] = useState(settings.modelProvider);
-  const ollama = useQuery<OllamaModel[]>('models:listOllama');
+const SECTIONS = [
+  { id: 'general', tab: 'General', heading: 'General' },
+  { id: 'categorization', tab: 'Categorization', heading: 'Categorization' },
+  { id: 'credentials', tab: 'Credentials', heading: 'Credentials' },
+  { id: 'privacy', tab: 'Data and privacy', heading: 'Your data' },
+  { id: 'updates', tab: 'Updates', heading: 'Updates' },
+] as const;
 
-  const update = (patch: Record<string, string>): void => {
-    void call('settings:update', patch);
-  };
-
-  return (
-    <section className="space-y-3">
-      <p className="eyebrow">Categorization</p>
-
-      <div className="divide-y divide-[var(--color-line)] border border-[var(--color-line)]">
-        {(
-          [
-            {
-              id: 'anthropic',
-              title: 'Claude',
-              detail:
-                'Best accuracy. Sends the merchant name, amount, date, and your category history for that one merchant. Never account numbers, balances, credentials, or totals.',
-            },
-            {
-              id: 'ollama',
-              title: 'Local model via Ollama',
-              detail:
-                'Nothing leaves this machine at all. Accuracy depends on the model you run; expect a larger review queue.',
-            },
-            {
-              id: 'local_only',
-              title: 'No model',
-              detail:
-                'Your own merchant history only. Fastest and most private, least accurate on merchants you have not seen before.',
-            },
-          ] as const
-        ).map((option) => (
-          <label
-            key={option.id}
-            className="flex cursor-pointer items-start gap-3 bg-[var(--color-surface)] px-4 py-3 text-[13px]"
-          >
-            <input
-              type="radio"
-              name="modelProvider"
-              className="mt-1"
-              checked={provider === option.id}
-              onChange={() => {
-                setProvider(option.id);
-                update({ modelProvider: option.id });
-              }}
-            />
-            <span>
-              {option.title}
-              <span className="mt-1 block text-[12px] text-[var(--color-ink-faint)]">
-                {option.detail}
-              </span>
-            </span>
-          </label>
-        ))}
-      </div>
-
-      {provider === 'anthropic' && (
-        <label className="block text-[13px]">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Model</span>
-          <select
-            defaultValue={settings.anthropicModel}
-            onChange={(e) => update({ anthropicModel: e.target.value })}
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px]"
-          >
-            {ANTHROPIC_MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label} — {m.note}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-
-      {provider === 'anthropic' && (
-        <label className="block text-[13px]">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Workspace ID</span>
-          <input
-            defaultValue={settings.anthropicWorkspaceId}
-            onChange={(e) => update({ anthropicWorkspaceId: e.target.value.trim() })}
-            placeholder="Leave empty unless your key requires one"
-            aria-label="Anthropic workspace ID"
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px]"
-          />
-          <span className="mt-1 block text-[12px] text-[var(--color-ink-faint)]">
-            Only identity-linked keys need this. If yours does, requests fail with
-            &ldquo;anthropic-workspace-id is required&rdquo; until it is set. Find it in the
-            Anthropic Console URL when your workspace is open.
-          </span>
-        </label>
-      )}
-
-      {provider === 'ollama' && (
-        <label className="block text-[13px]">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Installed model</span>
-          {ollama.data && ollama.data.length > 0 ? (
-            <select
-              defaultValue={settings.ollamaModel}
-              onChange={(e) => update({ ollamaModel: e.target.value })}
-              className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px]"
-            >
-              <option value="">Choose a model</option>
-              {ollama.data.map((m) => (
-                <option key={m.name} value={m.name}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="mt-1 text-[12px] text-[var(--color-ink-faint)]">
-              No local models found. Start Ollama and pull a model, then reopen this screen.
-            </p>
-          )}
-        </label>
-      )}
-
-      <ModelCheck />
-    </section>
-  );
-}
-
-/**
- * Prove the model actually answers.
- *
- * Categorization degrades to local heuristics whenever the model errors, which
- * is right for ingestion but makes a bad key indistinguishable from a good one.
- * This calls the model for real and prints whatever came back.
- */
-function ModelCheck(): React.JSX.Element {
-  const [busy, setBusy] = useState<'test' | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-
-  const run = async (which: 'test'): Promise<void> => {
-    setBusy(which);
-    setNote(null);
-    try {
-      const result = await call<{ message: string }>('model:test');
-      setNote(result.message);
-    } catch (e) {
-      setNote((e as { message?: string }).message ?? 'The check itself failed.');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <div className="space-y-2 border border-[var(--color-line)] px-4 py-3">
-      <div className="flex flex-wrap items-start gap-2">
-        <button
-          type="button"
-          onClick={() => void run('test')}
-          disabled={busy !== null}
-          className="btn"
-        >
-          {busy === 'test' ? 'Checking…' : 'Test the model'}
-        </button>
-        <RecategorizeButton />
-      </div>
-      {note && (
-        <p role="status" className="text-[12px] text-[var(--color-ink-faint)]">
-          {note}
-        </p>
-      )}
-      <p className="text-[12px] text-[var(--color-ink-faint)]">
-        Anything imported before a model was configured was categorized from merchant patterns
-        alone. Recategorizing sends only those to the model; your own corrections are never
-        overwritten.
-      </p>
-    </div>
-  );
-}
-
-/** FR-048: erase everything and start over. The app restarts on the setup screen. */
-function ResetData(): React.JSX.Element {
-  const [open, setOpen] = useState(false);
-  const [typed, setTyped] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="btn btn-danger">
-        Reset everything
-      </button>
+/** The section nearest the top of the scrolling page. Without IntersectionObserver the last click wins. */
+function useActiveSection(): [string, (id: string) => void] {
+  const [active, setActive] = useState<string>(SECTIONS[0].id);
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const top = entries.find((entry) => entry.isIntersecting);
+        if (top) setActive(top.target.id.replace('settings-', ''));
+      },
+      { rootMargin: '0px 0px -70% 0px' },
     );
-  }
-
-  const reset = (): void => {
-    setError(null);
-    void call('data:deleteAll', { confirmation: typed }).catch((e: { message?: string }) =>
-      setError(e.message ?? 'Could not reset'),
-    );
-  };
-
-  return (
-    <div className="space-y-2 border border-[var(--color-negative)] px-4 py-3 text-[13px]">
-      <p>
-        This erases every account, transaction, category change, setting and saved key on this
-        machine. It cannot be undone. Back up first if you want a copy.
-      </p>
-      <label className="block text-[12px] text-[var(--color-ink-faint)]">
-        Type {DELETE_ALL_CONFIRMATION} to confirm
-        <input
-          autoFocus
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          aria-label="Reset confirmation"
-          className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px]"
-        />
-      </label>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={reset}
-          disabled={typed !== DELETE_ALL_CONFIRMATION}
-          className="btn btn-danger"
-        >
-          Erase and restart
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="btn">
-          Cancel
-        </button>
-      </div>
-      {error && <p className="text-[12px] text-[var(--color-attention)]">{error}</p>}
-    </div>
-  );
+    SECTIONS.forEach((s) => {
+      const element = document.getElementById(`settings-${s.id}`);
+      if (element) observer.observe(element);
+    });
+    return () => observer.disconnect();
+  }, []);
+  return [active, setActive];
 }
 
 export function Settings(): React.JSX.Element {
   const settings = useQuery<AppSettings>('settings:get');
   const status = useQuery<SetupStatus>('setup:status');
+  const health = useQuery<Health>('health:get');
+  const [active, setActive] = useActiveSection();
 
-  if (settings.loading || !settings.data) {
-    return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
-  }
+  const jump = (id: string): void => {
+    setActive(id);
+    const section = document.getElementById(`settings-${id}`);
+    const scroller = section?.closest('.ds-body');
+    if (!section || !scroller) return;
+    // Scroll only the page body: scrollIntoView would also shift the clipped app shell.
+    const offset = section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    scroller.scrollTo?.({ top: scroller.scrollTop + offset - 8, behavior: 'smooth' });
+  };
+
+  if (settings.loading || !settings.data) return <p className="ds-faint">Loading…</p>;
   const s = settings.data;
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-[20px]">Settings</h1>
-
-      <ModelSection settings={s} />
-
-      {status.data && <Credentials status={status.data} onSaved={status.refetch} />}
-
-      <section className="space-y-3">
-        <p className="eyebrow">Sync</p>
-        <label className="flex items-center justify-between border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[13px]">
-          <span>
-            Check for new transactions every
-            <span className="mt-1 block text-[12px] text-[var(--color-ink-faint)]">
-              Alerts arrive within one interval while the app is running, and everything missed is
-              delivered on next launch.
-            </span>
-          </span>
-          <span className="numeric">{s.pollIntervalMinutes} min</span>
-        </label>
-      </section>
-
-      <section className="space-y-3">
-        <p className="eyebrow">Your data</p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void call('data:export', { destPath: '' })}
-            className="btn"
-          >
-            Back up
-          </button>
-          <button
-            type="button"
-            onClick={() => void call('data:import', { srcPath: '' })}
-            className="btn"
-          >
-            Restore
-          </button>
+    <>
+      <PageHeader title="Settings" />
+      <div className="flex shrink-0 gap-[18px]">
+        <div className="sticky top-0 w-[170px] flex-none self-start">
+          <NavList
+            label="Settings sections"
+            items={SECTIONS.map((section) => ({ id: section.id, label: section.tab }))}
+            active={active}
+            onSelect={jump}
+          />
         </div>
-        <p className="text-[12px] text-[var(--color-ink-faint)]">
-          Everything lives on this machine. There is no copy anywhere else, so a backup is the only
-          way to recover from a lost disk.
-        </p>
-        <ResetData />
-      </section>
+        <div className="flex min-w-0 flex-1 flex-col gap-7">
+          {SECTIONS.map((section) => (
+            <section
+              key={section.id}
+              id={`settings-${section.id}`}
+              aria-labelledby={`settings-${section.id}-heading`}
+              className="flex scroll-mt-1 flex-col gap-3"
+            >
+              <h2 id={`settings-${section.id}-heading`} className="sr-only">
+                {section.heading}
+              </h2>
+              {section.id === 'general' && <GeneralSection settings={s} />}
+              {section.id === 'categorization' && <CategorizationSection settings={s} />}
+              {section.id === 'credentials' && status.data && (
+                <Credentials status={status.data} onSaved={status.refetch} />
+              )}
+              {section.id === 'privacy' && (
+                <PrivacySection
+                  protection={health.data?.encryption}
+                  lastBackupAt={s.lastBackupAt}
+                  onBackedUp={settings.refetch}
+                />
+              )}
+              {section.id === 'updates' && <UpdatesCard version={health.data?.updates.version} />}
+            </section>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
 
-      {status.data && (
-        <section className="space-y-1 text-[12px] text-[var(--color-ink-faint)]">
-          <p className="eyebrow">Connections</p>
-          <p>{status.data.accountCount} accounts connected</p>
-          <p>Plaid {status.data.plaidConfigured ? 'configured' : 'not configured'}</p>
-        </section>
-      )}
-    </div>
+function UpdatesCard({ version }: { version: string | undefined }): React.JSX.Element {
+  return (
+    <Card>
+      <div className="ds-row">
+        <div className="flex-1">
+          <div className="font-semibold">Money</div>
+          <div className="ds-caption">Money checks for updates at launch and every 6 hours.</div>
+        </div>
+        <span className="ds-num ds-muted">{version ? `Version ${version}` : 'Version unknown'}</span>
+      </div>
+    </Card>
   );
 }

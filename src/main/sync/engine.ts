@@ -55,6 +55,8 @@ export interface SyncEngineDeps {
   readonly clock: Clock;
   readonly pipeline: CategorizationPipeline;
   readonly maxPages?: number;
+  /** Wraps alert evaluation so the caller can record it as a background job. */
+  readonly trackAlerts?: <T>(run: () => Promise<T>) => Promise<T>;
 }
 
 export interface SyncFailure {
@@ -104,7 +106,8 @@ export class SyncEngine {
     }
 
     if (newlyIngested.length > 0) {
-      alertsFired = await this.evaluateAlertsFor(newlyIngested);
+      const evaluate = (): Promise<number> => this.evaluateAlertsFor(newlyIngested);
+      alertsFired = await (this.deps.trackAlerts?.(evaluate) ?? evaluate());
     }
 
     return { added, updated, removed, skipped, alertsFired, failures };

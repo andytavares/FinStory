@@ -3,15 +3,19 @@ import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { join } from 'node:path';
 import * as schema from './schema';
 import { Keyring } from '@main/secrets/keyring';
-import type { SecretBackend } from '@main/secrets/backend';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import {
+  DATABASE_KEY_ACCOUNT,
+  PENDING_DATABASE_KEY_ACCOUNT,
+  type SecretStore,
+} from '@main/secrets/secret-store';
+import { migrateDatabaseKeyFile } from '@main/secrets/migrate-to-keychain';
+import { existsSync } from 'node:fs';
 
 /**
  * SQLCipher-encrypted database.
  *
- * Two layers (research.md R5): safeStorage protects one small secret — the
- * database key — and SQLCipher encrypts every page with it. safeStorage is a
- * string encryptor, not a database.
+ * Two layers (research.md R5): the Keychain holds one small secret — the
+ * database key — and SQLCipher encrypts every page with it.
  *
  * The driver is better-sqlite3-multiple-ciphers, adopted under ADR 0001 with a
  * recorded migration trigger.
@@ -24,36 +28,69 @@ export interface DatabaseHandle {
 }
 
 const DB_FILE = 'money.sqlite';
-const KEY_FILE = 'money.key';
 
-async function loadOrCreateKey(userDataDir: string, backend: SecretBackend): Promise<string> {
-  const keyring = new Keyring(backend);
-  const keyPath = join(userDataDir, KEY_FILE);
+async function loadOrCreateKey(
+  userDataDir: string,
+  store: SecretStore,
+  keyring: Keyring | undefined,
+): Promise<string> {
+  const stored = await store.get(DATABASE_KEY_ACCOUNT);
+  if (stored) return stored;
 
-  if (existsSync(keyPath)) {
-    const opened = await keyring.open(readFileSync(keyPath));
-    if (opened.shouldReEncrypt) {
-      // The OS rotated its key. Re-seal now rather than leaving the database
-      // key protected under a retired one.
-      writeFileSync(keyPath, await keyring.seal(opened.value));
-    }
-    return opened.value;
+  const migrated = keyring ? await migrateDatabaseKeyFile({ store, keyring, userDataDir }) : null;
+  if (migrated) return migrated;
+
+  // A new key cannot open an existing database; fail with the cause instead.
+  if (existsSync(join(userDataDir, DB_FILE))) {
+    throw new Error(
+      'The database key is missing from the Keychain, so the database cannot be opened',
+    );
   }
-
   const key = Keyring.generateDatabaseKey();
-  writeFileSync(keyPath, await keyring.seal(key));
+  await store.set(DATABASE_KEY_ACCOUNT, key);
   return key;
 }
 
+/** True when `key` decrypts the database file at `path`. */
+export function opensWithKey(path: string, key: string): boolean {
+  const probe = new Database(path, { readonly: true, fileMustExist: true });
+  try {
+    probe.pragma(`key='${key}'`);
+    probe.prepare('SELECT count(*) FROM sqlite_master').get();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    probe.close();
+  }
+}
+
+/** A restore saves the key as pending, swaps the file, then promotes it. If it stopped between, promote it now. */
+async function settlePendingKey(path: string, store: SecretStore): Promise<void> {
+  const pending = await store.get(PENDING_DATABASE_KEY_ACCOUNT);
+  if (!pending) return;
+  const current = await store.get(DATABASE_KEY_ACCOUNT);
+  const fileNeedsPending =
+    existsSync(path) && !(current && opensWithKey(path, current)) && opensWithKey(path, pending);
+  if (fileNeedsPending) await store.set(DATABASE_KEY_ACCOUNT, pending);
+  await store.delete(PENDING_DATABASE_KEY_ACCOUNT);
+}
+
+/** `keyring` is only needed to read a database key left by the safeStorage-era `money.key`. */
 export async function openDatabase(
   userDataDir: string,
-  backend: SecretBackend,
+  store: SecretStore,
+  keyring?: Keyring,
 ): Promise<DatabaseHandle> {
-  const key = await loadOrCreateKey(userDataDir, backend);
-  const raw = new Database(join(userDataDir, DB_FILE));
+  const path = join(userDataDir, DB_FILE);
+  await settlePendingKey(path, store);
+  const key = await loadOrCreateKey(userDataDir, store, keyring);
+  const raw = new Database(path);
 
   // Must be the first statement on the connection.
   raw.pragma(`key='${key}'`);
+  // Temp tables and sort spills would otherwise land on disk unencrypted.
+  raw.pragma('temp_store = MEMORY');
   raw.pragma('journal_mode = WAL');
   raw.pragma('foreign_keys = ON');
 

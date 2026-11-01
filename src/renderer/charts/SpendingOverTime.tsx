@@ -3,6 +3,7 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Bar,
+  Cell,
   Line,
   XAxis,
   YAxis,
@@ -10,24 +11,30 @@ import {
   ReferenceLine,
   CartesianGrid,
 } from 'recharts';
-import { moneyCompact, money } from '../lib/format';
+import { axisMoney, axisPeriod, money } from '../lib/format';
+import { Segmented } from '../components/ui';
+import { trackAction } from '../lib/ipc';
+import { BarGradients } from './BarGradients';
+import {
+  ACCENT,
+  AVERAGE_STROKE,
+  BAR_FADED_GRADIENT_ID,
+  BAR_GRADIENT_ID,
+  GRID_STROKE,
+  LABEL_TICK,
+  TOOLTIP_CURSOR,
+  TOOLTIP_LABEL_STYLE,
+  TOOLTIP_STYLE,
+  VALUE_TICK,
+} from './theme';
 
 /**
  * Spending over time (FR-065).
  *
  * ONE series, deliberately. The prior-period figure is a reference baseline,
- * not a peer category, so it is drawn as a reference line rather than a second
- * colour. That keeps identity unambiguous without a legend, and avoids
- * borrowing a reserved status colour for a data series.
- *
- * Series colour #4897cd was validated against this app's dark surface
- * (#161e26) with the dataviz validator: passes lightness band, chroma floor,
- * and 3:1 contrast. Do not adjust it by eye.
+ * not a peer category, so it is drawn as a dashed reference line rather than a
+ * second colour. The latest period is faded: it is still in progress.
  */
-
-const SERIES = '#4897cd';
-const INK_FAINT = 'oklch(0.56 0.02 250)';
-const LINE = 'oklch(0.34 0.02 250)';
 
 export interface SpendingPoint {
   readonly label: string;
@@ -40,17 +47,20 @@ export function SpendingOverTime({
   priorAverageMinor,
   title,
   onSelectPeriod,
+  showShapeToggle = true,
 }: {
   data: readonly SpendingPoint[];
   priorAverageMinor: number | null;
   title: string;
   /** Clicking a period drills into that month's transactions. */
   onSelectPeriod?: (label: string) => void;
+  /** The Bars/Line toggle; hide it where the design shows none. */
+  showShapeToggle?: boolean;
 }): React.JSX.Element {
   const [shape, setShape] = useState<'bars' | 'line'>('bars');
   if (data.length === 0) {
     return (
-      <p className="border border-dashed border-[var(--color-line)] px-4 py-8 text-center text-[13px] text-[var(--color-ink-faint)]">
+      <p className="rounded-[12px] border border-dashed border-[var(--color-line)] px-4 py-8 text-center text-[13px] text-[var(--color-ink-faint)]">
         Not enough history yet to chart.
       </p>
     );
@@ -59,29 +69,26 @@ export function SpendingOverTime({
   return (
     <figure className="m-0">
       {/* A single series needs no legend; the title names it. */}
-      <figcaption className="mb-3 flex items-baseline justify-between text-[15px]">
+      <figcaption className="mb-3 flex items-center justify-between text-[13px] font-semibold">
         <span>{title}</span>
         <span className="flex items-center gap-3 text-[12px] font-normal">
           {onSelectPeriod && (
             <span className="text-[var(--color-ink-faint)]">Click a period to open it</span>
           )}
-          <span className="flex border border-[var(--color-line)]">
-            {(['bars', 'line'] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setShape(s)}
-                aria-pressed={shape === s}
-                className={`px-2 py-0.5 ${
-                  shape === s
-                    ? 'bg-[var(--color-surface-raised)] text-[var(--color-ink)]'
-                    : 'text-[var(--color-ink-faint)]'
-                }`}
-              >
-                {s === 'bars' ? 'Bars' : 'Line'}
-              </button>
-            ))}
-          </span>
+          {showShapeToggle && (
+            <Segmented
+              label="Chart shape"
+              value={shape}
+              onChange={(next) => {
+                setShape(next);
+                trackAction('ui:chart-mode');
+              }}
+              options={[
+                { value: 'bars', label: 'Bars' },
+                { value: 'line', label: 'Line' },
+              ]}
+            />
+          )}
         </span>
       </figcaption>
       <div className="h-56 w-full">
@@ -94,60 +101,60 @@ export function SpendingOverTime({
             }}
             style={{ cursor: onSelectPeriod ? 'pointer' : 'default' }}
           >
-            <CartesianGrid stroke={LINE} strokeDasharray="0" vertical={false} />
+            <BarGradients />
+            <CartesianGrid stroke={GRID_STROKE} vertical={false} />
             <XAxis
               dataKey="label"
-              stroke={INK_FAINT}
-              tickLine={false}
-              axisLine={{ stroke: LINE }}
-              fontSize={11}
-            />
-            <YAxis
-              stroke={INK_FAINT}
+              tick={LABEL_TICK}
               tickLine={false}
               axisLine={false}
-              fontSize={11}
-              width={56}
-              tickFormatter={(v: number) => moneyCompact(v)}
+              tickFormatter={axisPeriod}
+            />
+            <YAxis
+              tick={VALUE_TICK}
+              tickLine={false}
+              axisLine={false}
+              width={46}
+              tickFormatter={axisMoney}
             />
             <Tooltip
               cursor={
-                shape === 'line'
-                  ? { stroke: INK_FAINT, strokeDasharray: '3 3' }
-                  : { fill: 'oklch(0.27 0.02 250)' }
+                shape === 'line' ? { stroke: GRID_STROKE, strokeDasharray: '3 3' } : TOOLTIP_CURSOR
               }
-              contentStyle={{
-                background: 'oklch(0.23 0.02 250)',
-                border: `1px solid ${LINE}`,
-                borderRadius: 0,
-                fontSize: 12,
-              }}
-              labelStyle={{ color: INK_FAINT }}
+              contentStyle={TOOLTIP_STYLE}
+              labelStyle={TOOLTIP_LABEL_STYLE}
               formatter={(v) => [money(Number(v)), 'Spent']}
             />
             {priorAverageMinor !== null && (
               <ReferenceLine
                 y={priorAverageMinor}
-                stroke={INK_FAINT}
-                strokeDasharray="3 3"
+                stroke={AVERAGE_STROKE}
+                strokeDasharray="4 4"
+                strokeWidth={1.2}
                 label={{
-                  value: 'your average',
+                  value: `avg ${money(priorAverageMinor)}`,
                   position: 'insideTopRight',
-                  fill: INK_FAINT,
-                  fontSize: 11,
+                  fill: AVERAGE_STROKE,
+                  fontSize: 10,
                 }}
               />
             )}
-            {/* 4px rounded data-end anchored to the baseline. */}
             {shape === 'bars' ? (
-              <Bar dataKey="spendingMinor" fill={SERIES} radius={[4, 4, 0, 0]} maxBarSize={44} />
+              <Bar dataKey="spendingMinor" radius={5} maxBarSize={44}>
+                {data.map((point, index) => (
+                  <Cell
+                    key={point.label}
+                    fill={`url(#${index === data.length - 1 ? BAR_FADED_GRADIENT_ID : BAR_GRADIENT_ID})`}
+                  />
+                ))}
+              </Bar>
             ) : (
               <Line
                 type="monotone"
                 dataKey="spendingMinor"
-                stroke={SERIES}
+                stroke={ACCENT}
                 strokeWidth={2}
-                dot={{ r: 4, fill: SERIES, strokeWidth: 0 }}
+                dot={{ r: 4, fill: ACCENT, strokeWidth: 0 }}
                 activeDot={{ r: 6 }}
               />
             )}

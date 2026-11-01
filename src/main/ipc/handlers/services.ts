@@ -33,6 +33,7 @@ export interface AppServices {
   overrideIncome(input: unknown): Promise<unknown>;
   addIncomeSource(input: unknown): Promise<unknown>;
   clearIncomeOverride(id: string): Promise<unknown>;
+  incomeHistory(): Promise<unknown>;
 
   reviewQueue(page: unknown): Promise<unknown>;
   recategorize(input: unknown): Promise<unknown>;
@@ -64,21 +65,34 @@ export interface AppServices {
   getReport(id: string): Promise<unknown>;
   generateReport(input: unknown): Promise<unknown>;
   deleteReport(id: string): Promise<unknown>;
+  exportReportPdf(input: unknown): Promise<unknown>;
 
   health(): Promise<unknown>;
   exportDiagnostics(destPath: string): Promise<unknown>;
   getSettings(): Promise<unknown>;
   updateSettings(input: unknown): Promise<unknown>;
-  exportData(destPath: string): Promise<unknown>;
-  importData(srcPath: string): Promise<unknown>;
+  usageSummary(days: 7 | 30 | null): Promise<unknown>;
+  recentUsage(limit: number): Promise<unknown>;
+  exportUsage(): Promise<unknown>;
+  recordView(route: string): Promise<unknown>;
+  recordAction(feature: string): Promise<unknown>;
+  exportData(destPath: string, passphrase: string): Promise<unknown>;
+  importData(srcPath: string, passphrase: string): Promise<unknown>;
   deleteAllData(): Promise<unknown>;
   listOllamaModels(): Promise<unknown>;
+  detectOllama(): Promise<unknown>;
   refreshAnalysis(): Promise<unknown>;
   syncNow(): Promise<unknown>;
   listOverrides(): Promise<unknown>;
   clearOverride(input: unknown): Promise<unknown>;
+  listRules(): Promise<unknown>;
+  updateRule(input: unknown): Promise<unknown>;
+  deleteRule(input: unknown): Promise<unknown>;
   modelStatus(): Promise<unknown>;
   testModel(): Promise<unknown>;
   recategorizePending(input?: unknown): Promise<unknown>;
   cancelRecategorize(): Promise<unknown>;
+
+  previewImport(input: unknown): Promise<unknown>;
+  commitImport(input: unknown): Promise<unknown>;
 }

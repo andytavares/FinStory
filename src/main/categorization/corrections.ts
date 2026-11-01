@@ -11,7 +11,7 @@ export interface CategorizationRecord {
   readonly transactionId: string;
   readonly categoryId: string;
   readonly confidence: number;
-  readonly source: 'local_history' | 'model' | 'user';
+  readonly source: 'local_history' | 'model' | 'user' | 'rule';
   readonly isConfirmed: boolean;
   readonly needsReview: boolean;
   readonly supersededBy: string | null;

@@ -20,33 +20,201 @@ const { runMigrations } = await import('@main/db/migrate');
 const { Services } = await import('@main/services/index');
 const { defaultCategories } = await import('@main/db/seed-categories');
 const schema = await import('@main/db/schema');
-const { Keyring } = await import('@main/secrets/keyring');
 const { DiagnosticLogger } = await import('@main/diagnostics/logger');
 const { MemorySink } = await import('@main/diagnostics/sink');
 const { CategorizationPipeline } = await import('@main/categorization/pipeline');
 const { TestClock } = await import('@shared/clock');
-import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
+const { loadMerchantProfiles } = await import('@main/categorization/profiles');
+const { eq } = await import('drizzle-orm');
 import type { DatabaseHandle } from '@main/db/client';
-
-class TestBackend implements SecretBackend {
-  async isEncryptionAvailable(): Promise<boolean> {
-    return true;
-  }
-  async encryptString(p: string): Promise<Buffer> {
-    return Buffer.from(Buffer.from(p, 'utf8').toString('base64'), 'utf8');
-  }
-  async decryptString(c: Buffer): Promise<OpenedSecret> {
-    return { value: Buffer.from(c.toString('utf8'), 'base64').toString('utf8'), shouldReEncrypt: false };
-  }
-}
+import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
 const NOW = new Date('2026-08-29T12:00:00Z');
 const RANGE = { periodStart: '2026-08-01T00:00:00Z', periodEnd: '2026-09-01T00:00:00Z' };
 
+const LOCAL_ONLY_MODEL: ModelDescription = {
+  provider: 'local_only',
+  model: null,
+  localOnly: true,
+  reason: 'History only in tests',
+};
+
+async function seedAccounts(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.categories).values(defaultCategories());
+  await db.insert(schema.institutions).values({
+    id: 'inst_1',
+    plaidItemId: 'item_1',
+    accessTokenEncrypted: 'sealed',
+    institutionName: 'Chase',
+    syncCursor: 'cursor_1',
+    status: 'healthy',
+    lastSyncedAt: '2026-08-29T11:00:00Z',
+    lastAttemptedSyncAt: '2026-08-29T11:00:00Z',
+    createdAt: '2026-01-01T00:00:00Z',
+  });
+  await db.insert(schema.accounts).values({
+    id: 'acct_1',
+    institutionId: 'inst_1',
+    plaidAccountId: 'pa_1',
+    name: 'Everyday Checking',
+    mask: '4321',
+    type: 'depository',
+    subtype: 'checking',
+    currentBalanceMinor: 84_700,
+    balanceAsOf: '2026-08-29T11:00:00Z',
+    isEveryday: true,
+  });
+}
+
+const TRANSACTIONS = [
+  ['txn_1', -6_400, 'uber eats', 'UBER EATS', '2026-08-05', 'dining'],
+  ['txn_2', -3_800, 'target', 'TARGET 00023415', '2026-08-09', 'groceries'],
+  ['txn_3', -12_000, 'landlord', 'RENT', '2026-08-01', 'rent'],
+  ['txn_4', 520_000, 'acme-payroll', 'ACME PAYROLL', '2026-08-15', 'income'],
+  ['txn_5', -1_599, 'netflix', 'NETFLIX.COM', '2026-08-15', 'streaming'],
+] as const;
+
+type SeedTransaction = (typeof TRANSACTIONS)[number];
+
+async function insertTransaction(db: DatabaseHandle['db'], row: SeedTransaction): Promise<void> {
+  const [id, amountMinor, merchantKey, description, postedDate] = row;
+  await db.insert(schema.transactions).values({
+    id,
+    accountId: 'acct_1',
+    plaidTransactionId: `p_${id}`,
+    amountMinor,
+    merchantName: description,
+    merchantKey,
+    description,
+    postedDate,
+    datetime: `${postedDate}T14:00:00Z`,
+    pending: false,
+    settlementState: 'posted',
+    isInternalTransfer: false,
+    reversesTransactionId: null,
+    originalCurrency: id === 'txn_2' ? 'EUR' : null,
+    originalAmountMinor: id === 'txn_2' ? 3_200 : null,
+    firstSeenAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  });
+}
+
+async function insertCategorization(db: DatabaseHandle['db'], row: SeedTransaction): Promise<void> {
+  const [id, , , , , categoryId] = row;
+  await db.insert(schema.categorizations).values({
+    id: `cat_${id}`,
+    transactionId: id,
+    categoryId,
+    confidence: id === 'txn_2' ? 0.6 : 0.95,
+    source: 'model',
+    isConfirmed: false,
+    needsReview: id === 'txn_2',
+    reasoning: id === 'txn_2' ? 'mixed-use merchant' : null,
+    supersededBy: null,
+    createdAt: NOW.toISOString(),
+  });
+}
+
+async function seedTransactions(db: DatabaseHandle['db']): Promise<void> {
+  for (const row of TRANSACTIONS) {
+    await insertTransaction(db, row);
+    await insertCategorization(db, row);
+  }
+}
+
+async function seedDerivedRows(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.incomeSources).values({
+    id: 'inc_1',
+    accountId: 'acct_1',
+    merchantKey: 'acme-payroll',
+    expectedAmountMinor: 520_000,
+    cadence: 'monthly',
+    nextExpectedDate: '2026-09-15T00:00:00Z',
+    detectionConfidence: 0.95,
+    isUserConfirmed: true,
+    isActive: true,
+  });
+}
+
+async function seedRecurringCharge(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.recurringCharges).values({
+    id: 'rc_1',
+    merchantKey: 'netflix',
+    currentAmountMinor: -1_599,
+    cadence: 'monthly',
+    firstSeenDate: '2026-01-15',
+    lastSeenDate: '2026-08-15',
+    cumulativePaidMinor: -12_792,
+    status: 'active',
+    detectedAt: NOW.toISOString(),
+    userAcknowledged: false,
+  });
+  await db.insert(schema.recurringChargeAmountChanges).values({
+    id: 'ac_1',
+    recurringChargeId: 'rc_1',
+    oldAmountMinor: -1_299,
+    newAmountMinor: -1_599,
+    changedAt: '2026-06-15T00:00:00Z',
+  });
+}
+
+async function seedAlertsAndReports(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.alertRules).values({
+    id: 'rule_1',
+    type: 'large_purchase',
+    thresholdMinor: 20_000,
+    windowMinutes: null,
+    enabled: true,
+  });
+  await db.insert(schema.alerts).values({
+    id: 'alert_1',
+    ruleId: 'rule_1',
+    triggeredByTransactionId: 'txn_3',
+    eventOccurredAt: '2026-08-01T14:00:00Z',
+    detectedAt: '2026-08-29T11:00:00Z',
+    deliveredAt: null,
+    dismissedAsFalsePositive: false,
+    dedupeKey: 'large_purchase:txn_3',
+  });
+  await db.insert(schema.periodReports).values({
+    id: 'rep_1',
+    type: 'monthly_report',
+    periodStart: '2026-07-01T00:00:00Z',
+    periodEnd: '2026-08-01T00:00:00Z',
+    content: JSON.stringify({ totalSpendingMinor: -412_000, savingsRate: 0.18 }),
+    generatedAt: NOW.toISOString(),
+    deliveredAt: null,
+    wasLate: false,
+    dataComplete: true,
+  });
+}
+
+async function seedDiagnostics(db: DatabaseHandle['db']): Promise<void> {
+  await db.insert(schema.diagnosticEvents).values([
+    {
+      occurredAt: '2026-08-29T11:00:00Z',
+      eventType: 'sync_attempt',
+      outcome: 'success',
+      subjectId: 'inst_1',
+      durationMs: 412,
+      errorCode: null,
+    },
+    {
+      occurredAt: '2026-08-29T10:00:00Z',
+      eventType: 'sync_failure',
+      outcome: 'failure',
+      subjectId: 'inst_1',
+      durationMs: 30_000,
+      errorCode: 'network',
+    },
+  ]);
+}
+
 describe('Services with realistic data', () => {
   let dir: string;
   let handle: DatabaseHandle;
+  let store: MemorySecretStore;
   let services: InstanceType<typeof Services>;
   let modelDescription: ModelDescription;
   let emitted: Array<{ channel: string; payload: unknown }>;
@@ -54,169 +222,28 @@ describe('Services with realistic data', () => {
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-data-'));
-    handle = await openDatabase(dir, new TestBackend());
+    store = new MemorySecretStore();
+    handle = await openDatabase(dir, store);
     runMigrations(handle, MIGRATIONS);
     const db = handle.db;
 
-    await db.insert(schema.categories).values(defaultCategories());
-    await db.insert(schema.institutions).values({
-      id: 'inst_1',
-      plaidItemId: 'item_1',
-      accessTokenEncrypted: 'sealed',
-      institutionName: 'Chase',
-      syncCursor: 'cursor_1',
-      status: 'healthy',
-      lastSyncedAt: '2026-08-29T11:00:00Z',
-      lastAttemptedSyncAt: '2026-08-29T11:00:00Z',
-      createdAt: '2026-01-01T00:00:00Z',
-    });
-    await db.insert(schema.accounts).values({
-      id: 'acct_1',
-      institutionId: 'inst_1',
-      plaidAccountId: 'pa_1',
-      name: 'Everyday Checking',
-      mask: '4321',
-      type: 'depository',
-      subtype: 'checking',
-      currentBalanceMinor: 84_700,
-      balanceAsOf: '2026-08-29T11:00:00Z',
-      isEveryday: true,
-    });
-
-    const txs = [
-      ['txn_1', -6_400, 'uber eats', 'UBER EATS', '2026-08-05', 'dining'],
-      ['txn_2', -3_800, 'target', 'TARGET 00023415', '2026-08-09', 'groceries'],
-      ['txn_3', -12_000, 'landlord', 'RENT', '2026-08-01', 'rent'],
-      ['txn_4', 520_000, 'acme-payroll', 'ACME PAYROLL', '2026-08-15', 'income'],
-      ['txn_5', -1_599, 'netflix', 'NETFLIX.COM', '2026-08-15', 'streaming'],
-    ] as const;
-
-    for (const [id, amountMinor, merchantKey, description, postedDate, categoryId] of txs) {
-      await db.insert(schema.transactions).values({
-        id,
-        accountId: 'acct_1',
-        plaidTransactionId: `p_${id}`,
-        amountMinor,
-        merchantName: description,
-        merchantKey,
-        description,
-        postedDate,
-        datetime: `${postedDate}T14:00:00Z`,
-        pending: false,
-        settlementState: 'posted',
-        isInternalTransfer: false,
-        reversesTransactionId: null,
-        originalCurrency: id === 'txn_2' ? 'EUR' : null,
-        originalAmountMinor: id === 'txn_2' ? 3_200 : null,
-        firstSeenAt: NOW.toISOString(),
-        updatedAt: NOW.toISOString(),
-      });
-      await db.insert(schema.categorizations).values({
-        id: `cat_${id}`,
-        transactionId: id,
-        categoryId,
-        confidence: id === 'txn_2' ? 0.6 : 0.95,
-        source: 'model',
-        isConfirmed: false,
-        needsReview: id === 'txn_2',
-        reasoning: id === 'txn_2' ? 'mixed-use merchant' : null,
-        supersededBy: null,
-        createdAt: NOW.toISOString(),
-      });
-    }
-
-    await db.insert(schema.incomeSources).values({
-      id: 'inc_1',
-      accountId: 'acct_1',
-      merchantKey: 'acme-payroll',
-      expectedAmountMinor: 520_000,
-      cadence: 'monthly',
-      nextExpectedDate: '2026-09-15T00:00:00Z',
-      detectionConfidence: 0.95,
-      isUserConfirmed: true,
-      isActive: true,
-    });
-    await db.insert(schema.recurringCharges).values({
-      id: 'rc_1',
-      merchantKey: 'netflix',
-      currentAmountMinor: -1_599,
-      cadence: 'monthly',
-      firstSeenDate: '2026-01-15',
-      lastSeenDate: '2026-08-15',
-      cumulativePaidMinor: -12_792,
-      status: 'active',
-      detectedAt: NOW.toISOString(),
-      userAcknowledged: false,
-    });
-    await db.insert(schema.recurringChargeAmountChanges).values({
-      id: 'ac_1',
-      recurringChargeId: 'rc_1',
-      oldAmountMinor: -1_299,
-      newAmountMinor: -1_599,
-      changedAt: '2026-06-15T00:00:00Z',
-    });
-    await db.insert(schema.alertRules).values({
-      id: 'rule_1',
-      type: 'large_purchase',
-      thresholdMinor: 20_000,
-      windowMinutes: null,
-      enabled: true,
-    });
-    await db.insert(schema.alerts).values({
-      id: 'alert_1',
-      ruleId: 'rule_1',
-      triggeredByTransactionId: 'txn_3',
-      eventOccurredAt: '2026-08-01T14:00:00Z',
-      detectedAt: '2026-08-29T11:00:00Z',
-      deliveredAt: null,
-      dismissedAsFalsePositive: false,
-      dedupeKey: 'large_purchase:txn_3',
-    });
-    await db.insert(schema.periodReports).values({
-      id: 'rep_1',
-      type: 'monthly_report',
-      periodStart: '2026-07-01T00:00:00Z',
-      periodEnd: '2026-08-01T00:00:00Z',
-      content: JSON.stringify({ totalSpendingMinor: -412_000, savingsRate: 0.18 }),
-      generatedAt: NOW.toISOString(),
-      deliveredAt: null,
-      wasLate: false,
-      dataComplete: true,
-    });
-    await db.insert(schema.diagnosticEvents).values([
-      {
-        occurredAt: '2026-08-29T11:00:00Z',
-        eventType: 'sync_attempt',
-        outcome: 'success',
-        subjectId: 'inst_1',
-        durationMs: 412,
-        errorCode: null,
-      },
-      {
-        occurredAt: '2026-08-29T10:00:00Z',
-        eventType: 'sync_failure',
-        outcome: 'failure',
-        subjectId: 'inst_1',
-        durationMs: 30_000,
-        errorCode: 'network',
-      },
-    ]);
+    await seedAccounts(db);
+    await seedTransactions(db);
+    await seedDerivedRows(db);
+    await seedRecurringCharge(db);
+    await seedAlertsAndReports(db);
+    await seedDiagnostics(db);
 
     emitted = [];
     classify = async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' });
-    modelDescription = {
-      provider: 'local_only',
-      model: null,
-      localOnly: true,
-      reason: 'History only in tests',
-    };
+    modelDescription = { ...LOCAL_ONLY_MODEL };
 
     services = new Services({
       handle,
       userDataDir: dir,
       clock: new TestClock(NOW),
       logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-      keyring: new Keyring(new TestBackend()),
+      store,
       pipeline: new CategorizationPipeline(
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
@@ -783,10 +810,16 @@ describe('Services with realistic data', () => {
     expect(h.metrics.localResolutionRate).toBe(0);
   });
 
+  it('counts a merchant rule as a local resolution', async () => {
+    handle.raw.prepare("UPDATE categorizations SET source = 'rule' WHERE transaction_id = 'txn_1'").run();
+    const h = (await services.health()) as { metrics: { localResolutionRate: number | null } };
+    expect(h.metrics.localResolutionRate).toBeCloseTo(1 / 5, 5);
+  });
+
   it('cancelling the export dialog is not an error', async () => {
     expect(await services.exportDiagnostics('')).toMatchObject({ ok: false });
-    expect(await services.exportData('')).toMatchObject({ ok: false });
-    expect(await services.importData('')).toMatchObject({ ok: false });
+    expect(await services.exportData('', 'correct horse')).toMatchObject({ ok: false });
+    expect(await services.importData('', 'correct horse')).toMatchObject({ ok: false });
   });
 
   it('sync:now delegates to the injected sync', async () => {
@@ -848,6 +881,7 @@ describe('Services with realistic data', () => {
     const r = (await services.updateTransaction({
       transactionId: 'txn_1',
       categoryId: 'groceries',
+      scope: 'merchant',
     })) as { merchantKey: string | null; retroactiveCandidateCount: number };
     expect(r.merchantKey).toBe('uber eats');
     // Only txn_1 exists for this merchant and it is now already correct.
@@ -998,6 +1032,18 @@ describe('Services with realistic data', () => {
       expect(result.message).toContain('claude-haiku-4-5');
     });
 
+    it('classifies three real merchants and names each answer', async () => {
+      modelDescription = { provider: 'ollama', model: 'llama3.1:8b', localOnly: false, reason: '' };
+      classify = async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' });
+      const result = (await services.testModel()) as { ok: boolean; message: string };
+      expect(result.ok).toBe(true);
+      expect(result.message).toMatch(/^llama3\.1:8b answered in \d+\.\d s: /);
+      expect(result.message).toContain('Whole Foods →');
+      expect(result.message).toContain('Shell →');
+      expect(result.message).toContain('Netflix →');
+      expect(result.message).not.toContain('ZZQX');
+    });
+
     it('surfaces the raw error instead of degrading quietly', async () => {
       modelDescription = { provider: 'anthropic', model: 'claude-haiku-4-5', localOnly: false, reason: '' };
       classify = () => Promise.reject(new Error('401 invalid x-api-key'));
@@ -1047,7 +1093,7 @@ describe('Services with realistic data', () => {
         userDataDir: dir,
         clock: new TestClock(NOW),
         logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-        keyring: new Keyring(new TestBackend()),
+        store: new MemorySecretStore(),
         pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
         buildPipeline: () =>
           Promise.resolve(
@@ -1066,7 +1112,7 @@ describe('Services with realistic data', () => {
         userDataDir: dir,
         clock: new TestClock(NOW),
         logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-        keyring: new Keyring(new TestBackend()),
+        store: new MemorySecretStore(),
         pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
         buildPipeline: () =>
           Promise.resolve(
@@ -1085,7 +1131,7 @@ describe('Services with realistic data', () => {
         userDataDir: dir,
         clock: new TestClock(NOW),
         logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-        keyring: new Keyring(new TestBackend()),
+        store: new MemorySecretStore(),
         pipeline: new CategorizationPipeline({ classify: () => classify() }, { confidenceThreshold: 0.8 }),
         buildPipeline: () =>
           Promise.resolve(
@@ -1208,25 +1254,11 @@ describe('Services with realistic data', () => {
       expect(rows).toEqual([]);
     });
 
-    it('lists a merchant rename and undoes it', async () => {
-      const first = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
-        rows: Array<{ merchantKey: string | null }>;
-      }).rows.find((r) => r.merchantKey !== null)!;
-      await services.renameMerchant({ merchantKey: first.merchantKey, displayName: 'Renamed' });
-
-      const rows = (await services.listOverrides()) as Array<{
-        kind: string;
-        target: string;
-        current: string;
-        affectedCount: number;
-      }>;
-      const rename = rows.find((r) => r.kind === 'merchant_name');
-      expect(rename?.current).toBe('Renamed');
-      expect(rename?.affectedCount).toBeGreaterThan(0);
-
-      await services.clearOverride({ kind: 'merchant_name', target: first.merchantKey! });
-      const after = (await services.listOverrides()) as Array<{ kind: string }>;
-      expect(after.some((r) => r.kind === 'merchant_name')).toBe(false);
+    it('lists a merchant rename as a rule, not an override', async () => {
+      await services.renameMerchant({ merchantKey: 'uber eats', displayName: 'Renamed' });
+      expect(await services.listOverrides()).toEqual([]);
+      const rules = (await services.listRules()) as Array<{ displayName: string }>;
+      expect(rules[0]?.displayName).toBe('Renamed');
     });
 
     it('lists a per-transaction rename with the imported name it replaced', async () => {
@@ -1236,7 +1268,6 @@ describe('Services with realistic data', () => {
       await services.updateTransaction({
         transactionId: target.id,
         userMerchantName: 'Just this one',
-        applyNameToMerchant: false,
       });
 
       const rows = (await services.listOverrides()) as Array<{
@@ -1311,18 +1342,14 @@ describe('Services with realistic data', () => {
       expect(restored.categoryId).toBe(before);
     });
 
-    it('lists a merchant-wide category confirmation and undoes it', async () => {
-      const target = ((await services.queryTransactions({ limit: 200, offset: 0 })) as {
-        rows: Array<{ id: string; merchantKey: string | null }>;
-      }).rows.find((r) => r.merchantKey !== null)!;
-      await services.updateTransaction({ transactionId: target.id, categoryId: 'groceries' });
+    it('lists a merchant-wide category as a rule and clearing the category keeps no rule', async () => {
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries', scope: 'merchant' });
+      let rules = (await services.listRules()) as Array<{ categoryName: string | null }>;
+      expect(rules[0]?.categoryName).toBe('Groceries');
 
-      let rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
-      expect(rows.find((r) => r.kind === 'merchant_category')?.current).toBe('Groceries');
-
-      await services.clearOverride({ kind: 'merchant_category', target: target.merchantKey! });
-      rows = (await services.listOverrides()) as Array<{ kind: string; current: string }>;
-      expect(rows.some((r) => r.kind === 'merchant_category')).toBe(false);
+      await services.updateRule({ merchantKey: 'uber eats', categoryId: null });
+      rules = (await services.listRules()) as Array<{ categoryName: string | null }>;
+      expect(rules).toEqual([]);
     });
 
     it('never lists a transaction category the app assigned by itself', async () => {
@@ -1492,12 +1519,7 @@ describe('Services with realistic data', () => {
 
 
   describe('changing a credential after setup', () => {
-    async function stored(key: string): Promise<string | undefined> {
-      const rows = handle.raw
-        .prepare('SELECT value, is_secret FROM settings WHERE key = ?')
-        .all(key) as Array<{ value: string; is_secret: number }>;
-      return rows[0]?.value;
-    }
+    const stored = async (account: string): Promise<string | null> => store.get(account);
 
     it('replaces one credential without touching the others', async () => {
       await services.updateCredentials({ plaidClientId: 'client_a', plaidSecret: 'secret_a' });
@@ -1513,11 +1535,11 @@ describe('Services with realistic data', () => {
       expect(status.categorizationConfigured).toBe(true);
     });
 
-    it('seals the value rather than storing it in the clear', async () => {
+    it('keeps the value in the Keychain, not in the database', async () => {
       await services.updateCredentials({ anthropicApiKey: 'sk-ant-secret-value' });
-      const value = await stored('anthropicApiKey');
-      expect(value).toBeDefined();
-      expect(value).not.toContain('sk-ant-secret-value');
+      expect(await stored('anthropic-api-key')).toBe('sk-ant-secret-value');
+      const settingsRows = handle.raw.prepare('SELECT value FROM settings').all();
+      expect(JSON.stringify(settingsRows)).not.toContain('sk-ant-secret-value');
     });
 
     it('never returns a stored credential to the renderer', async () => {
@@ -1533,7 +1555,7 @@ describe('Services with realistic data', () => {
       await services.updateCredentials({ anthropicApiKey: '' });
       const status = (await services.setupStatus()) as { categorizationConfigured: boolean };
       expect(status.categorizationConfigured).toBe(false);
-      expect(await stored('anthropicApiKey')).toBeUndefined();
+      expect(await stored('anthropic-api-key')).toBeNull();
     });
 
     it('changes the Plaid environment, which decides whether keys work at all', async () => {
@@ -1545,13 +1567,9 @@ describe('Services with realistic data', () => {
       expect(((await services.setupStatus()) as { plaidEnv: string }).plaidEnv).toBe('sandbox');
     });
 
-    it('trims a pasted key rather than sealing the whitespace', async () => {
+    it('trims a pasted key rather than storing the whitespace', async () => {
       await services.updateCredentials({ anthropicApiKey: '  sk-ant-padded  ' });
-      const sealed = await stored('anthropicApiKey');
-      const opened = await new Keyring(new TestBackend()).open(
-        Buffer.from(sealed as string, 'base64'),
-      );
-      expect(opened.value).toBe('sk-ant-padded');
+      expect(await stored('anthropic-api-key')).toBe('sk-ant-padded');
     });
 
     it('reports what it changed and does nothing when given nothing', async () => {
@@ -2334,6 +2352,166 @@ describe('Services with realistic data', () => {
       };
       const row = dashboard.categoryBreakdown.rows.find((r) => r.categoryId === categoryId);
       expect(row?.totalMinor).toBe(-30000);
+    });
+  });
+
+  describe('user corrections outrank every automatic method', () => {
+    const live = async (id: string) =>
+      (
+        await handle.db
+          .select()
+          .from(schema.categorizations)
+          .where(eq(schema.categorizations.transactionId, id))
+      ).find((r) => r.supersededBy === null);
+
+    const insertUberTransaction = async (id: string): Promise<void> => {
+      await handle.db.insert(schema.transactions).values({
+        id,
+        accountId: 'acct_1',
+        plaidTransactionId: `p_${id}`,
+        amountMinor: -1_000,
+        merchantName: 'UBER EATS',
+        merchantKey: 'uber eats',
+        description: 'UBER EATS',
+        postedDate: '2026-08-10',
+        datetime: '2026-08-10T14:00:00Z',
+        pending: false,
+        settlementState: 'posted',
+        isInternalTransfer: false,
+        reversesTransactionId: null,
+        originalCurrency: null,
+        originalAmountMinor: null,
+        firstSeenAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      });
+    };
+
+    const addUberCharge = async (id: string, categoryId: string): Promise<void> => {
+      await insertUberTransaction(id);
+      await handle.db.insert(schema.categorizations).values({
+        id: `cat_${id}`,
+        transactionId: id,
+        categoryId,
+        confidence: 0.9,
+        source: 'model',
+        isConfirmed: false,
+        needsReview: false,
+        reasoning: null,
+        supersededBy: null,
+        createdAt: NOW.toISOString(),
+      });
+    };
+
+    it('a one-off category edit leaves the merchant rule alone', async () => {
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries' });
+      expect((await live('txn_1'))?.source).toBe('user');
+      expect(await handle.db.select().from(schema.merchantProfiles)).toEqual([]);
+      expect(await handle.db.select().from(schema.merchantAliases)).toEqual([]);
+    });
+
+    it('a merchant-scope edit re-applies to other rows as a rule and skips a prior one-off', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await addUberCharge('txn_7', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_7', categoryId: 'shopping' });
+
+      const r = (await services.updateTransaction({
+        transactionId: 'txn_1',
+        categoryId: 'groceries',
+        scope: 'merchant',
+      })) as { updated: number; skippedOneOffs: number };
+
+      expect(r).toMatchObject({ updated: 2, skippedOneOffs: 1 });
+      expect((await live('txn_1'))?.source).toBe('rule');
+      expect((await live('txn_6'))).toMatchObject({ categoryId: 'groceries', source: 'rule' });
+      expect((await live('txn_7'))).toMatchObject({ categoryId: 'shopping', source: 'user' });
+    });
+
+    it('changing the rule later re-applies to rule rows and leaves the one-off', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await addUberCharge('txn_7', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_7', categoryId: 'shopping' });
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries', scope: 'merchant' });
+
+      await services.updateRule({ merchantKey: 'uber eats', categoryId: 'home' });
+
+      expect((await live('txn_1'))).toMatchObject({ categoryId: 'home', source: 'rule' });
+      expect((await live('txn_6'))).toMatchObject({ categoryId: 'home', source: 'rule' });
+      expect((await live('txn_7'))).toMatchObject({ categoryId: 'shopping', source: 'user' });
+    });
+
+    it('a new charge categorized through the pipeline gets the rule category', async () => {
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries', scope: 'merchant' });
+      const pipeline = new CategorizationPipeline(
+        { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
+        { confidenceThreshold: 0.8 },
+      );
+      loadMerchantProfiles(await handle.db.select().from(schema.merchantProfiles), pipeline);
+      const result = await pipeline.categorize({
+        transactionId: 'new',
+        descriptor: 'UBER EATS',
+        amountMinor: -900,
+        occurredAt: NOW,
+      });
+      expect(result).toMatchObject({ categoryId: 'groceries', source: 'rule' });
+    });
+
+    it('a merchant rename sets the alias and a one-off rename survives an alias change', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_6', userMerchantName: 'Just this' });
+      expect(await handle.db.select().from(schema.merchantAliases)).toEqual([]);
+
+      await services.updateTransaction({
+        transactionId: 'txn_1',
+        userMerchantName: 'Uber Dinner',
+        scope: 'merchant',
+      });
+      await services.updateRule({ merchantKey: 'uber eats', displayName: 'Uber Food' });
+
+      const aliases = await handle.db.select().from(schema.merchantAliases);
+      expect(aliases.map((a) => a.displayName)).toEqual(['Uber Food']);
+      const rows = (
+        (await services.queryTransactions({ limit: 50, offset: 0 })) as {
+          rows: Array<{ id: string; merchantName: string }>;
+        }
+      ).rows;
+      expect(rows.find((r) => r.id === 'txn_6')?.merchantName).toBe('Just this');
+      expect(rows.find((r) => r.id === 'txn_1')?.merchantName).toBe('Uber Food');
+    });
+
+    it('rules:list counts charges and one-offs, and delete clears the rule', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_6', categoryId: 'shopping' });
+      await services.updateTransaction({
+        transactionId: 'txn_1',
+        categoryId: 'groceries',
+        userMerchantName: 'Uber Food',
+        scope: 'merchant',
+      });
+
+      const rules = (await services.listRules()) as Array<Record<string, unknown>>;
+      expect(rules).toEqual([
+        {
+          merchantKey: 'uber eats',
+          merchantName: 'UBER EATS',
+          displayName: 'Uber Food',
+          categoryId: 'groceries',
+          categoryName: expect.any(String),
+          transactionCount: 2,
+          oneOffCount: 1,
+        },
+      ]);
+
+      await services.deleteRule({ merchantKey: 'uber eats' });
+      expect(await services.listRules()).toEqual([]);
+    });
+
+    it('the overrides list holds one-offs only, not rule-applied rows', async () => {
+      await addUberCharge('txn_6', 'dining');
+      await services.updateTransaction({ transactionId: 'txn_1', categoryId: 'groceries', scope: 'merchant' });
+      expect(await services.listOverrides()).toEqual([]);
+      await services.updateTransaction({ transactionId: 'txn_6', categoryId: 'shopping' });
+      const kinds = ((await services.listOverrides()) as Array<{ kind: string }>).map((r) => r.kind);
+      expect(kinds).toEqual(['transaction_category']);
     });
   });
 

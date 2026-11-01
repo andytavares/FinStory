@@ -57,6 +57,20 @@
       "when": 1788101358387,
       "tag": "0007_recurring_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788101358388,
+      "tag": "0008_usage_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788101358389,
+      "tag": "0009_import_institutions",
+      "breakpoints": true
     }
   ]
 }

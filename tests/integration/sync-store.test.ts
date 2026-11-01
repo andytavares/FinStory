@@ -11,21 +11,9 @@ const { DrizzleSyncStore } = await import('@main/sync/store');
 const schema = await import('@main/db/schema');
 const { TestClock } = await import('@shared/clock');
 const { AlertType } = await import('@main/analysis/alerts');
-import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
 import type { DatabaseHandle } from '@main/db/client';
 import type { StoredTransaction } from '@main/ingestion/apply';
-
-class TestBackend implements SecretBackend {
-  async isEncryptionAvailable(): Promise<boolean> {
-    return true;
-  }
-  async encryptString(p: string): Promise<Buffer> {
-    return Buffer.from(p, 'utf8');
-  }
-  async decryptString(c: Buffer): Promise<OpenedSecret> {
-    return { value: c.toString('utf8'), shouldReEncrypt: false };
-  }
-}
+import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 const NOW = new Date('2026-08-29T12:00:00Z');
 const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
@@ -51,15 +39,7 @@ function tx(over: Partial<StoredTransaction> = {}): StoredTransaction {
   } as StoredTransaction;
 }
 
-describe('DrizzleSyncStore against a real database', () => {
-  let dir: string;
-  let handle: DatabaseHandle;
-  let store: InstanceType<typeof DrizzleSyncStore>;
-
-  beforeEach(async () => {
-    dir = mkdtempSync(join(tmpdir(), 'money-store-'));
-    handle = await openDatabase(dir, new TestBackend());
-    runMigrations(handle, MIGRATIONS);
+async function seedLedger(handle: DatabaseHandle): Promise<void> {
     await handle.db.insert(schema.categories).values([
       { id: 'dining', name: 'Dining', parentId: null, isSystem: true, isHidden: false, mergedIntoId: null },
     ]);
@@ -86,6 +66,18 @@ describe('DrizzleSyncStore against a real database', () => {
       balanceAsOf: NOW.toISOString(),
       isEveryday: true,
     });
+}
+
+describe('DrizzleSyncStore against a real database', () => {
+  let dir: string;
+  let handle: DatabaseHandle;
+  let store: InstanceType<typeof DrizzleSyncStore>;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'money-store-'));
+    handle = await openDatabase(dir, new MemorySecretStore());
+    runMigrations(handle, MIGRATIONS);
+    await seedLedger(handle);
     store = new DrizzleSyncStore(handle, new TestClock(NOW));
   });
 

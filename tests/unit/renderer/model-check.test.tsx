@@ -47,8 +47,8 @@ describe('the model check reports the real answer', () => {
       'categorization:rerun': { ok: true, message: 'Recategorized 37 of 40 unresolved transactions.' },
     });
     render(<Settings />);
-    await waitFor(() => screen.getByText('Recategorize with AI'));
-    fireEvent.click(screen.getByText('Recategorize with AI'));
+    await waitFor(() => screen.getByRole('button', { name: 'Run' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('37 of 40'));
   });
 
@@ -81,7 +81,9 @@ describe('the workspace id field', () => {
     const invoke = vi.fn((channel: string) =>
       channel === 'settings:get'
         ? Promise.resolve(BASE['settings:get'])
-        : Promise.resolve(BASE['setup:status']),
+        : channel === 'health:get'
+          ? Promise.reject(new Error('No stub for health:get'))
+          : Promise.resolve(BASE['setup:status']),
     );
     Object.defineProperty(globalThis.window, 'money', {
       configurable: true,
@@ -107,3 +109,53 @@ describe('the workspace id field', () => {
     expect(screen.queryByLabelText('Anthropic workspace ID')).toBeNull();
   });
 })
+
+describe('the Ollama block', () => {
+  const OLLAMA = { ...BASE, 'settings:get': { ...BASE['settings:get'], modelProvider: 'ollama' } };
+
+  it('shows the reason when listing models fails, not "no models"', async () => {
+    const invoke = vi.fn((channel: string) =>
+      channel === 'models:listOllama'
+        ? Promise.reject(new Error('Ollama is not running at http://localhost:11434. Start Ollama and try again.'))
+        : Promise.resolve((OLLAMA as Record<string, unknown>)[channel]),
+    );
+    Object.defineProperty(globalThis.window, 'money', {
+      configurable: true,
+      value: { invoke, on: () => () => {} },
+    });
+    render(<Settings />);
+    await waitFor(() => expect(screen.getByText(/Ollama is not running/)).toBeDefined());
+    expect(screen.queryByText(/No local models found/)).toBeNull();
+    fireEvent.click(screen.getByText('Refresh models'));
+    await waitFor(() =>
+      expect(invoke.mock.calls.filter(([c]) => c === 'models:listOllama').length).toBe(2),
+    );
+  });
+
+  it('names the running Ollama version', async () => {
+    installMoneyBridge({
+      ...OLLAMA,
+      'setup:detectOllama': { running: true, version: '0.40.11', models: ['llama3.1:8b'] },
+    });
+    render(<Settings />);
+    await waitFor(() => expect(screen.getByText('Ollama 0.40.11 running')).toBeDefined());
+  });
+
+  it('saves the Ollama address as typed', async () => {
+    const invoke = vi.fn((channel: string) =>
+      Promise.resolve((OLLAMA as Record<string, unknown>)[channel]),
+    );
+    Object.defineProperty(globalThis.window, 'money', {
+      configurable: true,
+      value: { invoke, on: () => () => {} },
+    });
+    render(<Settings />);
+    await waitFor(() => screen.getByLabelText('Ollama address'));
+    fireEvent.change(screen.getByLabelText('Ollama address'), {
+      target: { value: 'http://192.168.1.5:11434' },
+    });
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('settings:update', { ollamaBaseUrl: 'http://192.168.1.5:11434' }),
+    );
+  });
+});

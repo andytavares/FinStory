@@ -19,6 +19,38 @@ export interface InstitutionSummary {
   readonly lastSyncedAt: string | null;
   readonly accountCount: number;
   readonly accounts: AccountRow[];
+  /** 'import' institutions hold Quicken history and never sync. */
+  readonly source?: 'plaid' | 'import';
+}
+
+export interface ImportPreview {
+  readonly format: 'csv' | 'qif' | 'ofx';
+  readonly accounts: ReadonlyArray<{
+    label: string;
+    count: number;
+    firstDate: string;
+    lastDate: string;
+    suggestedAccountId: string | null;
+    /** Rows of this account already in Money. */
+    duplicateCount: number;
+  }>;
+  readonly newCount: number;
+  readonly duplicateCount: number;
+  readonly categoryMappings: ReadonlyArray<{
+    quickenCategory: string;
+    count: number;
+    suggestedCategoryId: string | null;
+  }>;
+  readonly warnings: readonly string[];
+  /** The CSV has no recognisable header row; the user picks the columns. */
+  readonly needsMapping: boolean;
+  readonly headers?: readonly string[];
+}
+
+export interface ImportResult {
+  readonly imported: number;
+  readonly skippedDuplicates: number;
+  readonly createdAccounts: number;
 }
 
 export interface AccountSummary {
@@ -43,6 +75,8 @@ export interface TransactionView {
   readonly postedDate: string;
   readonly categoryId: string;
   readonly confidence: number;
+  /** Who set the category. Null when it has none. */
+  readonly categorySource?: 'user' | 'rule' | 'model' | 'local_history' | null;
   readonly needsReview: boolean;
   readonly isInternalTransfer: boolean;
   /** Display-only; never summed or compared by the renderer (FR-085). */
@@ -52,6 +86,8 @@ export interface TransactionView {
   readonly userNote: string | null;
   readonly userExcluded: boolean;
   readonly userRecurringOverride: 'recurring' | 'not_recurring' | null;
+  readonly accountName: string;
+  readonly accountMask: string | null;
 }
 
 /** Every total-bearing response carries its own completeness. */
@@ -98,6 +134,9 @@ export interface RecurringChargeView {
   readonly cumulativePaidMinor: number;
   readonly status: 'active' | 'inactive';
   readonly amountChanges: Array<{ oldAmountMinor: number; newAmountMinor: number; changedAt: string }>;
+  readonly nextExpectedDate: string;
+  readonly monthlyCostMinor: number;
+  readonly yearlyCostMinor: number;
 }
 
 export interface IncomeSourceView {
@@ -109,6 +148,9 @@ export interface IncomeSourceView {
   readonly nextExpectedDate: string;
   readonly detectionConfidence: number;
   readonly isUserConfirmed: boolean;
+  readonly daysUntilNext: number;
+  readonly accountName: string;
+  readonly accountMask: string | null;
 }
 
 export interface AlertView {
@@ -118,6 +160,10 @@ export interface AlertView {
   readonly eventOccurredAt: string;
   readonly detectedAt: string;
   readonly dismissed: boolean;
+  /** The transaction that triggered it; null for an alert not tied to one. */
+  readonly transactionId: string | null;
+  readonly merchantName: string | null;
+  readonly amountMinor: number | null;
 }
 
 /**
@@ -222,6 +268,10 @@ export interface AppSettings {
   readonly ollamaModel: string;
   readonly ollamaBaseUrl: string;
   readonly timeZone: string;
+  /** How long usage history is kept: one year, or until the user erases it. */
+  readonly usageRetention: '365' | 'forever';
+  /** When the last backup finished. Null until the first one. */
+  readonly lastBackupAt: string | null;
 }
 
 export type IpcErrorCode =
@@ -243,4 +293,60 @@ export interface IpcError {
   readonly message: string;
   readonly recoverable: boolean;
   readonly action?: string;
+}
+
+/** A standing rule for one merchant: the name and category it always gets. */
+export interface MerchantRuleView {
+  readonly merchantKey: string;
+  /** The name the bank sent, for telling rules apart. */
+  readonly merchantName: string;
+  readonly displayName: string | null;
+  readonly categoryId: string | null;
+  readonly categoryName: string | null;
+  readonly transactionCount: number;
+  /** Charges of this merchant the rule does not control. */
+  readonly oneOffCount: number;
+}
+
+/** Dashboard additions. Money out is positive in every series. */
+export interface DashboardKpis {
+  /** `currentMinor` is the current week, month or year, depending on the requested period. */
+  readonly spent: { currentMinor: number; seriesMinor: number[] };
+  readonly income: {
+    currentMinor: number;
+    seriesMinor: number[];
+    nextDeposit: { date: string; amountMinor: number; merchantName: string } | null;
+  };
+  readonly recurring: { monthlyMinor: number; count: number; candidateCount: number; seriesMinor: number[] };
+  readonly safeToSpendPerDayMinor: number | null;
+}
+
+export interface DashboardExtras {
+  readonly kpis: DashboardKpis;
+  readonly upcomingRecurring: Array<{ merchantName: string; date: string; amountMinor: number }>;
+  readonly runwaySeries: { points: Array<{ date: string; balanceMinor: number }>; floorMinor: number } | null;
+  readonly whereItWent: Array<{ groupId: string; name: string; spentMinor: number }>;
+}
+
+export interface ReviewSuggestion {
+  readonly categoryId: string;
+  readonly name: string;
+}
+
+export interface IncomeMonth {
+  readonly month: string;
+  readonly incomeMinor: number;
+  readonly spendingMinor: number;
+}
+
+export interface SyncHistoryEntry {
+  readonly at: string;
+  readonly ok: boolean;
+  readonly durationMs: number | null;
+}
+
+export interface OllamaDetection {
+  readonly running: boolean;
+  readonly version?: string;
+  readonly models: string[];
 }

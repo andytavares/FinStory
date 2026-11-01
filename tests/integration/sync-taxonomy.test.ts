@@ -13,14 +13,8 @@ const { CategorizationPipeline } = await import('@main/categorization/pipeline')
 const { defaultCategories } = await import('@main/db/seed-categories');
 const schema = await import('@main/db/schema');
 const { TestClock } = await import('@shared/clock');
-import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
 import type { DatabaseHandle } from '@main/db/client';
-
-class TestBackend implements SecretBackend {
-  async isEncryptionAvailable(): Promise<boolean> { return true; }
-  async encryptString(p: string): Promise<Buffer> { return Buffer.from(p, 'utf8'); }
-  async decryptString(c: Buffer): Promise<OpenedSecret> { return { value: c.toString('utf8'), shouldReEncrypt: false }; }
-}
+import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 const NOW = new Date('2026-08-29T12:00:00Z');
 const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
@@ -46,7 +40,7 @@ describe('sync survives a taxonomy the user has changed', () => {
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-fk-'));
-    handle = await openDatabase(dir, new TestBackend());
+    handle = await openDatabase(dir, new MemorySecretStore());
     runMigrations(handle, MIGRATIONS);
     await handle.db.insert(schema.categories).values(defaultCategories());
     await handle.db.insert(schema.institutions).values({

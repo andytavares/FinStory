@@ -17,9 +17,11 @@ const INSTITUTIONS = [
   },
 ];
 
-async function openForm(): Promise<void> {
-  await waitFor(() => screen.getByText('Add income'));
-  fireEvent.click(screen.getByText('Add income'));
+const noop = (): void => {};
+
+async function renderForm(props: { onAdded?: () => void; onClose?: () => void } = {}): Promise<void> {
+  render(<AddIncomeSource open onClose={props.onClose ?? noop} onAdded={props.onAdded ?? noop} />);
+  await screen.findByText('Chase · Checking');
 }
 
 describe('adding an income source the detector cannot see', () => {
@@ -31,8 +33,7 @@ describe('adding an income source the detector cannot see', () => {
       configurable: true,
       value: { invoke, on: () => () => {} },
     });
-    render(<AddIncomeSource onAdded={() => {}} />);
-    await openForm();
+    await renderForm();
     fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'a1' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Retainer' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '2400.00' } });
@@ -53,15 +54,13 @@ describe('adding an income source the detector cannot see', () => {
 
   it('lists every account across institutions', async () => {
     installMoneyBridge({ 'institutions:list': INSTITUTIONS });
-    render(<AddIncomeSource onAdded={() => {}} />);
-    await openForm();
+    await renderForm();
     await waitFor(() => expect(screen.getByText('Chase · Checking')).toBeDefined());
   });
 
   it('refuses an empty or zero amount rather than storing nonsense', async () => {
     installMoneyBridge({ 'institutions:list': INSTITUTIONS, 'income:add': { id: 'x' } });
-    render(<AddIncomeSource onAdded={() => {}} />);
-    await openForm();
+    await renderForm();
     fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'a1' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '0' } });
     fireEvent.change(screen.getByLabelText('Next expected'), { target: { value: '2026-09-15' } });
@@ -71,8 +70,7 @@ describe('adding an income source the detector cannot see', () => {
 
   it('refuses when no account is chosen', async () => {
     installMoneyBridge({ 'institutions:list': INSTITUTIONS, 'income:add': { id: 'x' } });
-    render(<AddIncomeSource onAdded={() => {}} />);
-    await openForm();
+    await renderForm();
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '100' } });
     fireEvent.change(screen.getByLabelText('Next expected'), { target: { value: '2026-09-15' } });
     fireEvent.click(screen.getByText('Add'));
@@ -81,22 +79,22 @@ describe('adding an income source the detector cannot see', () => {
 
   it('closes and reports back once added', async () => {
     const onAdded = vi.fn();
+    const onClose = vi.fn();
     installMoneyBridge({ 'institutions:list': INSTITUTIONS, 'income:add': { id: 'x' } });
-    render(<AddIncomeSource onAdded={onAdded} />);
-    await openForm();
+    await renderForm({ onAdded, onClose });
     fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'a1' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '100' } });
     fireEvent.change(screen.getByLabelText('Next expected'), { target: { value: '2026-09-15' } });
     fireEvent.click(screen.getByText('Add'));
     await waitFor(() => expect(onAdded).toHaveBeenCalled());
-    expect(screen.getByText('Add income')).toBeDefined();
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('can be cancelled', async () => {
     installMoneyBridge({ 'institutions:list': INSTITUTIONS });
-    render(<AddIncomeSource onAdded={() => {}} />);
-    await openForm();
+    const onClose = vi.fn();
+    await renderForm({ onClose });
     fireEvent.click(screen.getByText('Cancel'));
-    await waitFor(() => expect(screen.getByText('Add income')).toBeDefined());
+    expect(onClose).toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IpcRegistry, IpcFailure } from '../registry';
 import {
+  dashboardSchema,
   dateRangeSchema,
   saveCredentialsSchema,
   credentialsUpdateSchema,
@@ -21,6 +22,7 @@ import {
   categoryDeleteSchema,
   settingsUpdateSchema,
   pathSchema,
+  exportSchema,
   clearOverrideSchema,
   decideRecurringSchema,
   recategorizeAllSchema,
@@ -31,6 +33,14 @@ import {
   alertIdSchema,
   transactionIdsSchema,
   transactionUpdateSchema,
+  ruleUpdateSchema,
+  ruleDeleteSchema,
+  usageViewSchema,
+  usageActionSchema,
+  usageSummarySchema,
+  usageRecentSchema,
+  importPreviewSchema,
+  importCommitSchema,
 } from '@shared/schemas';
 import type { AppServices } from './services';
 
@@ -72,7 +82,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   );
 
   // Reading money — all offline-safe.
-  registry.handleOfflineSafe('dashboard:get', dateRangeSchema, (p) => services.dashboard(p), () =>
+  registry.handleOfflineSafe('dashboard:get', dashboardSchema, (p) => services.dashboard(p), () =>
     services.dashboardFromCache(),
   );
   registry.handleOfflineSafe(
@@ -106,6 +116,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('income:override', incomeOverrideSchema, (p) => services.overrideIncome(p));
   registry.handle('income:add', incomeAddSchema, (p) => services.addIncomeSource(p));
   registry.handle('income:clearOverride', idSchema, (p) => services.clearIncomeOverride(p.id));
+  registry.handle('income:history', empty, () => services.incomeHistory());
 
   // Corrections
   registry.handle('review:queue', z.object({ limit: z.number().default(100), offset: z.number().default(0) }), (p) =>
@@ -153,26 +164,43 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   );
   registry.handle('reports:generate', reportGenerateSchema, (p) => services.generateReport(p));
   registry.handle('reports:delete', idSchema, (p) => services.deleteReport(p.id));
+  registry.handle('reports:exportPdf', idSchema, (p) => services.exportReportPdf(p));
 
   // Diagnostics, settings, data
   registry.handle('health:get', empty, () => services.health());
   registry.handle('diagnostics:export', pathSchema, (p) => services.exportDiagnostics(p.destPath));
   registry.handle('settings:get', empty, () => services.getSettings());
   registry.handle('models:listOllama', empty, () => services.listOllamaModels());
+  registry.handle('setup:detectOllama', empty, () => services.detectOllama());
   registry.handle('settings:update', settingsUpdateSchema, (p) => services.updateSettings(p));
-  registry.handle('data:export', pathSchema, (p) => services.exportData(p.destPath));
-  registry.handle('data:import', importSchema, (p) => services.importData(p.srcPath));
+  registry.handle('data:export', exportSchema, (p) => services.exportData(p.destPath, p.passphrase));
+  registry.handle('data:import', importSchema, (p) =>
+    services.importData(p.srcPath, p.passphrase),
+  );
   registry.handle('data:deleteAll', deleteAllSchema, () => services.deleteAllData());
+
+  // Usage tracking. These channels are not themselves tracked.
+  registry.handle('usage:view', usageViewSchema, (p) => services.recordView(p.route));
+  registry.handle('usage:action', usageActionSchema, (p) => services.recordAction(p.feature));
+  registry.handle('usage:summary', usageSummarySchema, (p) => services.usageSummary(p.days));
+  registry.handle('usage:recent', usageRecentSchema, (p) => services.recentUsage(p.limit));
+  registry.handle('usage:export', empty, () => services.exportUsage());
 
   registry.handle('analysis:refresh', empty, () => services.refreshAnalysis());
   registry.handle('overrides:list', empty, () => services.listOverrides());
   registry.handle('overrides:clear', clearOverrideSchema, (p) => services.clearOverride(p));
+  registry.handle('rules:list', empty, () => services.listRules());
+  registry.handle('rules:update', ruleUpdateSchema, (p) => services.updateRule(p));
+  registry.handle('rules:delete', ruleDeleteSchema, (p) => services.deleteRule(p));
   registry.handle('model:status', empty, () => services.modelStatus());
   registry.handle('model:test', empty, () => services.testModel());
   registry.handle('categorization:rerun', recategorizeAllSchema, (p) =>
     services.recategorizePending(p),
   );
   registry.handle('categorization:cancel', empty, () => services.cancelRecategorize());
+
+  registry.handle('import:preview', importPreviewSchema, (p) => services.previewImport(p));
+  registry.handle('import:commit', importCommitSchema, (p) => services.commitImport(p));
 
   // The only caller of /transactions/refresh, and only on user request (R2).
   registry.handle('sync:now', empty, async () => {

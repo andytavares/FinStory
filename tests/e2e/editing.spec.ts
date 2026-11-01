@@ -17,18 +17,14 @@ test.describe('user control over transactions, alerts, and reports', () => {
   test('alert rules are editable, not just on/off', async () => {
     await harness.page.getByRole('button', { name: 'Alerts' }).click();
     // Default rules seed on first read, each with an editable threshold.
-    // Scope to the rule list: the same wording also appears in the add-rule
-    // dropdown's options.
-    const rules = harness.page.getByRole('list').first();
-    await expect(rules.getByText(/A single purchase over an amount/)).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(harness.page.getByText('What you get told about')).toBeVisible({ timeout: 10_000 });
     const threshold = harness.page.getByLabel(/^Threshold for/).first();
     await expect(threshold).toBeVisible();
     await expect(threshold).toHaveValue('200');
   });
 
   test('a new alert can be created, including a second of the same kind', async () => {
+    await harness.page.getByRole('button', { name: '+ New alert' }).click();
     await expect(harness.page.getByRole('button', { name: 'Add alert' })).toBeVisible();
     const before = await harness.page.getByLabel(/^Threshold for/).count();
     await harness.page.getByLabel('New alert value').fill('1000');
@@ -40,13 +36,14 @@ test.describe('user control over transactions, alerts, and reports', () => {
 
   test('a report can be run on demand', async () => {
     await harness.page.getByRole('button', { name: 'Reports' }).click();
-    await expect(harness.page.getByRole('button', { name: 'Run monthly report' })).toBeVisible();
-    await harness.page.getByRole('button', { name: 'Run monthly report' }).click();
+    const run = harness.page.getByRole('button', { name: /^Run \w+ report$/ });
+    await expect(run).toBeVisible();
+    await run.click();
     await expect(harness.page.getByText(/Monthly report ready/)).toBeVisible({ timeout: 15_000 });
   });
 
   test('the generated report then appears in the list', async () => {
-    await expect(harness.page.getByText(/Monthly report/).first()).toBeVisible({ timeout: 10_000 });
+    await expect(harness.page.getByText(/Latest · /)).toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -78,22 +75,20 @@ test.describe('income visibility and report detail', () => {
     await h.page.getByLabel('Report name').fill('August review');
     await h.page.getByRole('button', { name: 'Generate' }).click();
     await expect(h.page.getByText('Custom report ready.')).toBeVisible({ timeout: 15_000 });
-    await expect(h.page.getByText('August review')).toBeVisible();
+    await expect(h.page.getByText(/August review/)).toBeVisible();
   });
 
   test('a report opens to a detailed view and can be closed', async () => {
-    await h.page.getByText('August review').click();
+    await h.page.getByRole('button', { name: 'Open report' }).click();
     await expect(h.page.getByText('← All reports')).toBeVisible({ timeout: 10_000 });
     await h.page.getByText('← All reports').click();
     await expect(h.page.getByRole('button', { name: 'Custom range…' })).toBeVisible();
   });
 
-  test('a report can be deleted', async () => {
-    const before = await h.page.getByLabel(/^Delete report from/).count();
-    await h.page.getByLabel(/^Delete report from/).first().click();
-    await expect
-      .poll(async () => h.page.getByLabel(/^Delete report from/).count(), { timeout: 10_000 })
-      .toBeLessThan(before);
+  test('a report can be deleted from its detail view', async () => {
+    await h.page.getByRole('button', { name: 'Open report' }).click();
+    await h.page.getByRole('button', { name: 'Delete report' }).click();
+    await expect(h.page.getByText('No reports yet')).toBeVisible({ timeout: 10_000 });
   });
 });
 

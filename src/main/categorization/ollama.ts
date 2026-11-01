@@ -48,12 +48,15 @@ export class OllamaClassifier implements ModelClassifier {
   }
 
   async classify(input: ModelInput): Promise<ModelResult> {
-    const response = await fetch(`${this.#baseUrl}/api/chat`, {
+    const response = await ollamaFetch(this.#baseUrl, '/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: this.options.model,
         stream: false,
+        // Thinking models (qwen3) otherwise spend 15-50 s reasoning per transaction.
+        think: false,
+        options: { num_ctx: 4096 },
         format: RESPONSE_SCHEMA,
         messages: [
           { role: 'system', content: `${SYSTEM_PROMPT}\n\nTaxonomy:\n${this.options.taxonomy}` },
@@ -64,10 +67,6 @@ export class OllamaClassifier implements ModelClassifier {
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Ollama returned ${response.status}. Is it running at ${this.#baseUrl}?`);
-    }
-
     const body = (await response.json()) as { message?: { content?: string } };
     const content = body.message?.content;
     if (!content) throw new Error('Ollama response contained no message content');
@@ -77,15 +76,64 @@ export class OllamaClassifier implements ModelClassifier {
   }
 }
 
+/** fetch that turns a refused connection or an error response into a readable message. */
+async function ollamaFetch(baseUrl: string, path: string, init?: RequestInit): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, init);
+  } catch {
+    throw new Error(`Ollama is not running at ${baseUrl}. Start Ollama and try again.`);
+  }
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    const reason = body?.error ?? 'returned ' + response.status;
+    throw new Error(`Ollama: ${reason}`);
+  }
+  return response;
+}
+
 export interface OllamaModel {
   readonly name: string;
   readonly sizeBytes: number;
 }
 
-/** List models installed locally, for the settings picker. */
-export async function listOllamaModels(baseUrl = DEFAULT_OLLAMA_URL): Promise<OllamaModel[]> {
-  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`);
-  if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
-  const body = (await response.json()) as { models?: Array<{ name: string; size: number }> };
-  return (body.models ?? []).map((m) => ({ name: m.name, sizeBytes: m.size }));
+/** List models that can chat, for the settings picker. Embedding-only models are left out. */
+export async function listOllamaModels(
+  baseUrl = DEFAULT_OLLAMA_URL,
+  signal?: AbortSignal,
+): Promise<OllamaModel[]> {
+  const response = await ollamaFetch(baseUrl.replace(/\/$/, ''), '/api/tags', signal ? { signal } : undefined);
+  const body = (await response.json()) as {
+    models?: Array<{ name: string; size: number; capabilities?: string[] }>;
+  };
+  return (body.models ?? [])
+    .filter((m) => !m.capabilities || m.capabilities.includes('completion'))
+    .map((m) => ({ name: m.name, sizeBytes: m.size }));
+}
+
+export interface OllamaDetection {
+  readonly running: boolean;
+  readonly version?: string;
+  readonly models: string[];
+}
+
+const DETECT_TIMEOUT_MS = 2000;
+
+/** Asks a local Ollama who it is. Never throws and never waits longer than the timeout. */
+export async function detectOllama(
+  baseUrl = DEFAULT_OLLAMA_URL,
+  timeoutMs = DETECT_TIMEOUT_MS,
+): Promise<OllamaDetection> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  const base = baseUrl.replace(/\/$/, '');
+  try {
+    const [versionResponse, models] = await Promise.all([
+      ollamaFetch(base, '/api/version', { signal }),
+      listOllamaModels(base, signal),
+    ]);
+    const { version } = (await versionResponse.json()) as { version?: string };
+    return { running: true, ...(version ? { version } : {}), models: models.map((m) => m.name) };
+  } catch {
+    return { running: false, models: [] };
+  }
 }

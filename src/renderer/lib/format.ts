@@ -24,6 +24,11 @@ export function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** "Gold Card ••1005", or just the name when the bank gave no last digits. */
+export function accountLabel(name: string, mask: string | null): string {
+  return mask ? `${name} ••${mask}` : name;
+}
+
 export function relativeAge(iso: string | null): string {
   if (!iso) return 'never';
   const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000;
@@ -60,4 +65,24 @@ export function periodLabel(startIso: string, endIso: string): string {
   const end = new Date(endIso).getTime();
   const midpoint = new Date(start + (end - start) / 2);
   return midpoint.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+/** Chart axis money: "$450", "$1.5k", "$2k". */
+export function axisMoney(minor: number): string {
+  const dollars = Math.round(minor / 100);
+  if (Math.abs(dollars) < 1000) return `$${dollars}`;
+  return `$${Number((dollars / 1000).toFixed(1))}k`;
+}
+
+const SHORT_DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const SHORT_MONTH = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
+
+/** A YYYY-MM-DD calendar day as "Nov 5"; read as UTC so no time zone shifts it. */
+export function axisDay(isoDate: string): string {
+  return SHORT_DAY.format(new Date(`${isoDate.slice(0, 10)}T00:00:00Z`));
+}
+
+/** A YYYY-MM period as "Jun"; any other period label is already readable. */
+export function axisPeriod(label: string): string {
+  return /^\d{4}-\d{2}$/.test(label) ? SHORT_MONTH.format(new Date(`${label}-01T00:00:00Z`)) : label;
 }

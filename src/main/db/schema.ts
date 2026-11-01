@@ -10,7 +10,8 @@ import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-or
 
 export const institutions = sqliteTable('institutions', {
   id: text('id').primaryKey(),
-  plaidItemId: text('plaid_item_id').notNull().unique(),
+  // Null for imported institutions; SQLite UNIQUE ignores nulls.
+  plaidItemId: text('plaid_item_id').unique(),
   accessTokenEncrypted: text('access_token_encrypted', { mode: 'text' }).notNull(),
   institutionName: text('institution_name').notNull(),
   // Null means never synced — drives initial backfill (FR-004).
@@ -21,6 +22,7 @@ export const institutions = sqliteTable('institutions', {
   lastSyncedAt: text('last_synced_at'),
   lastAttemptedSyncAt: text('last_attempted_sync_at'),
   createdAt: text('created_at').notNull(),
+  source: text('source', { enum: ['plaid', 'import'] }).notNull().default('plaid'),
 });
 
 export const accounts = sqliteTable('accounts', {
@@ -116,7 +118,7 @@ export const categorizations = sqliteTable(
       .notNull()
       .references(() => categories.id),
     confidence: real('confidence').notNull(),
-    source: text('source', { enum: ['local_history', 'model', 'user'] }).notNull(),
+    source: text('source', { enum: ['local_history', 'model', 'user', 'rule'] }).notNull(),
     isConfirmed: integer('is_confirmed', { mode: 'boolean' }).notNull().default(false),
     needsReview: integer('needs_review', { mode: 'boolean' }).notNull().default(false),
     reasoning: text('reasoning'),
@@ -266,6 +268,20 @@ export const diagnosticEvents = sqliteTable(
     errorCode: text('error_code'),
   },
   (t) => [index('diag_occurred_idx').on(t.occurredAt)],
+);
+
+export const usageEvents = sqliteTable(
+  'usage_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    occurredAt: text('occurred_at').notNull(),
+    // An id from the closed catalog in @shared/features — never free text.
+    feature: text('feature').notNull(),
+    kind: text('kind', { enum: ['action', 'view', 'background'] }).notNull(),
+    outcome: text('outcome', { enum: ['success', 'failure'] }).notNull(),
+    durationMs: integer('duration_ms'),
+  },
+  (t) => [index('usage_occurred_idx').on(t.occurredAt), index('usage_feature_idx').on(t.feature)],
 );
 
 export const settings = sqliteTable('settings', {

@@ -17,27 +17,14 @@ const { runMigrations } = await import('@main/db/migrate');
 const { Services } = await import('@main/services/index');
 const { defaultCategories } = await import('@main/db/seed-categories');
 const schema = await import('@main/db/schema');
-const { Keyring } = await import('@main/secrets/keyring');
 const { DiagnosticLogger } = await import('@main/diagnostics/logger');
 const { MemorySink } = await import('@main/diagnostics/sink');
 const { CategorizationPipeline } = await import('@main/categorization/pipeline');
 const { TestClock } = await import('@shared/clock');
 const { IpcRegistry } = await import('@main/ipc/registry');
 const { registerHandlers } = await import('@main/ipc/handlers/index');
-import type { OpenedSecret, SecretBackend } from '@main/secrets/backend';
 import type { DatabaseHandle } from '@main/db/client';
-
-class TestBackend implements SecretBackend {
-  async isEncryptionAvailable(): Promise<boolean> {
-    return true;
-  }
-  async encryptString(p: string): Promise<Buffer> {
-    return Buffer.from(Buffer.from(p, 'utf8').toString('base64'), 'utf8');
-  }
-  async decryptString(c: Buffer): Promise<OpenedSecret> {
-    return { value: Buffer.from(c.toString('utf8'), 'base64').toString('utf8'), shouldReEncrypt: false };
-  }
-}
+import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
 const NOW = new Date('2026-08-29T12:00:00Z');
@@ -45,11 +32,13 @@ const NOW = new Date('2026-08-29T12:00:00Z');
 describe('Services against a real encrypted database', () => {
   let dir: string;
   let handle: DatabaseHandle;
+  let store: MemorySecretStore;
   let services: InstanceType<typeof Services>;
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-svc-'));
-    handle = await openDatabase(dir, new TestBackend());
+    store = new MemorySecretStore();
+    handle = await openDatabase(dir, store);
     runMigrations(handle, MIGRATIONS);
     await handle.db.insert(schema.categories).values(defaultCategories());
 
@@ -58,7 +47,7 @@ describe('Services against a real encrypted database', () => {
       userDataDir: dir,
       clock: new TestClock(NOW),
       logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-      keyring: new Keyring(new TestBackend()),
+      store,
       pipeline: new CategorizationPipeline(
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
@@ -95,7 +84,7 @@ describe('Services against a real encrypted database', () => {
     expect(status.accountCount).toBe(0);
   });
 
-  it('stores credentials sealed and never returns their values (FR-047)', async () => {
+  it('stores credentials in the Keychain and never returns their values (FR-047)', async () => {
     await services.saveCredentials({
       plaidClientId: 'client-123',
       plaidSecret: 'super-secret',
@@ -105,10 +94,9 @@ describe('Services against a real encrypted database', () => {
     expect(status.plaidConfigured).toBe(true);
     expect(JSON.stringify(status)).not.toContain('super-secret');
 
+    expect(await store.get('plaid-secret')).toBe('super-secret');
     const rows = await handle.db.select().from(schema.settings);
-    const secret = rows.find((r) => r.key === 'plaidSecret');
-    expect(secret?.isSecret).toBe(true);
-    expect(secret?.value).not.toContain('super-secret');
+    expect(JSON.stringify(rows)).not.toContain('super-secret');
   });
 
   it('treats a fresh install as incomplete rather than complete (SC-014)', async () => {
@@ -201,11 +189,13 @@ describe('Services against a real encrypted database', () => {
 describe('the wired registry answers every channel against real services', () => {
   let dir: string;
   let handle: DatabaseHandle;
+  let store: MemorySecretStore;
   let registry: InstanceType<typeof IpcRegistry>;
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-wire-'));
-    handle = await openDatabase(dir, new TestBackend());
+    store = new MemorySecretStore();
+    handle = await openDatabase(dir, store);
     runMigrations(handle, MIGRATIONS);
     await handle.db.insert(schema.categories).values(defaultCategories());
 
@@ -214,7 +204,7 @@ describe('the wired registry answers every channel against real services', () =>
       userDataDir: dir,
       clock: new TestClock(NOW),
       logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-      keyring: new Keyring(new TestBackend()),
+      store,
       pipeline: new CategorizationPipeline(
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
@@ -282,18 +272,20 @@ describe('the wired registry answers every channel against real services', () =>
 describe('Plaid link flow error handling', () => {
   let dir: string;
   let handle: DatabaseHandle;
+  let store: MemorySecretStore;
   let services: InstanceType<typeof Services>;
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'money-link-'));
-    handle = await openDatabase(dir, new TestBackend());
+    store = new MemorySecretStore();
+    handle = await openDatabase(dir, store);
     runMigrations(handle, MIGRATIONS);
     services = new Services({
       handle,
       userDataDir: dir,
       clock: new TestClock(NOW),
       logger: new DiagnosticLogger(new MemorySink(), new TestClock(NOW)),
-      keyring: new Keyring(new TestBackend()),
+      store,
       pipeline: new CategorizationPipeline(
         { classify: async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' }) },
         { confidenceThreshold: 0.8 },
@@ -344,22 +336,22 @@ describe('Plaid link flow error handling', () => {
     });
   });
 
-  it('round-trips a sealed secret so the Plaid client can be built', async () => {
+  it('round-trips a Keychain secret so the Plaid client can be built', async () => {
     await services.saveCredentials({
       plaidClientId: 'client-abc',
       plaidSecret: 'secret-xyz',
       plaidEnv: 'production',
     });
+    expect(await store.get('plaid-secret')).toBe('secret-xyz');
     const rows = await handle.db.select().from(schema.settings);
-    const stored = rows.find((r) => r.key === 'plaidSecret');
-    expect(stored?.value).not.toContain('secret-xyz');
+    expect(JSON.stringify(rows)).not.toContain('secret-xyz');
     const status = (await services.setupStatus()) as { plaidConfigured: boolean };
     expect(status.plaidConfigured).toBe(true);
   });
 
-  it('lists no Ollama models when Ollama is unreachable, without erroring', async () => {
+  it('reports why no Ollama models are listed when Ollama is unreachable', async () => {
     await services.updateSettings({ ollamaBaseUrl: 'http://127.0.0.1:1' });
-    expect(await services.listOllamaModels()).toEqual([]);
+    await expect(services.listOllamaModels()).rejects.toThrow(/Ollama is not running at http:\/\/127\.0\.0\.1:1/);
   });
 
   it('exposes the model settings with Haiku as the default', async () => {

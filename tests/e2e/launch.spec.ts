@@ -30,13 +30,13 @@ test.describe('the app actually starts', () => {
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
-  test('completes bootstrap: creates the encrypted database and its key', async () => {
+  test('completes bootstrap: creates the encrypted database, with its key in the Keychain', async () => {
     const { existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     await expect
       .poll(() => existsSync(join(harness.userDataDir, 'money.sqlite')), { timeout: 20_000 })
       .toBe(true);
-    expect(existsSync(join(harness.userDataDir, 'money.key'))).toBe(true);
+    expect(existsSync(join(harness.userDataDir, 'money.key'))).toBe(false);
   });
 
   test('renders the first-run setup screen, not an empty shell', async () => {

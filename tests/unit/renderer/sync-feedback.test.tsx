@@ -9,7 +9,8 @@ afterEach(cleanup);
 const INSTITUTIONS = [
   {
     id: 'i1',
-    name: 'Bank',
+    institutionName: 'Bank',
+    accountCount: 1,
     status: 'healthy',
     lastSyncedAt: '2026-08-29T10:00:00Z',
     accounts: [
@@ -20,6 +21,7 @@ const INSTITUTIONS = [
         type: 'depository',
         subtype: 'checking',
         currentBalanceMinor: 120000,
+        balanceAsOf: null,
         isEveryday: true,
       },
     ],

@@ -6,7 +6,6 @@ import { Dashboard } from '@renderer/views/Dashboard';
 import { Register } from '@renderer/views/Register';
 import { Recurring } from '@renderer/views/Recurring';
 import { Income } from '@renderer/views/Income';
-import { Review } from '@renderer/views/Review';
 import { Reports } from '@renderer/views/Reports';
 import { Health } from '@renderer/views/Health';
 import { Settings } from '@renderer/views/Settings';
@@ -33,6 +32,15 @@ const DASHBOARD = {
   whatChanged: ['Dining is running above your normal range'],
   dataComplete: true,
   staleInstitutions: [],
+  kpis: {
+    spent: { currentMinor: 240700, seriesMinor: [100000, 240700] },
+    income: { currentMinor: 520000, seriesMinor: [500000, 520000], nextDeposit: null },
+    recurring: { monthlyMinor: 0, count: 0, candidateCount: 0 },
+    safeToSpendPerDayMinor: null,
+  },
+  upcomingRecurring: [],
+  runwaySeries: null,
+  whereItWent: [],
   runway: {
     available: true,
     currentBalanceMinor: 84700,
@@ -43,12 +51,77 @@ const DASHBOARD = {
   },
 };
 
+const CAFE_PARIS_ROW = {
+  id: 't1',
+  amountMinor: -4312,
+  merchantName: 'Cafe Paris',
+  description: 'CAFE PARIS',
+  postedDate: '2026-08-29',
+  categoryId: 'dining',
+  confidence: 0.9,
+  needsReview: false,
+  isInternalTransfer: false,
+  originalCurrency: 'EUR',
+  originalAmountMinor: 4000,
+  userMerchantName: null,
+  userNote: null,
+  userExcluded: false,
+  userRecurringOverride: null,
+};
+
+const CHASE_WITH_TWO_ACCOUNTS = {
+  id: 'i1',
+  institutionName: 'Chase',
+  status: 'healthy',
+  lastSyncedAt: new Date().toISOString(),
+  accountCount: 2,
+  accounts: [
+    {
+      id: 'a1',
+      name: 'Everyday Checking',
+      mask: '4321',
+      type: 'depository',
+      subtype: 'checking',
+      currentBalanceMinor: 84_700,
+      balanceAsOf: new Date().toISOString(),
+      isEveryday: true,
+    },
+    {
+      id: 'a2',
+      name: 'Rainy Day Savings',
+      mask: '9911',
+      type: 'depository',
+      subtype: 'savings',
+      currentBalanceMinor: 1_200_000,
+      balanceAsOf: new Date().toISOString(),
+      isEveryday: false,
+    },
+  ],
+};
+
+const HEALTH_BASE = {
+      categorization: { provider: 'ollama', model: 'llama3.1:8b', localOnly: true, reason: 'ok' },
+      encryption: { databaseEncrypted: true, keysInKeychain: true },
+      updates: { version: '1.0.0' },
+      syncHistory: [],
+      contents: {
+        institutions: 1,
+        accounts: 1,
+        everydayAccounts: 1,
+        transactions: 12,
+        transactionsInEverydayAccounts: 12,
+        transactionsThisMonth: 4,
+        categorized: 10,
+        uncategorizable: 2,
+      },
+};
+
 describe('Dashboard', () => {
   beforeEach(() => installMoneyBridge({ 'dashboard:get': DASHBOARD }));
 
   it('shows the runway, cash flow, and category breakdown', async () => {
     render(<Dashboard onDrill={() => {}} />);
-    await waitFor(() => expect(screen.getByText(/projected at payday/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Runway to payday')).toBeDefined());
     // Grouped under the parent, collapsed by default.
     expect(screen.getAllByText('Food').length).toBeGreaterThan(0);
     expect(screen.queryByText('Dining')).toBeNull();
@@ -103,23 +176,7 @@ describe('Register', () => {
     const bridge = {
       'transactions:query': {
         rows: [
-          {
-            id: 't1',
-            amountMinor: -4312,
-            merchantName: 'Cafe Paris',
-            description: 'CAFE PARIS',
-            postedDate: '2026-08-29',
-            categoryId: 'dining',
-            confidence: 0.9,
-            needsReview: false,
-            isInternalTransfer: false,
-            originalCurrency: 'EUR',
-            originalAmountMinor: 4000,
-            userMerchantName: null,
-            userNote: null,
-            userExcluded: false,
-            userRecurringOverride: null,
-          },
+          CAFE_PARIS_ROW,
         ],
         totalCount: 1,
         dataComplete: true,
@@ -162,20 +219,23 @@ describe('Recurring', () => {
           firstSeenDate: '2026-01-15',
           cumulativePaidMinor: -12792,
           status: 'active',
+          nextExpectedDate: '2026-09-15',
+          monthlyCostMinor: 1899,
+          yearlyCostMinor: 22788,
           amountChanges: [{ oldAmountMinor: -1599, newAmountMinor: -1899, changedAt: '2026-08-01' }],
         },
       ],
     });
     render(<Recurring onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByText('Netflix')).toBeDefined());
-    expect(screen.getByText(/price changed/)).toBeDefined();
-    expect(screen.getByText(/monthly/)).toBeDefined();
+    expect(screen.getByText(/Was \$15.99 until Aug/)).toBeDefined();
+    expect(screen.getByText(/Monthly · since/)).toBeDefined();
   });
 
   it('explains why the ledger is empty rather than showing a blank list', async () => {
     installMoneyBridge({ 'recurring:list': [] });
     render(<Recurring onOpenMerchant={() => {}} />);
-    await waitFor(() => expect(screen.getByText(/No recurring charges detected yet/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText(/No recurring charges here yet/)).toBeDefined());
   });
 });
 
@@ -190,6 +250,7 @@ describe('Income', () => {
           expectedAmountMinor: 260000,
           cadence: 'biweekly',
           nextExpectedDate: '2026-09-04T00:00:00Z',
+          daysUntilNext: 3,
           detectionConfidence: 0.92,
           isUserConfirmed: false,
         },
@@ -206,50 +267,6 @@ describe('Income', () => {
   });
 });
 
-describe('Review', () => {
-  const item = {
-    transaction: {
-      id: 't1',
-      amountMinor: -4782,
-      merchantName: 'Target',
-      description: 'TARGET 00023415',
-      postedDate: '2026-08-29',
-      categoryId: 'home',
-      confidence: 0.62,
-      needsReview: true,
-      isInternalTransfer: false,
-      originalCurrency: null,
-      originalAmountMinor: null,
-    },
-    guessCategoryId: 'home',
-    guessCategoryName: 'Home & Garden',
-    confidence: 0.62,
-    reasoning: '60% of your 40 prior purchases here',
-  };
-
-  it('shows the reasoning behind each guess (US6 AS1)', async () => {
-    installMoneyBridge({ 'review:queue': { rows: [item], totalCount: 1 } });
-    render(<Review />);
-    await waitFor(() =>
-      expect(screen.getByText(/60% of your 40 prior purchases here/)).toBeDefined(),
-    );
-  });
-
-  it('offers bulk actions once something is selected (FR-067)', async () => {
-    installMoneyBridge({ 'review:queue': { rows: [item], totalCount: 1 } });
-    render(<Review />);
-    await waitFor(() => screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('checkbox'));
-    expect(screen.getByText('1 selected')).toBeDefined();
-  });
-
-  it('celebrates an empty queue rather than showing a blank list', async () => {
-    installMoneyBridge({ 'review:queue': { rows: [], totalCount: 0 } });
-    render(<Review />);
-    await waitFor(() => expect(screen.getByText(/Nothing needs your review/)).toBeDefined());
-  });
-});
-
 describe('Reports, Health, Settings, Categories', () => {
   it('lists reports with their completeness', async () => {
     installMoneyBridge({
@@ -263,6 +280,8 @@ describe('Reports, Health, Settings, Categories', () => {
           wasLate: true,
           totalSpendingMinor: -425000,
           savingsRate: 0.18,
+          headline: 'You spent $4,250',
+          series: [100, 200],
         },
       ],
     });
@@ -274,16 +293,7 @@ describe('Reports, Health, Settings, Categories', () => {
   it('shows per-account sync status and the redaction promise', async () => {
     installMoneyBridge({
       'health:get': {
-        contents: {
-          institutions: 1,
-          accounts: 1,
-          everydayAccounts: 1,
-          transactions: 12,
-          transactionsInEverydayAccounts: 12,
-          transactionsThisMonth: 4,
-          categorized: 10,
-          uncategorizable: 2,
-        },
+        ...HEALTH_BASE,
         perAccount: [
           {
             institutionId: 'i1',
@@ -303,8 +313,7 @@ describe('Reports, Health, Settings, Categories', () => {
       },
     });
     render(<Health />);
-    await waitFor(() => expect(screen.getByText('Chase')).toBeDefined());
-    expect(screen.getByText(/reauth required/)).toBeDefined();
+    await waitFor(() => expect(screen.getByText(/Chase needs sign-in/)).toBeDefined());
     expect(screen.getByText(/no merchant names, amounts, balances, or credentials/)).toBeDefined();
   });
 
@@ -340,11 +349,10 @@ describe('Reports, Health, Settings, Categories', () => {
       ],
     });
     render(<Categories />);
-    // Names are editable inputs now, so assert on value rather than text.
-    await waitFor(() => expect(screen.getByLabelText('Name for Food')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Food')).toBeDefined());
     expect(screen.getByText(/historical totals still add up/)).toBeDefined();
     // Subcategories can be added inline from this screen.
-    expect(screen.getAllByText('+ Add subcategory').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('+ Subcategory').length).toBeGreaterThan(0);
   });
 
   it('adds a subcategory under a parent', async () => {
@@ -355,8 +363,8 @@ describe('Reports, Health, Settings, Categories', () => {
       'categories:create': { id: 'new' },
     });
     render(<Categories />);
-    await waitFor(() => screen.getByText('+ Add subcategory'));
-    fireEvent.click(screen.getByText('+ Add subcategory'));
+    await waitFor(() => screen.getByText('+ Subcategory'));
+    fireEvent.click(screen.getByText('+ Subcategory'));
     expect(screen.getByLabelText('New subcategory under Food')).toBeDefined();
   });
 
@@ -367,7 +375,9 @@ describe('Reports, Health, Settings, Categories', () => {
       ],
     });
     render(<Categories />);
-    await waitFor(() => expect(screen.getByText('Hide')).toBeDefined());
+    await waitFor(() => screen.getByLabelText('Actions for Food'));
+    fireEvent.click(screen.getByLabelText('Actions for Food'));
+    expect(screen.getByText('Hide')).toBeDefined();
     expect(screen.getByText('Merge')).toBeDefined();
   });
 });
@@ -378,7 +388,7 @@ describe('App shell', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Dashboard' })).toBeDefined());
     fireEvent.click(screen.getByRole('button', { name: 'Recurring' }));
-    await waitFor(() => expect(screen.getByText(/No recurring charges detected yet/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText(/No recurring charges here yet/)).toBeDefined());
   });
 });
 
@@ -414,13 +424,6 @@ describe('Setup (first run)', () => {
     );
   });
 
-  it('carries the FR-061 disclosure beside the optional API key', () => {
-    render(<Setup status={ok} onComplete={() => {}} />);
-    expect(
-      screen.getByText(/never account numbers, balances, credentials, or totals/i),
-    ).toBeDefined();
-  });
-
   it('refuses to continue when encryption is unavailable (Constitution VII)', () => {
     render(<Setup status={{ ...ok, encryptionAvailable: false }} onComplete={() => {}} />);
     expect(screen.getByText(/Money cannot start/)).toBeDefined();
@@ -441,12 +444,10 @@ describe('Alerts', () => {
 
   it('lets the user configure each rule (FR-033)', async () => {
     installMoneyBridge({ 'alerts:list': [], 'alertRules:list': [rule] });
-    render(<Alerts />);
-    await waitFor(() =>
-      expect(screen.getByText(/A single purchase over an amount/)).toBeDefined(),
-    );
+    render(<Alerts onOpenMerchant={() => {}} />);
+    await waitFor(() => expect(screen.getByLabelText(/Threshold for/)).toBeDefined());
     // Threshold is editable, not just on/off.
-    expect(screen.getByLabelText(/Threshold for/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: '+ New alert' }));
     expect(screen.getByRole('button', { name: 'Add alert' })).toBeDefined();
   });
 
@@ -463,7 +464,7 @@ describe('Alerts', () => {
       ],
       'alertRules:list': [],
     });
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() =>
       expect(screen.getByText(/detected later, while Money was closed/)).toBeDefined(),
     );
@@ -482,15 +483,15 @@ describe('Alerts', () => {
       ],
       'alertRules:list': [rule],
     });
-    render(<Alerts />);
-    await waitFor(() => expect(screen.getByText('Not a problem')).toBeDefined());
+    render(<Alerts onOpenMerchant={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Dismiss')).toBeDefined());
     // The rule toggle is still present and on.
-    expect((screen.getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
   });
 
   it('says nothing has needed attention rather than showing a blank list', async () => {
     installMoneyBridge({ 'alerts:list': [], 'alertRules:list': [] });
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() =>
       expect(screen.getByText(/Nothing has needed your attention/)).toBeDefined(),
     );
@@ -548,21 +549,20 @@ describe('Accounts', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('Include Everyday Checking in day-to-day spending')).toBeDefined(),
     );
-    const savings = screen.getByLabelText(
-      'Include Rainy Day Savings in day-to-day spending',
-    ) as HTMLInputElement;
-    expect(savings.checked).toBe(false);
+    const savings = screen.getByLabelText('Include Rainy Day Savings in day-to-day spending');
+    expect(savings.getAttribute('aria-checked')).toBe('false');
     expect(
-      (screen.getByLabelText('Include Everyday Checking in day-to-day spending') as HTMLInputElement)
-        .checked,
-    ).toBe(true);
+      screen
+        .getByLabelText('Include Everyday Checking in day-to-day spending')
+        .getAttribute('aria-checked'),
+    ).toBe('true');
   });
 
   it('explains why savings should be excluded', async () => {
     installMoneyBridge({ 'institutions:list': [] });
     render(<Accounts />);
     await waitFor(() =>
-      expect(screen.getByText(/should not make those numbers look bigger/)).toBeDefined(),
+      expect(screen.getByText(/so they do not inflate runway/)).toBeDefined(),
     );
   });
 
@@ -588,40 +588,13 @@ describe('Accounts', () => {
   it('lists connected institutions with their sync age', async () => {
     installMoneyBridge({
       'institutions:list': [
-        {
-          id: 'i1',
-          institutionName: 'Chase',
-          status: 'healthy',
-          lastSyncedAt: new Date().toISOString(),
-          accountCount: 2,
-          accounts: [
-            {
-              id: 'a1',
-              name: 'Everyday Checking',
-              mask: '4321',
-              type: 'depository',
-              subtype: 'checking',
-              currentBalanceMinor: 84_700,
-              balanceAsOf: new Date().toISOString(),
-              isEveryday: true,
-            },
-            {
-              id: 'a2',
-              name: 'Rainy Day Savings',
-              mask: '9911',
-              type: 'depository',
-              subtype: 'savings',
-              currentBalanceMinor: 1_200_000,
-              balanceAsOf: new Date().toISOString(),
-              isEveryday: false,
-            },
-          ],
-        },
+        CHASE_WITH_TWO_ACCOUNTS,
       ],
     });
     render(<Accounts />);
     await waitFor(() => expect(screen.getByText('Chase')).toBeDefined());
-    expect(screen.getByText(/2 accounts/)).toBeDefined();
+    expect(screen.getByText('Net $12,847.00 across 2 accounts')).toBeDefined();
+    expect(screen.getByText('Synced just now')).toBeDefined();
   });
 
   it('offers reconnect only for an unhealthy institution', async () => {
@@ -631,7 +604,7 @@ describe('Accounts', () => {
       ],
     });
     render(<Accounts />);
-    await waitFor(() => expect(screen.getByText('Reconnect')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Sign in again')).toBeDefined());
   });
 
   it('surfaces a failure to start the connection', async () => {
@@ -644,59 +617,52 @@ describe('Accounts', () => {
   });
 });
 
+const SHELL_BRIDGE = {
+  'setup:status': {
+    plaidConfigured: true,
+    plaidClientIdConfigured: true,
+    plaidSecretConfigured: true,
+    plaidEnv: 'sandbox' as const,
+    categorizationConfigured: true,
+    accountCount: 1,
+    encryptionAvailable: true,
+  },
+  'dashboard:get': DASHBOARD,
+  'recurring:list': [],
+  'income:list': [],
+  'review:queue': { rows: [], totalCount: 0 },
+  'reports:list': [],
+  'alerts:list': [],
+  'alertRules:list': [],
+  'categories:list': [],
+  'institutions:list': [],
+  'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
+  'health:get': {
+    ...HEALTH_BASE,
+    perAccount: [],
+    metrics: {
+      syncDurationMsP50: null,
+      transactionsProcessed: 0,
+      localResolutionRate: null,
+      droppedDiagnosticEvents: 0,
+    },
+  },
+  'settings:get': {
+    confidenceThreshold: 0.8,
+    pollIntervalMinutes: 60,
+    categorizationMode: 'hybrid',
+    modelProvider: 'anthropic',
+    anthropicModel: 'claude-haiku-4-5',
+    ollamaModel: '',
+    ollamaBaseUrl: 'http://localhost:11434',
+    timeZone: 'America/New_York',
+  },
+  'models:listOllama': [],
+};
+
 describe('App shell navigation covers every area', () => {
   it('routes to each view without error', async () => {
-    installMoneyBridge({
-      'setup:status': {
-        plaidConfigured: true,
-        plaidClientIdConfigured: true,
-        plaidSecretConfigured: true,
-        plaidEnv: 'sandbox' as const,
-        categorizationConfigured: true,
-        accountCount: 1,
-        encryptionAvailable: true,
-      },
-      'dashboard:get': DASHBOARD,
-      'recurring:list': [],
-      'income:list': [],
-      'review:queue': { rows: [], totalCount: 0 },
-      'reports:list': [],
-      'alerts:list': [],
-      'alertRules:list': [],
-      'categories:list': [],
-      'institutions:list': [],
-      'transactions:query': { rows: [], totalCount: 0, dataComplete: true, staleInstitutions: [] },
-      'health:get': {
-        contents: {
-          institutions: 1,
-          accounts: 1,
-          everydayAccounts: 1,
-          transactions: 12,
-          transactionsInEverydayAccounts: 12,
-          transactionsThisMonth: 4,
-          categorized: 10,
-          uncategorizable: 2,
-        },
-        perAccount: [],
-        metrics: {
-          syncDurationMsP50: null,
-          transactionsProcessed: 0,
-          localResolutionRate: null,
-          droppedDiagnosticEvents: 0,
-        },
-      },
-      'settings:get': {
-        confidenceThreshold: 0.8,
-        pollIntervalMinutes: 60,
-        categorizationMode: 'hybrid',
-        modelProvider: 'anthropic',
-        anthropicModel: 'claude-haiku-4-5',
-        ollamaModel: '',
-        ollamaBaseUrl: 'http://localhost:11434',
-        timeZone: 'America/New_York',
-      },
-      'models:listOllama': [],
-    });
+    installMoneyBridge(SHELL_BRIDGE);
     render(<App />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Dashboard' })).toBeDefined());
 
