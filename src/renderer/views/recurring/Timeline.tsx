@@ -1,7 +1,7 @@
 import { Card, MerchantMark } from '../../components/ui';
 import { Money } from '../../components/Money';
 import { money } from '../../lib/format';
-import type { ScheduledCharge } from './types';
+import type { RecurringChargeView } from '@shared/types';
 
 const DAY_MS = 86_400_000;
 const HORIZON_DAYS = 30;
@@ -24,7 +24,7 @@ export function Timeline({
   charges,
   today,
 }: {
-  charges: readonly ScheduledCharge[];
+  charges: readonly RecurringChargeView[];
   today: Date;
 }): React.JSX.Element | null {
   const start = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));

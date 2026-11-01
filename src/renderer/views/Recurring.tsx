@@ -7,7 +7,7 @@ import type { RecurringCandidateView } from '@shared/types';
 import { RecurringCandidates } from './RecurringCandidates';
 import { ConfirmedCard } from './recurring/ConfirmedCard';
 import { Timeline } from './recurring/Timeline';
-import type { ScheduledCharge } from './recurring/types';
+import type { RecurringChargeView } from '@shared/types';
 
 type Tab = 'confirmed' | 'possible' | 'stopped';
 
@@ -33,7 +33,7 @@ export function Recurring({
 }: {
   onOpenMerchant: (merchantKey: string) => void;
 }): React.JSX.Element {
-  const { data, loading, refetch } = useQuery<ScheduledCharge[]>('recurring:list', {
+  const { data, loading, refetch } = useQuery<RecurringChargeView[]>('recurring:list', {
     includeInactive: true,
   });
   const candidates = useQuery<RecurringCandidateView[]>('recurring:candidates');
@@ -98,7 +98,7 @@ function ChargeGrid({
   onChanged,
   onOpenMerchant,
 }: {
-  charges: readonly ScheduledCharge[];
+  charges: readonly RecurringChargeView[];
   showTimeline: boolean;
   onChanged: () => void;
   onOpenMerchant: (merchantKey: string) => void;

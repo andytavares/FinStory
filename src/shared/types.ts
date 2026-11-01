@@ -100,6 +100,9 @@ export interface RecurringChargeView {
   readonly cumulativePaidMinor: number;
   readonly status: 'active' | 'inactive';
   readonly amountChanges: Array<{ oldAmountMinor: number; newAmountMinor: number; changedAt: string }>;
+  readonly nextExpectedDate: string;
+  readonly monthlyCostMinor: number;
+  readonly yearlyCostMinor: number;
 }
 
 export interface IncomeSourceView {
@@ -111,6 +114,7 @@ export interface IncomeSourceView {
   readonly nextExpectedDate: string;
   readonly detectionConfidence: number;
   readonly isUserConfirmed: boolean;
+  readonly daysUntilNext: number;
 }
 
 export interface AlertView {

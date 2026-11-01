@@ -3,9 +3,9 @@ import { Button, Card, Chip, Eyebrow, MerchantMark } from '../../components/ui';
 import { Money } from '../../components/Money';
 import { Sparkline } from '../../charts/Sparkline';
 import { CADENCE_LABEL } from '../recurring/cadence';
-import type { DatedIncomeSource } from './types';
+import type { IncomeSourceView } from '@shared/types';
 
-function nextDepositLine(source: DatedIncomeSource): string {
+function nextDepositLine(source: IncomeSourceView): string {
   const date = new Date(source.nextExpectedDate).toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -22,7 +22,7 @@ export function SourceCard({
   onChanged,
   onOpenMerchant,
 }: {
-  source: DatedIncomeSource;
+  source: IncomeSourceView;
   onChanged: () => void;
   onOpenMerchant: (merchantKey: string) => void;
 }): React.JSX.Element {

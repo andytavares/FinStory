@@ -137,7 +137,9 @@ export function App(): React.JSX.Element {
       onSelect={setView}
       onSearch={(search) => nav.navigate({ view: 'register', search })}
     >
-      {view === 'dashboard' && <Dashboard onDrill={drill} />}
+      {view === 'dashboard' && (
+        <Dashboard onDrill={drill} onReconnect={() => setView('accounts')} />
+      )}
       {view === 'register' && (
         <Register
           key={`${route.categoryId ?? 'all'}-${route.merchantKey ?? ''}-${route.search ?? ''}`}
@@ -146,7 +148,9 @@ export function App(): React.JSX.Element {
         />
       )}
       {view === 'recurring' && (
-        <Recurring onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })} />
+        <Recurring
+          onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })}
+        />
       )}
       {view === 'income' && (
         <Income onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })} />

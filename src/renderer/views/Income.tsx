@@ -7,7 +7,7 @@ import { IncomeVsSpending } from '../charts/IncomeVsSpending';
 import { money } from '../lib/format';
 import { SourceCard } from './income/SourceCard';
 import { monthlyIncomeMinor } from './income/monthlyIncome';
-import type { DatedIncomeSource, MonthTotal } from './income/types';
+import type { IncomeSourceView, IncomeMonth } from '@shared/types';
 
 function monthLabel(month: string): string {
   return new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-US', {
@@ -22,8 +22,8 @@ export function Income({
 }: {
   onOpenMerchant: (merchantKey: string) => void;
 }): React.JSX.Element {
-  const { data, loading, refetch } = useQuery<DatedIncomeSource[]>('income:list');
-  const history = useQuery<MonthTotal[]>('income:history');
+  const { data, loading, refetch } = useQuery<IncomeSourceView[]>('income:list');
+  const history = useQuery<IncomeMonth[]>('income:history');
   const [adding, setAdding] = useState(false);
 
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;

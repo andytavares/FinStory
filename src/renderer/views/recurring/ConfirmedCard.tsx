@@ -6,7 +6,7 @@ import { money } from '../../lib/format';
 import { ChargeCard } from './ChargeCard';
 import { cadenceSince } from './cadence';
 import { latestRise, priceHistory } from './priceHistory';
-import type { ScheduledCharge } from './types';
+import type { RecurringChargeView } from '@shared/types';
 
 function monthOf(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
@@ -17,7 +17,7 @@ function RenameInput({
   onDone,
   onChanged,
 }: {
-  charge: ScheduledCharge;
+  charge: RecurringChargeView;
   onDone: () => void;
   onChanged: () => void;
 }): React.JSX.Element {
@@ -56,7 +56,7 @@ export function ConfirmedCard({
   onChanged,
   onOpenMerchant,
 }: {
-  charge: ScheduledCharge;
+  charge: RecurringChargeView;
   onChanged: () => void;
   onOpenMerchant: (merchantKey: string) => void;
 }): React.JSX.Element {
