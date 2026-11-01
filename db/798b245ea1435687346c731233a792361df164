@@ -1,0 +1,26 @@
+src/main/db/schema.ts
+  s_d8b2366061c670::t_1aeb65ff493d4b 145
+src/main/analysis/recurring-schedule.ts
+  s_d8b2366061c670::t_6886c3b915996c 3,7-8,14-15,20-34,36
+tests/unit/analysis/recurring-schedule.test.ts
+  s_d8b2366061c670::t_12d36088bd109a 2,17-29
+  s_d8b2366061c670::t_5a02e57dfe5c3f 30
+tests/integration/screen-data.test.ts
+  s_d8b2366061c670::t_25ef6ce47222c8 485-503
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db798b245ea1435687346c731233a792361df164",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
