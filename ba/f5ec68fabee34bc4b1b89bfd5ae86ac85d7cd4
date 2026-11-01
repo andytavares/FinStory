@@ -1,0 +1,67 @@
+src/main/categorization/corrections.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 14
+src/main/categorization/local.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 26,66
+src/main/db/schema.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 119
+src/shared/types.ts
+  s_d8b2366061c670::t_5cd7ade22f2867 247-259
+src/renderer/views/Overrides.tsx
+  s_d8b2366061c670::t_8488b7b7f5bdf4 5-8,36,41,62-63,119-274
+tests/unit/ipc/handlers.test.ts
+  s_d8b2366061c670::t_7b12460b50975c 65-67,108-109
+src/preload/index.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 74-76
+tests/unit/categorization/local.test.ts
+  s_d8b2366061c670::t_c068656ee84d58 37
+tests/unit/renderer/overrides.test.tsx
+  s_d8b2366061c670::t_2fbb969051699e 11-13,32-91,93,95,97,102,104-105,110,112,119,121,127,129,134,136,141-142
+  s_d8b2366061c670::t_d5b77dae25e243 130
+src/main/categories/rules.ts
+  s_d8b2366061c670::t_5cd7ade22f2867 1-158
+src/main/ipc/handlers/services.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 80-82
+tests/unit/renderer/editor-scope.test.tsx
+  s_d8b2366061c670::t_7b12460b50975c 1-98
+src/main/ipc/handlers/index.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 34-35,172-174
+src/main/categorization/pipeline.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 43,136
+src/shared/schemas.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 137-138,207-212
+  s_d8b2366061c670::t_cab7da8cf5db58 213
+tests/integration/services-with-data.test.ts
+  s_d8b2366061c670::t_c22037cbf26830 1314-1317,1319-1321
+  s_d8b2366061c670::t_7b12460b50975c 853,1226-1230
+  s_d8b2366061c670::t_9e483d4f9e163f 28-29,2336-2489
+  s_d8b2366061c670::t_4f7e0f83c5725d 2490-2491
+tests/unit/categorization/profiles.test.ts
+  s_d8b2366061c670::t_c068656ee84d58 28
+src/main/sync/store.ts
+  s_d8b2366061c670::t_9c16e2cc6bca9f 137
+src/renderer/App.tsx
+  s_d8b2366061c670::t_8488b7b7f5bdf4 58
+src/renderer/components/TransactionEditor.tsx
+  s_d8b2366061c670::t_bc888715ee05dc 2,4,181-182,184,214,292-299,301-320,322-325
+  s_d8b2366061c670::t_c335d34c02fdd6 183,212-213,300,321
+src/main/services/index.ts
+  s_d8b2366061c670::t_0118b5e0b11747 21-28,747-748,763,768-769,774,777-782,793-809,826-827,1000-1015,1017-1021,1025-1034,2369
+  s_d8b2366061c670::t_2959a625ddeb18 1915
+  s_d8b2366061c670::t_567523a59acfc6 1035
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "baf5ec68fabee34bc4b1b89bfd5ae86ac85d7cd4",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
