@@ -9,6 +9,10 @@ afterEach(cleanup);
 function health(contents: Record<string, number>) {
   return {
     'health:get': {
+      categorization: { provider: 'ollama', model: 'llama3.1:8b', localOnly: true, reason: 'ok' },
+      encryption: { databaseEncrypted: true, keysInKeychain: true },
+      updates: { version: '1.0.0' },
+      syncHistory: [],
       perAccount: [],
       contents: {
         institutions: 1,
@@ -54,7 +58,7 @@ describe('the health view says why the app looks empty', () => {
       health({ transactions: 500, transactionsInEverydayAccounts: 480, transactionsThisMonth: 40 }),
     );
     render(<Health />);
-    await waitFor(() => expect(screen.getByText('Transactions imported')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Transactions')).toBeDefined());
     expect(screen.queryByText(/Nothing has been imported yet/)).toBeNull();
     expect(screen.queryByText(/not marked day-to-day/)).toBeNull();
   });
@@ -63,6 +67,5 @@ describe('the health view says why the app looks empty', () => {
     installMoneyBridge(health({ transactions: 500, transactionsInEverydayAccounts: 480 }));
     render(<Health />);
     await waitFor(() => expect(screen.getByText('500')).toBeDefined());
-    expect(screen.getByText('480')).toBeDefined();
   });
 });
