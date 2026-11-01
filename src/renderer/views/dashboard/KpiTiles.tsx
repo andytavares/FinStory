@@ -1,22 +1,23 @@
 import { Stat } from '../../components/ui';
 import { money, shortDate } from '../../lib/format';
+import { elapsedFraction, type DashboardPeriod } from './period';
 import type { DashboardKpis } from '@shared/types';
 
 interface Props {
   readonly kpis: DashboardKpis;
   readonly floorMinor: number;
   readonly now: Date;
+  readonly period: DashboardPeriod;
 }
 
-/** Spend so far against the prior month's spend, scaled to the same day of the month. */
-function spentDelta({ kpis, now }: Props): { text: string; tone: 'pos' | 'neg' | 'faint' } {
+/** Spend so far against the prior period's spend, scaled to the same stretch of it. */
+function spentDelta({ kpis, now, period }: Props): { text: string; tone: 'pos' | 'neg' | 'faint' } {
   const [prior] = kpis.spent.seriesMinor.slice(-2, -1);
-  if (!prior) return { text: 'No prior month to compare', tone: 'faint' };
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const pace = (prior * now.getDate()) / daysInMonth;
-  const change = Math.round(((kpis.spent.thisMonthMinor - pace) / pace) * 100);
+  if (!prior) return { text: 'No prior period to compare', tone: 'faint' };
+  const pace = prior * elapsedFraction(now, period);
+  const change = Math.round(((kpis.spent.currentMinor - pace) / pace) * 100);
   return {
-    text: `${change <= 0 ? '↓' : '↑'} ${Math.abs(change)}% vs last month's pace`,
+    text: `${change <= 0 ? '↓' : '↑'} ${Math.abs(change)}% vs last ${period}'s pace`,
     tone: change <= 0 ? 'pos' : 'neg',
   };
 }
@@ -29,16 +30,16 @@ export function KpiTiles(props: Props): React.JSX.Element {
   return (
     <div className="ds-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
       <Stat
-        label="Spent this month"
-        value={money(kpis.spent.thisMonthMinor)}
+        label={`Spent this ${props.period}`}
+        value={money(kpis.spent.currentMinor)}
         delta={spent.text}
         tone={spent.tone}
         series={kpis.spent.seriesMinor}
         color="var(--color-accent)"
       />
       <Stat
-        label="Income this month"
-        value={money(kpis.income.thisMonthMinor)}
+        label={`Income this ${props.period}`}
+        value={money(kpis.income.currentMinor)}
         delta={deposit ? `Next: ${money(deposit.amountMinor)} on ${shortDate(deposit.date)}` : 'No deposit expected yet'}
         series={kpis.income.seriesMinor}
         color="var(--color-positive)"
@@ -47,6 +48,7 @@ export function KpiTiles(props: Props): React.JSX.Element {
         label="Recurring / month"
         value={money(kpis.recurring.monthlyMinor)}
         delta={`${kpis.recurring.count} charges · ${kpis.recurring.candidateCount} to confirm`}
+        series={kpis.recurring.seriesMinor}
         color="var(--color-cat-6)"
       />
       <Stat

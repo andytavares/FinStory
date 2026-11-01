@@ -29,6 +29,8 @@ const TRANSACTION: TransactionView = {
   userNote: null,
   userExcluded: false,
   userRecurringOverride: null,
+  accountName: 'Gold Card',
+  accountMask: '1005',
 };
 
 const RULE = {
@@ -99,6 +101,32 @@ describe('editor scope control', () => {
 });
 
 describe('editor fields', () => {
+  it('says which account the charge is in', () => {
+    bridge([]);
+    render(editor());
+    expect(screen.getByText(/Gold Card ••1005 · imported as UBER EATS/)).toBeDefined();
+  });
+
+  it('lets the user force or rule out recurring, and starts on Let Money decide', async () => {
+    const invoke = bridge([]);
+    render(editor());
+    const select = screen.getByLabelText('Recurring') as HTMLSelectElement;
+    expect(select.value).toBe('');
+    expect([...select.options].map((o) => o.text)).toEqual([
+      'Let Money decide',
+      'This is recurring',
+      'This is not recurring',
+    ]);
+    fireEvent.change(select, { target: { value: 'not_recurring' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith(
+        'transactions:update',
+        expect.objectContaining({ userRecurringOverride: 'not_recurring' }),
+      ),
+    );
+  });
+
   it('shows the import name, the amount and every override', () => {
     bridge([]);
     render(editor());

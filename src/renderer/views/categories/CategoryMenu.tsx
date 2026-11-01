@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { call } from '../../lib/ipc';
-import { Button, Select } from '../../components/ui';
+import { Button, Menu, MenuItem, Select } from '../../components/ui';
 import type { CategoryRow } from './types';
 
 type Panel = 'list' | 'merge' | 'delete';
@@ -21,17 +21,15 @@ export function CategoryMenu({
   onChanged,
   onRename,
 }: MenuProps): React.JSX.Element {
-  const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>('list');
   const [error, setError] = useState<string | null>(null);
   const others = allCategories.filter((c) => c.id !== category.id).sort(byName);
 
-  const close = (): void => {
-    setOpen(false);
+  const reset = (): void => {
     setPanel('list');
     setError(null);
   };
-  const run = (promise: Promise<unknown>): void => {
+  const run = (promise: Promise<unknown>, close: () => void): void => {
     promise
       .then(() => {
         close();
@@ -39,63 +37,39 @@ export function CategoryMenu({
       })
       .catch((e: { message?: string }) => setError(e.message ?? 'Could not do that'));
   };
-  const remove = (): void => {
+  const remove = (close: () => void): void => {
     if (category.needsReassignment) setPanel('delete');
-    else run(call('categories:delete', { id: category.id }));
+    else run(call('categories:delete', { id: category.id }), close);
   };
 
   return (
-    <div
-      className="relative"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') close();
-      }}
-    >
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-label={`Actions for ${category.name}`}
-        aria-expanded={open}
-        onClick={() => (open ? close() : setOpen(true))}
-      >
-        ⋯
-      </Button>
-      {open && (
-        <div
-          role="menu"
-          className="ds-card absolute right-0 top-full z-10 mt-1 flex w-64 flex-col gap-1 !bg-[var(--color-surface-raised)] !p-2"
-        >
+    <Menu kind="button" align="right" label={`Actions for ${category.name}`} trigger="⋯" onClose={reset}>
+      {(close) => (
+        <>
           {panel === 'list' && (
             <>
-              <Button variant="ghost" size="sm" className="!justify-start" onClick={() => { close(); onRename(); }}>
-                Rename
-              </Button>
-              <Button variant="ghost" size="sm" className="!justify-start" aria-label={`Merge ${category.name}`} onClick={() => setPanel('merge')}>
+              <MenuItem onClick={() => { close(); onRename(); }}>Rename</MenuItem>
+              <MenuItem aria-label={`Merge ${category.name}`} onClick={() => setPanel('merge')}>
                 Merge
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="!justify-start"
-                onClick={() => run(call('categories:setHidden', { id: category.id, hidden: !category.isHidden }))}
-              >
+              </MenuItem>
+              <MenuItem onClick={() => run(call('categories:setHidden', { id: category.id, hidden: !category.isHidden }), close)}>
                 {category.isHidden ? 'Show' : 'Hide'}
-              </Button>
-              <Button variant="ghost" size="sm" className="!justify-start" aria-label={`Delete ${category.name}`} onClick={remove}>
+              </MenuItem>
+              <MenuItem aria-label={`Delete ${category.name}`} onClick={() => remove(close)}>
                 Delete
-              </Button>
+              </MenuItem>
             </>
           )}
           {panel === 'merge' && (
-            <MergePanel category={category} others={others} onPick={(targetId) => run(call('categories:merge', { sourceId: category.id, targetId }))} onCancel={close} />
+            <MergePanel category={category} others={others} onPick={(targetId) => run(call('categories:merge', { sourceId: category.id, targetId }), close)} onCancel={close} />
           )}
           {panel === 'delete' && (
-            <DeletePanel category={category} others={others} onMove={(reassignToId) => run(call('categories:delete', { id: category.id, reassignToId }))} onCancel={close} />
+            <DeletePanel category={category} others={others} onMove={(reassignToId) => run(call('categories:delete', { id: category.id, reassignToId }), close)} onCancel={close} />
           )}
           {error && <p className="ds-warn px-1 text-[12px]">{error}</p>}
-        </div>
+        </>
       )}
-    </div>
+    </Menu>
   );
 }
 

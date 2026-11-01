@@ -1,17 +1,13 @@
 import { useQuery, call } from '../lib/ipc';
 import { relativeAge } from '../lib/format';
-import { Button, Card, PageHeader } from '../components/ui';
+import { Button, Card, PageHeader, ListRow, ListRows } from '../components/ui';
 import { SyncHistory } from '../charts/SyncHistory';
 import { StatusTiles } from './health/StatusTiles';
-import { ListRow, ListRows } from './reports/ListRows';
 import type { HealthData } from './health/types';
-
-/** A successful run has no size to chart, so every green bar is the same height. */
-const OK_BAR_VALUE = 9;
 
 function SyncHistoryCard({ data }: { data: HealthData }): React.JSX.Element {
   const oldestFirst = [...data.syncHistory].reverse();
-  const runs = oldestFirst.map((run) => ({ ok: run.ok, value: OK_BAR_VALUE }));
+  const runs = oldestFirst.map((run) => ({ ok: run.ok, value: run.durationMs ?? 0 }));
   return (
     <Card title="Sync history" caption={runs.length === 1 ? 'Last run' : `Last ${runs.length} runs`}>
       <div className="mt-3">

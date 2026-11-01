@@ -72,15 +72,15 @@ describe('Register filters', () => {
     await waitFor(() => expect(lastQuery(invoke)).toMatchObject({ direction: 'out' }));
 
     fireEvent.click(screen.getByRole('button', { name: /^Account: All/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Gold Card' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Gold Card' }));
     await waitFor(() => expect(lastQuery(invoke)).toMatchObject({ accountIds: ['a1'] }));
 
     fireEvent.click(screen.getByRole('button', { name: /^Category: Any/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Food' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Food' }));
     await waitFor(() => expect(lastQuery(invoke)).toMatchObject({ categoryIds: ['food'] }));
 
     fireEvent.click(screen.getByRole('button', { name: /^All dates/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Last 30 days' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }));
     await waitFor(() => expect(lastQuery(invoke)).toHaveProperty('periodStart'));
     expect(lastQuery(invoke)).toHaveProperty('periodEnd');
 

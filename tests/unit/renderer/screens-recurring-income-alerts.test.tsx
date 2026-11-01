@@ -133,9 +133,12 @@ describe('Alerts', () => {
     eventOccurredAt: '2026-10-29T10:00:00Z',
     detectedAt: '2026-10-29T10:01:00Z',
     dismissed: false,
+    transactionId: 't9',
+    merchantName: 'Apple Store',
+    amountMinor: -45_000,
   };
 
-  function alerts(): ReturnType<typeof vi.fn> {
+  function alerts(onOpenMerchant: (name: string) => void = () => {}): ReturnType<typeof vi.fn> {
     const invoke = vi.fn((channel: string) =>
       Promise.resolve(
         channel === 'alerts:list' ? [ALERT] : channel === 'alertRules:list' ? RULES : { ok: true },
@@ -145,7 +148,7 @@ describe('Alerts', () => {
       configurable: true,
       value: { invoke, on: () => () => {} },
     });
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={onOpenMerchant} />);
     return invoke;
   }
 
@@ -154,6 +157,14 @@ describe('Alerts', () => {
     const toggle = await screen.findByRole('switch');
     fireEvent.click(toggle);
     expect(invoke).toHaveBeenCalledWith('alertRules:update', { id: 'r1', enabled: false });
+  });
+
+  it('says which charge raised the alert and opens its merchant', async () => {
+    const onOpenMerchant = vi.fn();
+    alerts(onOpenMerchant);
+    expect(await screen.findByText(/Apple Store charged \$450\.00 · Oct 29/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(onOpenMerchant).toHaveBeenCalledWith('Apple Store');
   });
 
   it('dismissing an alert calls dismiss for that alert', async () => {

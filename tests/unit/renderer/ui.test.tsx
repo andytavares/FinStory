@@ -6,7 +6,12 @@ import {
   Card,
   Chip,
   Field,
+  ListRow,
+  ListRows,
+  Menu,
+  MenuItem,
   MerchantMark,
+  NavList,
   ProgressBar,
   Segmented,
   Stat,
@@ -128,5 +133,129 @@ describe('Card, Chip, Field, ProgressBar', () => {
   it('exposes progress', () => {
     render(<ProgressBar value={0.4} color="var(--color-cat-2)" label="Food" />);
     expect(screen.getByRole('progressbar', { name: 'Food' }).getAttribute('aria-valuenow')).toBe('40');
+  });
+});
+
+describe('Menu', () => {
+  const open = (onClose: () => void = () => {}): void => {
+    render(
+      <div>
+        <button>outside</button>
+        <Menu trigger="Account: All" onClose={onClose}>
+          {(close) => <MenuItem onClick={close}>Gold Card</MenuItem>}
+        </Menu>
+      </div>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Account: All/ }));
+  };
+
+  it('opens a menu of items from its trigger', () => {
+    open();
+    const trigger = screen.getByRole('button', { name: /Account: All/ });
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('menu')).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Gold Card' })).toBeDefined();
+  });
+
+  it('closes on Escape and tells the caller', () => {
+    const onClose = vi.fn();
+    open(onClose);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on a click outside, but not on a click inside', () => {
+    open();
+    fireEvent.mouseDown(screen.getByRole('menu'));
+    expect(screen.getByRole('menu')).toBeDefined();
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'outside' }));
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('lets an item close the menu', () => {
+    open();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Gold Card' }));
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('takes its accessible name from label when the trigger is an icon', () => {
+    render(<Menu kind="button" label="Actions for Food" trigger="⋯">{() => null}</Menu>);
+    expect(screen.getByRole('button', { name: 'Actions for Food' })).toBeDefined();
+  });
+});
+
+describe('NavList', () => {
+  it('marks the active item and reports a selection', () => {
+    const onSelect = vi.fn();
+    render(
+      <NavList
+        label="Settings sections"
+        items={[{ id: 'general', label: 'General' }, { id: 'updates', label: 'Updates' }]}
+        active="updates"
+        onSelect={onSelect}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'Settings sections' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Updates' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: 'General' }).getAttribute('aria-current')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'General' }));
+    expect(onSelect).toHaveBeenCalledWith('general');
+  });
+});
+
+describe('Chip as a button, small chip', () => {
+  it('renders a button only when it has onClick, and keeps role and aria props', () => {
+    const onClick = vi.fn();
+    render(
+      <>
+        <Chip role="switch" aria-checked={true} onClick={onClick}>Needs review</Chip>
+        <Chip>Plain</Chip>
+      </>,
+    );
+    const chip = screen.getByRole('switch', { name: 'Needs review' });
+    expect(chip.tagName).toBe('BUTTON');
+    expect(chip.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(chip);
+    expect(onClick).toHaveBeenCalled();
+    expect(screen.getByText('Plain').tagName).toBe('SPAN');
+  });
+
+  it('is 18px high at size sm', () => {
+    render(<Chip size="sm">Recurring</Chip>);
+    expect(screen.getByText('Recurring').className).toContain('ds-chip-sm');
+  });
+});
+
+describe('Card tone and selected', () => {
+  it('draws the danger border and the selected ring as classes', () => {
+    render(
+      <>
+        <Card tone="danger">Reset</Card>
+        <Card selected>Chosen</Card>
+        <Card>Plain</Card>
+      </>,
+    );
+    expect(screen.getByText('Reset').className).toContain('ds-card-danger');
+    expect(screen.getByText('Chosen').className).toContain('ds-card-selected');
+    expect(screen.getByText('Plain').className).not.toContain('ds-card-');
+  });
+});
+
+describe('ListRows', () => {
+  it('renders its rows inside the divided list', () => {
+    render(<ListRows><ListRow>One</ListRow><ListRow>Two</ListRow></ListRows>);
+    const list = screen.getByText('One').parentElement as HTMLElement;
+    expect(list.className).toBe('ds-list');
+    expect(list.children).toHaveLength(2);
+    expect(screen.getByText('Two').className).toBe('ds-list-row');
+  });
+});
+
+describe('MerchantMark colour', () => {
+  it('uses the given colour instead of the stable one', () => {
+    render(<MerchantMark name="Quicken" color="var(--color-cat-7)" />);
+    expect(screen.getByText('Q').getAttribute('style')).toContain('--color-cat-7');
   });
 });

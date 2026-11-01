@@ -74,6 +74,11 @@ describe('SpendingOverTime', () => {
     expect(screen.getByRole('button', { name: 'Line' })).toBeDefined();
   });
 
+  it('hides the bars/line toggle when asked', () => {
+    render(<SpendingOverTime data={SERIES} priorAverageMinor={null} title="Spending" showShapeToggle={false} />);
+    expect(screen.queryByRole('button', { name: 'Bars' })).toBeNull();
+  });
+
   it('starts on bars and reports the pressed state', () => {
     render(<SpendingOverTime data={SERIES} priorAverageMinor={null} title="Spending" />);
     expect(screen.getByRole('button', { name: 'Bars' }).getAttribute('aria-pressed')).toBe('true');

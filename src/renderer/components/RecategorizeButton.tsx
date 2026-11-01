@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
 import { call } from '../lib/ipc';
-import { Button, ProgressBar, Select } from './ui';
+import { Button, ProgressBar, Segmented } from './ui';
 
 interface RecategorizeResult {
   readonly message: string;
@@ -28,12 +27,16 @@ interface Progress {
  */
 export function RecategorizeButton({
   onDone,
-  compact = false,
+  variant = 'card',
 }: {
   onDone?: () => void;
-  /** For a page header: the "Sort these with AI" label, unresolved only, status as a caption. */
-  compact?: boolean;
+  /**
+   * `compact` is for a page header: a "Sort these with AI" button, unresolved only, status as a caption.
+   * `card` is for Settings: the scope switch and a "Run" button, with the progress bar below.
+   */
+  variant?: 'card' | 'compact';
 }): React.JSX.Element {
+  const compact = variant === 'compact';
   const [scope, setScope] = useState<'unresolved' | 'all'>('unresolved');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -74,7 +77,8 @@ export function RecategorizeButton({
       ? Math.round((progress.processed / progress.total) * 100)
       : 0;
 
-  const label = busy ? (compact ? 'Sorting…' : 'Recategorizing…') : compact ? 'Sort these with AI' : 'Recategorize with AI';
+  const label = compact ? 'Sort these with AI' : 'Run';
+  const busyLabel = 'Sorting…';
   const status = progress
     ? `${progress.processed} of ${progress.total} · ${progress.changed} recategorized${stopping ? ' · finishing the one in flight' : ''}`
     : null;
@@ -87,26 +91,25 @@ export function RecategorizeButton({
           {note}
         </span>
       )}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {!compact && !busy && (
+          <Segmented
+            label="What to recategorize"
+            value={scope}
+            onChange={setScope}
+            options={[
+              { value: 'unresolved', label: 'Unresolved only' },
+              { value: 'all', label: 'Everything' },
+            ]}
+          />
+        )}
         <Button onClick={() => void run()} disabled={busy}>
-          <Sparkles aria-hidden className="h-4 w-4" />
-          {label}
+          {busy ? busyLabel : label}
         </Button>
-        {busy ? (
+        {busy && (
           <Button onClick={() => void stop()} disabled={stopping}>
             {stopping ? 'Stopping…' : 'Stop'}
           </Button>
-        ) : (
-          !compact && (
-            <Select
-              value={scope}
-              onChange={(e) => setScope(e.target.value as 'unresolved' | 'all')}
-              aria-label="What to recategorize"
-            >
-              <option value="unresolved">Only what is unresolved</option>
-              <option value="all">Everything except my own corrections</option>
-            </Select>
-          )
         )}
       </div>
 

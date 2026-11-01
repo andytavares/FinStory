@@ -16,11 +16,11 @@ export const RULE_TYPES = [
   { id: 'balance_floor', label: 'Balance projected below', option: 'Balance projected below an amount', needs: 'threshold' },
 ] as const;
 
-/** Stripe tone and title for an alert of each rule type. */
-export const ALERT_STYLE: Record<string, { title: string; color: string }> = {
-  large_purchase: { title: 'Large purchase', color: 'var(--color-negative)' },
-  daily_total: { title: 'Daily spending over the limit', color: 'var(--color-attention)' },
-  duplicate_charge: { title: 'Possible duplicate charge', color: 'var(--color-attention)' },
-  new_recurring: { title: 'New recurring charge', color: 'var(--color-accent)' },
-  balance_floor: { title: 'Balance projected low', color: 'var(--color-negative)' },
+/** Stripe tone, title and what the triggering charge did, for an alert of each rule type. */
+export const ALERT_STYLE: Record<string, { title: string; color: string; verb: string }> = {
+  large_purchase: { title: 'Large purchase', color: 'var(--color-negative)', verb: 'charged' },
+  daily_total: { title: 'Daily spending over the limit', color: 'var(--color-attention)', verb: 'charged' },
+  duplicate_charge: { title: 'Possible duplicate charge', color: 'var(--color-attention)', verb: 'charged twice,' },
+  new_recurring: { title: 'New recurring charge', color: 'var(--color-accent)', verb: 'looks recurring at' },
+  balance_floor: { title: 'Balance projected low', color: 'var(--color-negative)', verb: 'charged' },
 };

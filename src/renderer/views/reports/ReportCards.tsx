@@ -31,8 +31,9 @@ export function FeaturedReport({
       <li>
         <Card className="grid grid-cols-[1fr_1.2fr] gap-[18px]">
           <div>
-            <Eyebrow>Latest · {periodLabel(report.periodStart, report.periodEnd)}</Eyebrow>
+            <Eyebrow>Latest · {report.label ?? periodLabel(report.periodStart, report.periodEnd)}</Eyebrow>
             <div className="mt-1 text-[19px] font-semibold">{report.headline}</div>
+            {report.summary && <div className="ds-muted mt-1.5">{report.summary}</div>}
             <div className="ds-faint mt-1.5">{subtitle(report)}</div>
             <div className="ds-row mt-3">
               <Button variant="primary" size="sm" onClick={() => onOpen(report.id)}>
@@ -43,7 +44,7 @@ export function FeaturedReport({
               </Button>
             </div>
           </div>
-          <SpendingOverTime data={data} priorAverageMinor={null} title="Spending by day" />
+          <SpendingOverTime data={data} priorAverageMinor={null} title="Spending by day" showShapeToggle={false} />
         </Card>
       </li>
     </ul>

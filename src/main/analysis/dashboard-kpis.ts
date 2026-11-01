@@ -48,23 +48,80 @@ export function monthRange(now: Date, monthsBack = 0): { start: string; end: str
   return { start: isoDay(start), end: isoDay(end) };
 }
 
+export type DashboardPeriod = 'week' | 'month' | 'year';
+
+export interface PeriodTotals {
+  /** First day of the bucket, `YYYY-MM-DD`. Weeks start on Monday (UTC). */
+  readonly start: string;
+  readonly incomeMinor: number;
+  readonly spendingMinor: number;
+}
+
+/** Start of the bucket `back` buckets before the one holding `now`; negative `back` looks forward. */
+function bucketStart(now: Date, period: DashboardPeriod, back: number): Date {
+  const [year, month, day] = [now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()];
+  if (period === 'year') return new Date(Date.UTC(year - back, 0, 1));
+  if (period === 'month') return new Date(Date.UTC(year, month - back, 1));
+  const sinceMonday = (now.getUTCDay() + 6) % 7;
+  return new Date(Date.UTC(year, month, day - sinceMonday - back * 7));
+}
+
+/** The dates a series of `count` buckets covers: `end` is the first day after the last bucket. */
+export function periodSpan(now: Date, period: DashboardPeriod, count = MONTHS_SHOWN): { start: string; end: string } {
+  return { start: isoDay(bucketStart(now, period, count - 1)), end: isoDay(bucketStart(now, period, -1)) };
+}
+
+/** Oldest first, ending with the bucket of `now`. */
+export function periodTotals(
+  transactions: readonly DatedTransaction[],
+  now: Date,
+  period: DashboardPeriod,
+  count = MONTHS_SHOWN,
+): PeriodTotals[] {
+  return Array.from({ length: count }, (_, index) => {
+    const start = isoDay(bucketStart(now, period, count - 1 - index));
+    const end = isoDay(bucketStart(now, period, count - 2 - index));
+    const inBucket = transactions.filter((tx) => tx.postedDate >= start && tx.postedDate < end);
+    return {
+      start,
+      incomeMinor: inBucket
+        .filter((tx) => tx.amountMinor > 0 && !tx.isInternalTransfer)
+        .reduce((total, tx) => total + tx.amountMinor, 0),
+      spendingMinor: 0 - spendingTotalMinor(inBucket),
+    };
+  });
+}
+
 /** Oldest first, ending with the month of `now`. */
 export function monthlyTotals(
   transactions: readonly DatedTransaction[],
   now: Date,
   months = MONTHS_SHOWN,
 ): MonthTotals[] {
+  return periodTotals(transactions, now, 'month', months).map(({ start, ...totals }) => ({
+    month: start.slice(0, 7),
+    ...totals,
+  }));
+}
+
+export interface RecurringSpan {
+  readonly monthlyMinor: number;
+  readonly firstSeenDate: string;
+  readonly lastSeenDate: string;
+  readonly active: boolean;
+}
+
+/**
+ * Monthly recurring cost for each of the last `months` months, oldest first.
+ * A charge counts from the month it was first seen; an inactive one stops after its last-seen month.
+ */
+export function recurringSeries(charges: readonly RecurringSpan[], now: Date, months = MONTHS_SHOWN): number[] {
   return Array.from({ length: months }, (_, index) => {
-    const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1 - index), 1));
-    const month = isoDay(first).slice(0, 7);
-    const inMonth = transactions.filter((tx) => tx.postedDate.startsWith(month));
-    return {
-      month,
-      incomeMinor: inMonth
-        .filter((tx) => tx.amountMinor > 0 && !tx.isInternalTransfer)
-        .reduce((total, tx) => total + tx.amountMinor, 0),
-      spendingMinor: 0 - spendingTotalMinor(inMonth),
-    };
+    const start = isoDay(bucketStart(now, 'month', months - 1 - index));
+    const end = isoDay(bucketStart(now, 'month', months - 2 - index));
+    return charges
+      .filter((c) => c.firstSeenDate < end && (c.active || c.lastSeenDate >= start))
+      .reduce((total, c) => total + c.monthlyMinor, 0);
   });
 }
 

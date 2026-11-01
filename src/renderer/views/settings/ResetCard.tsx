@@ -17,7 +17,7 @@ export function ResetCard(): React.JSX.Element {
   };
 
   return (
-    <Card className="!border-[color-mix(in_srgb,var(--color-negative)_35%,transparent)]">
+    <Card tone="danger">
       <div className="ds-row">
         <div className="flex-1">
           <div className="font-semibold">Reset Money</div>

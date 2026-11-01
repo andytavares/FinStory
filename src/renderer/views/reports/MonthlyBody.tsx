@@ -1,8 +1,7 @@
-import { Card, Chip, MerchantMark, Stat } from '../../components/ui';
+import { Card, Chip, MerchantMark, Stat, ListRow, ListRows } from '../../components/ui';
 import { CategoryDonut } from '../../charts/CategoryDonut';
 import { spend } from '../../lib/format';
 import { ComparisonList } from './ComparisonList';
-import { ListRow, ListRows } from './ListRows';
 import { kpiTiles, previousMonthName } from './kpis';
 import { rollUp } from './rollUp';
 import type { KpiPoint, MonthlyContent } from './detailTypes';

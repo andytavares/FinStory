@@ -90,17 +90,14 @@ export function FilterRow({
         onChange={(key) => onChange({ period: key ? periodFor(key) : null })}
         options={PERIOD_OPTIONS}
       />
-      <button
-        type="button"
+      <Chip
         role="switch"
         aria-checked={filters.needsReviewOnly}
+        tone={filters.needsReviewOnly ? 'accent' : 'neutral'}
         onClick={() => onChange({ needsReviewOnly: !filters.needsReviewOnly })}
-        className="cursor-pointer border-0 bg-transparent p-0"
       >
-        <Chip tone={filters.needsReviewOnly ? 'accent' : 'neutral'}>
-          Needs review · {needsReviewCount}
-        </Chip>
-      </button>
+        Needs review · {needsReviewCount}
+      </Chip>
       {filters.search && (
         <Button size="sm" variant="ghost" onClick={() => onChange({ search: '' })}>
           Search: {filters.search} <X aria-label="Clear search" size={12} />

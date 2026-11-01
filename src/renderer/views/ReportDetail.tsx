@@ -25,10 +25,12 @@ function BackLink({ onBack }: { onBack: () => void }): React.JSX.Element {
 export function ReportDetail({
   reportId,
   onBack,
+  onDeleted,
   autoExport = false,
 }: {
   reportId: string;
   onBack: () => void;
+  onDeleted: () => void;
   /** Export to PDF as soon as the report is on screen. */
   autoExport?: boolean;
 }): React.JSX.Element {
@@ -39,6 +41,11 @@ export function ReportDetail({
   const exportPdf = async (): Promise<void> => {
     const result = await call<{ ok: boolean; path?: string }>('reports:exportPdf', { id: reportId });
     setExported(result.ok ? `Saved to ${result.path}` : null);
+  };
+
+  const remove = async (): Promise<void> => {
+    await call('reports:delete', { id: reportId });
+    onDeleted();
   };
 
   useEffect(() => {
@@ -65,7 +72,14 @@ export function ReportDetail({
       <PageHeader
         title={monthly ? periodLabel(data.periodStart, data.periodEnd) : periodRange(data)}
         sub={`${TYPE_NAMES[data.type]}${monthly ? ` · ${periodRange(data)}` : ''}${data.wasLate ? ' · generated late' : ''}`}
-        actions={<Button onClick={() => void exportPdf()}>Export PDF</Button>}
+        actions={
+          <>
+            <Button onClick={() => void exportPdf()}>Export PDF</Button>
+            <Button variant="danger" onClick={() => void remove()}>
+              Delete report
+            </Button>
+          </>
+        }
       />
       {exported && <p className="ds-muted">{exported}</p>}
       <Qualification

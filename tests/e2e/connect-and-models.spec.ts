@@ -25,12 +25,13 @@ test.describe('connect and model selection', () => {
 
   test('offers all three categorization providers with their privacy stated', async () => {
     await harness.page.getByRole('button', { name: 'Settings' }).click();
-    // Each option's label wraps a nested detail span, so match on the radio
-    // group and the distinguishing copy rather than an exact text node.
-    await expect(harness.page.locator('input[name="modelProvider"]')).toHaveCount(3);
-    await expect(harness.page.getByText(/Local model via Ollama/)).toBeVisible();
-    await expect(harness.page.getByText(/Nothing leaves this machine at all/)).toBeVisible();
-    await expect(harness.page.getByText(/Never account numbers, balances/)).toBeVisible();
+    const radios = harness.page.getByRole('radiogroup', { name: 'Who sorts new merchants' }).getByRole('radio');
+    await expect(radios).toHaveCount(3);
+    await expect(radios.nth(0)).toHaveAccessibleName('Ollama (local)');
+    await expect(radios.nth(1)).toHaveAccessibleName('Claude');
+    await expect(radios.nth(2)).toHaveAccessibleName('History only');
+    await expect(radios.nth(0)).toHaveAccessibleDescription(/Nothing leaves this machine at all/);
+    await expect(radios.nth(1)).toHaveAccessibleDescription(/Never account numbers, balances/);
   });
 
   test('defaults to Haiku and offers the other Claude models', async () => {
@@ -42,7 +43,7 @@ test.describe('connect and model selection', () => {
 
   test('switching to Ollama lists models installed on this machine', async () => {
     await harness.page.getByRole('button', { name: 'Settings' }).click();
-    await harness.page.locator('input[name="modelProvider"]').nth(1).check();
+    await harness.page.getByRole('radio', { name: 'Ollama (local)' }).click();
     // Either a picker (Ollama running) or a clear explanation (not running).
     await expect(
       harness.page.getByText(/Installed model|No local models found/),

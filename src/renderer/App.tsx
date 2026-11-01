@@ -156,7 +156,9 @@ export function App(): React.JSX.Element {
         <Income onOpenMerchant={(merchantKey) => nav.navigate({ view: 'register', merchantKey })} />
       )}
       {view === 'review' && <Review />}
-      {view === 'alerts' && <Alerts />}
+      {view === 'alerts' && (
+        <Alerts onOpenMerchant={(search) => nav.navigate({ view: 'register', search })} />
+      )}
       {view === 'reports' && (
         <Reports
           openReportId={route.reportId ?? null}

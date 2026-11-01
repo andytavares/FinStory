@@ -108,6 +108,27 @@ describe('Settings values', () => {
     expect(screen.queryByText('Ollama running')).toBeNull();
   });
 
+  it('lists Ollama, Claude, History only as radios named by their title, each described by what leaves the machine', async () => {
+    setup();
+    render(<Settings />);
+    const radios = await screen.findAllByRole('radio');
+    expect(radios.map((r) => r.getAttribute('aria-labelledby'))).toEqual([
+      'provider-ollama-title',
+      'provider-anthropic-title',
+      'provider-local_only-title',
+    ]);
+    expect(radios.map((r) => document.getElementById(r.getAttribute('aria-labelledby') ?? '')?.textContent)).toEqual([
+      'Ollama (local)',
+      'Claude',
+      'History only',
+    ]);
+    const described = (r: HTMLElement): string =>
+      document.getElementById(r.getAttribute('aria-describedby') ?? '')?.textContent ?? '';
+    expect(described(radios[0]!)).toMatch(/Nothing leaves this machine at all/);
+    expect(described(radios[1]!)).toMatch(/Never account numbers, balances/);
+    expect(radios[0]!.getAttribute('aria-checked')).toBe('true');
+  });
+
   it('switching provider saves it', async () => {
     const invoke = setup();
     render(<Settings />);

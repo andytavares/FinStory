@@ -16,6 +16,10 @@ export const dateRangeSchema = z.object({
   periodEnd: isoDate,
 });
 
+export const dashboardSchema = dateRangeSchema.extend({
+  period: z.enum(['week', 'month', 'year']).default('month'),
+});
+
 export const saveCredentialsSchema = z.object({
   plaidClientId: z.string().min(1),
   plaidSecret: z.string().min(1),

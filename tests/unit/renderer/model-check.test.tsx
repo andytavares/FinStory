@@ -47,8 +47,8 @@ describe('the model check reports the real answer', () => {
       'categorization:rerun': { ok: true, message: 'Recategorized 37 of 40 unresolved transactions.' },
     });
     render(<Settings />);
-    await waitFor(() => screen.getByText('Recategorize with AI'));
-    fireEvent.click(screen.getByText('Recategorize with AI'));
+    await waitFor(() => screen.getByRole('button', { name: 'Run' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('37 of 40'));
   });
 
@@ -130,6 +130,15 @@ describe('the Ollama block', () => {
     await waitFor(() =>
       expect(invoke.mock.calls.filter(([c]) => c === 'models:listOllama').length).toBe(2),
     );
+  });
+
+  it('names the running Ollama version', async () => {
+    installMoneyBridge({
+      ...OLLAMA,
+      'setup:detectOllama': { running: true, version: '0.40.11', models: ['llama3.1:8b'] },
+    });
+    render(<Settings />);
+    await waitFor(() => expect(screen.getByText('Ollama 0.40.11 running')).toBeDefined());
   });
 
   it('saves the Ollama address as typed', async () => {

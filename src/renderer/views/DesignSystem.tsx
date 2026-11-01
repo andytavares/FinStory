@@ -6,7 +6,12 @@ import {
   Drawer,
   Eyebrow,
   Field,
+  ListRow,
+  ListRows,
+  Menu,
+  MenuItem,
   MerchantMark,
+  NavList,
   PageHeader,
   ProgressBar,
   Segmented,
@@ -39,6 +44,8 @@ const CATEGORIES = [
 export function DesignSystem(): React.JSX.Element {
   const [range, setRange] = useState('month');
   const [hidden, setHidden] = useState(false);
+  const [section, setSection] = useState('general');
+  const [needsReview, setNeedsReview] = useState(false);
   return (
     <>
       <PageHeader
@@ -84,12 +91,44 @@ export function DesignSystem(): React.JSX.Element {
           <CategoryDonut parts={CATEGORIES} legend />
         </Card>
       </div>
+      <Card title="Menu, NavList, ListRows, Card tones" caption="Menu, MenuItem, NavList, ListRows, Card">
+        <div className="ds-row" style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <Menu trigger="Account: All">
+            {(close) => (
+              <>
+                <MenuItem onClick={close}>All</MenuItem>
+                <MenuItem onClick={close}>Gold Card</MenuItem>
+              </>
+            )}
+          </Menu>
+          <Chip role="switch" aria-checked={needsReview} tone={needsReview ? 'accent' : 'neutral'} onClick={() => setNeedsReview(!needsReview)}>
+            Needs review · 8
+          </Chip>
+          <Chip size="sm">Small chip</Chip>
+          <MerchantMark name="Quicken" color="var(--color-cat-7)" />
+          <NavList
+            label="Example sections"
+            items={[{ id: 'general', label: 'General' }, { id: 'updates', label: 'Updates' }]}
+            active={section}
+            onSelect={setSection}
+          />
+          <Card selected className="w-48">Selected Card</Card>
+          <Card tone="danger" className="w-48">Danger Card</Card>
+          <div className="w-64">
+            <ListRows>
+              <ListRow><span className="flex-1">Transactions</span><span className="ds-num">56</span></ListRow>
+              <ListRow><span className="flex-1">Accounts</span><span className="ds-num">3</span></ListRow>
+            </ListRows>
+          </div>
+        </div>
+      </Card>
       <div className="ds-grid" style={{ gridTemplateColumns: '1.25fr 1fr' }}>
         <Card>
           <SpendingOverTime
             title="Spending by month"
             data={MONTHS.map((label, i) => ({ label, spendingMinor: SPEND[i] ?? 0 }))}
             priorAverageMinor={280_000}
+            showShapeToggle={false}
           />
         </Card>
         <Card title="Deposits vs spending" caption="IncomeVsSpending">

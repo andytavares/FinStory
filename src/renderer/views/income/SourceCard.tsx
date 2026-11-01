@@ -1,5 +1,6 @@
 import { call } from '../../lib/ipc';
 import { Button, Card, Chip, Eyebrow, MerchantMark } from '../../components/ui';
+import { accountLabel } from '../../lib/format';
 import { Money } from '../../components/Money';
 import { Sparkline } from '../../charts/Sparkline';
 import { CADENCE_LABEL } from '../recurring/cadence';
@@ -33,7 +34,7 @@ export function SourceCard({
         <MerchantMark name={source.merchantName} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{source.merchantName}</div>
-          <div className="ds-caption">{CADENCE_LABEL[source.cadence] ?? source.cadence}</div>
+          <div className="ds-caption">{CADENCE_LABEL[source.cadence] ?? source.cadence} · {accountLabel(source.accountName, source.accountMask)}</div>
         </div>
         {source.isUserConfirmed ? (
           <Chip tone="ok">Confirmed</Chip>

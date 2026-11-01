@@ -1,10 +1,13 @@
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { Card, type CardProps } from './Card';
-export { Chip, type ChipTone } from './Chip';
+export { Chip, type ChipProps, type ChipTone } from './Chip';
 export { Drawer } from './Drawer';
 export { Eyebrow } from './Eyebrow';
 export { Field, Select, TextInput } from './Field';
+export { ListRow, ListRows } from './ListRows';
+export { Menu, MenuItem } from './Menu';
 export { MerchantMark } from './MerchantMark';
+export { NavList, type NavListItem } from './NavList';
 export { PageHeader } from './PageHeader';
 export { ProgressBar } from './ProgressBar';
 export { Segmented, type SegmentedOption } from './Segmented';

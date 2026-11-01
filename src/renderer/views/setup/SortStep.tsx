@@ -12,8 +12,6 @@ export interface SortChoice {
   readonly anthropicKey: string;
 }
 
-const SELECTED = { borderColor: 'rgba(109, 139, 255, 0.55)', boxShadow: '0 0 0 3px var(--color-accent-glow)' };
-
 function OptionCard({
   title,
   detail,
@@ -36,7 +34,7 @@ function OptionCard({
       onClick={onSelect}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect()}
       className="ds-row cursor-pointer !items-start"
-      style={selected ? SELECTED : undefined}
+      selected={selected}
     >
       <span
         className="mt-0.5 grid h-4 w-4 place-items-center rounded-full border-2"

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { call, useQuery } from '../lib/ipc';
 import { transactionName } from '../lib/name';
 import { categoryColor } from '../lib/categoryColor';
-import { shortDate, signedMoney } from '../lib/format';
+import { accountLabel, shortDate, signedMoney } from '../lib/format';
 import {
   Button,
   Drawer,
@@ -94,6 +94,7 @@ export function TransactionEditor({
   const [note, setNote] = useState(transaction.userNote ?? '');
   const [excluded, setExcluded] = useState(transaction.userExcluded);
   const [categoryId, setCategoryId] = useState(transaction.categoryId);
+  const [recurring, setRecurring] = useState<string>(transaction.userRecurringOverride ?? '');
   const [scope, setScope] = useState<'transaction' | 'merchant'>('transaction');
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const rules = useQuery<MerchantRuleView[]>('rules:list');
@@ -101,10 +102,15 @@ export function TransactionEditor({
   const importedName = transactionName({ ...transaction, userMerchantName: null });
   const rule = rules.data?.find((r) => r.merchantKey === transaction.merchantKey);
 
-  const original = { name: transaction.userMerchantName ?? '', note: transaction.userNote ?? '' };
+  const original = {
+    name: transaction.userMerchantName ?? '',
+    note: transaction.userNote ?? '',
+    recurring: transaction.userRecurringOverride ?? '',
+  };
   const dirty =
     name !== original.name ||
     note !== original.note ||
+    recurring !== original.recurring ||
     excluded !== transaction.userExcluded ||
     categoryId !== transaction.categoryId;
 
@@ -123,6 +129,7 @@ export function TransactionEditor({
         ...(name !== original.name && { userMerchantName: name.trim() || null }),
         scope,
         userNote: note.trim() || null,
+        userRecurringOverride: recurring === '' ? null : recurring,
         userExcluded: excluded,
       });
       setStatus('idle');
@@ -135,6 +142,7 @@ export function TransactionEditor({
   const revert = (): void => {
     setName(original.name);
     setNote(original.note);
+    setRecurring(original.recurring);
     setExcluded(transaction.userExcluded);
     setCategoryId(transaction.categoryId);
     setStatus('idle');
@@ -147,7 +155,7 @@ export function TransactionEditor({
         <div className="min-w-0 flex-1">
           <div className="font-semibold">{displayName}</div>
           <div className="ds-caption">
-            {shortDate(transaction.postedDate)} · imported as {transaction.description}
+            {shortDate(transaction.postedDate)} · {accountLabel(transaction.accountName, transaction.accountMask)} · imported as {transaction.description}
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>
@@ -184,6 +192,14 @@ export function TransactionEditor({
           placeholder={importedName}
           onChange={(e) => edit(setName)(e.target.value)}
         />
+      </Field>
+
+      <Field label="Recurring">
+        <Select value={recurring} onChange={(e) => edit(setRecurring)(e.target.value)}>
+          <option value="">Let Money decide</option>
+          <option value="recurring">This is recurring</option>
+          <option value="not_recurring">This is not recurring</option>
+        </Select>
       </Field>
 
       {transaction.merchantKey && (

@@ -47,12 +47,15 @@ export function SpendingOverTime({
   priorAverageMinor,
   title,
   onSelectPeriod,
+  showShapeToggle = true,
 }: {
   data: readonly SpendingPoint[];
   priorAverageMinor: number | null;
   title: string;
   /** Clicking a period drills into that month's transactions. */
   onSelectPeriod?: (label: string) => void;
+  /** The Bars/Line toggle; hide it where the design shows none. */
+  showShapeToggle?: boolean;
 }): React.JSX.Element {
   const [shape, setShape] = useState<'bars' | 'line'>('bars');
   if (data.length === 0) {
@@ -72,6 +75,7 @@ export function SpendingOverTime({
           {onSelectPeriod && (
             <span className="text-[var(--color-ink-faint)]">Click a period to open it</span>
           )}
+          {showShapeToggle && (
           <Segmented
             label="Chart shape"
             value={shape}
@@ -84,6 +88,7 @@ export function SpendingOverTime({
               { value: 'line', label: 'Line' },
             ]}
           />
+          )}
         </span>
       </figcaption>
       <div className="h-56 w-full">

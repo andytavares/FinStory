@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import { installMoneyBridge } from './setup';
 import { Dashboard } from '@renderer/views/Dashboard';
@@ -22,9 +22,9 @@ const BASE = {
     reason: 'Add an income source so Money can project to payday.',
   },
   kpis: {
-    spent: { thisMonthMinor: 1500, seriesMinor: [189000, 187400, 1500] },
-    income: { thisMonthMinor: 0, seriesMinor: [310000, 0], nextDeposit: null },
-    recurring: { monthlyMinor: 182698, count: 3, candidateCount: 2 },
+    spent: { currentMinor: 1500, seriesMinor: [189000, 187400, 1500] },
+    income: { currentMinor: 0, seriesMinor: [310000, 0], nextDeposit: null },
+    recurring: { monthlyMinor: 182698, count: 3, candidateCount: 2, seriesMinor: [181000, 182698] },
     safeToSpendPerDayMinor: 3780,
   },
   upcomingRecurring: [
@@ -78,5 +78,20 @@ describe('Dashboard (redesign)', () => {
     expect(screen.getByText(/Amex/)).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
     expect(reconnected).toBe(true);
+  });
+
+  it('asks for the chosen period and relabels the tiles', async () => {
+    const invoke = vi.fn((channel: string) => Promise.resolve(channel === 'dashboard:get' ? BASE : null));
+    Object.defineProperty(globalThis.window, 'money', { configurable: true, value: { invoke, on: () => () => {} } });
+    render(<Dashboard onDrill={() => {}} />);
+    await waitFor(() => screen.getByText('Spent this month'));
+    fireEvent.click(screen.getByRole('button', { name: 'Week' }));
+    await waitFor(() => screen.getByText('Spent this week'));
+    expect(screen.getByText('Income this week')).toBeDefined();
+    expect(screen.getByText('Last 7 days')).toBeDefined();
+    expect(invoke).toHaveBeenCalledWith('dashboard:get', expect.objectContaining({ period: 'week' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Year' }));
+    await waitFor(() => screen.getByText('Spent this year'));
+    expect(screen.getByText('Last 365 days')).toBeDefined();
   });
 });

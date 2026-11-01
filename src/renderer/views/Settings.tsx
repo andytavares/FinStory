@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '../lib/ipc';
 import { Credentials } from '../components/Credentials';
-import { Card, PageHeader } from '../components/ui';
+import { Card, NavList, PageHeader } from '../components/ui';
 import { CategorizationSection } from './settings/CategorizationSection';
 import { GeneralSection } from './settings/GeneralSection';
 import { PrivacySection, type Protection } from './settings/PrivacySection';
@@ -64,18 +64,13 @@ export function Settings(): React.JSX.Element {
     <>
       <PageHeader title="Settings" />
       <div className="flex shrink-0 gap-[18px]">
-        <div role="group" aria-label="Settings sections" className="sticky top-0 flex w-[170px] flex-none flex-col gap-0.5 self-start">
-          {SECTIONS.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              className="ds-nav !px-2.5 !py-[7px]"
-              aria-current={active === section.id ? 'page' : undefined}
-              onClick={() => jump(section.id)}
-            >
-              {section.tab}
-            </button>
-          ))}
+        <div className="sticky top-0 w-[170px] flex-none self-start">
+          <NavList
+            label="Settings sections"
+            items={SECTIONS.map((section) => ({ id: section.id, label: section.tab }))}
+            active={active}
+            onSelect={jump}
+          />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-7">
           {SECTIONS.map((section) => (

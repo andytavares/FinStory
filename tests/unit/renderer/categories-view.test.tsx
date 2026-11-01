@@ -24,27 +24,27 @@ describe('Alerts screen editing', () => {
   );
 
   it('renders a threshold input for amount rules and a window input for duplicate rules', async () => {
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() => screen.getByLabelText(/^Threshold for/));
     expect(screen.getByLabelText(/^Window for/)).toBeDefined();
   });
 
   it('shows the threshold in major units', async () => {
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() =>
       expect((screen.getByLabelText(/^Threshold for/) as HTMLInputElement).value).toBe('200'),
     );
   });
 
   it('offers Delete only on user-created rules', async () => {
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() => screen.getAllByText('Delete'));
     // r1 is a system rule; r2 and r3 are not.
     expect(screen.getAllByText('Delete')).toHaveLength(2);
   });
 
   it('shows no value input for a rule that needs none', async () => {
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() => screen.getByText('+ New alert'));
     fireEvent.click(screen.getByText('+ New alert'));
     fireEvent.change(screen.getByLabelText('New alert type'), {
@@ -54,7 +54,7 @@ describe('Alerts screen editing', () => {
   });
 
   it('saves an edited threshold on blur', async () => {
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() => screen.getByLabelText(/^Threshold for/));
     const input = screen.getByLabelText(/^Threshold for/);
     fireEvent.change(input, { target: { value: '500' } });
@@ -72,7 +72,7 @@ describe('Accounts and Alerts branches', () => {
         { id: 'r2', type: 'duplicate_charge', label: 'My dupes', thresholdMinor: null, windowMinutes: 60, enabled: true, isSystem: false },
       ],
     });
-    render(<A />);
+    render(<A onOpenMerchant={() => {}} />);
     await waitFor(() =>
       expect((screen.getByLabelText(/^Name for/) as HTMLInputElement).value).toBe('My dupes'),
     );
@@ -92,7 +92,7 @@ describe('Accounts and Alerts branches', () => {
         },
       ],
     });
-    render(<A />);
+    render(<A onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByText('Aug 29')).toBeDefined());
     // A dismissed alert offers no further action.
     expect(screen.queryByText('Dismiss')).toBeNull();

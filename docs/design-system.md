@@ -44,15 +44,18 @@ All are exported from `src/renderer/components/ui/index.ts`.
 | Component | Props | Example |
 |---|---|---|
 | `Button` | `variant` default, primary, ghost, danger; `size` md, sm; all button props; `type="button"` by default | `<Button variant="primary" onClick={save}>Save</Button>` |
-| `Card` | `title`, `caption`, `actions`; all div props | `<Card title="Coming up" caption="Next 30 days">...</Card>` |
+| `Card` | `title`, `caption`, `actions`; `tone` default, danger (red border); `selected` (accent ring and glow); all div props | `<Card title="Coming up" caption="Next 30 days">...</Card>` |
 | `Drawer` | Same as `Card`. A grid-column panel, not a modal | `<Drawer title="Uber Eats">...</Drawer>` |
 | `Eyebrow` | `children` | `<Eyebrow>Next deposit</Eyebrow>` |
-| `Chip` | `tone` neutral, accent, ok, bad, warn; `dot` CSS colour | `<Chip tone="warn">Check</Chip>` |
+| `Chip` | `tone` neutral, accent, ok, bad, warn; `dot` CSS colour; `size` md, sm (18px); `onClick` makes it a button; `role`, `title` and `aria-*` pass through | `<Chip tone="warn">Check</Chip>`, `<Chip role="switch" aria-checked={on} onClick={toggle}>Needs review</Chip>` |
 | `Segmented` | `options [{value,label}]`, `value`, `onChange`, `label`. Buttons with `aria-pressed` | `<Segmented value={shape} onChange={setShape} options={[...]} />` |
 | `Toggle` | `checked`, `onChange(next)`, `label`. `role="switch"` | `<Toggle checked={hidden} onChange={setHidden} label="Leave out of totals" />` |
 | `Field`, `TextInput`, `Select` | `Field label` wraps the control | `<Field label="Name"><TextInput value={name} onChange={...} /></Field>` |
 | `Stat` | `label`, `value`, `delta`, `tone` pos, neg, warn, faint; `series`, `color` | `<Stat label="Spent this month" value="$15.00" delta="99% below Oct" tone="pos" series={[...]} />` |
-| `MerchantMark` | `name`. The colour is stable per name | `<MerchantMark name="Whole Foods" />` |
+| `MerchantMark` | `name`; `color` overrides the colour, which is otherwise stable per name | `<MerchantMark name="Whole Foods" />` |
+| `Menu`, `MenuItem` | `Menu`: `trigger`, `label` (accessible name), `kind` chip or button, `align` left or right, `onClose`, `children(close)`. Closes on outside click and Escape. `MenuItem` is a `role="menuitem"` ghost button | `<Menu trigger="Account: All">{(close) => <MenuItem onClick={close}>Gold Card</MenuItem>}</Menu>` |
+| `NavList` | `items [{id,label}]`, `active`, `onSelect(id)`, `label`. Vertical nav-styled buttons, `aria-current` on the active one | `<NavList label="Settings sections" items={items} active={id} onSelect={jump} />` |
+| `ListRows`, `ListRow` | Rows with 10px padding and line separators, inside a `Card` | `<ListRows><ListRow>...</ListRow></ListRows>` |
 | `PageHeader` | `title`, `sub`, `actions` | `<PageHeader title="Transactions" sub="56 this period" actions={<Button>Export CSV</Button>} />` |
 | `ProgressBar` | `value` 0 to 1, `color`, `label` | `<ProgressBar value={0.4} color={categoryColor(1)} label="Food" />` |
 | `Table` | Table props. Use `th`/`td`, `.r` for right-aligned, `aria-selected` on `tr` for the selected row | `<Table><thead>...</thead></Table>` |
@@ -70,9 +73,9 @@ All charts use recharts and share `src/renderer/charts/theme.ts` (grid, axis tex
 | `Sparkline` | `values`, `color`, `width`, `height` |
 | `CategoryDonut` | `parts [{name,value}]`, `legend`, `size` |
 | `RunwayChart` | `points [{date,balance}]`, `floor`, `label` |
-| `SpendingOverTime` | `data`, `priorAverageMinor`, `title`, `onSelectPeriod`. Bars/Line toggle built in |
+| `SpendingOverTime` | `data`, `priorAverageMinor`, `title`, `onSelectPeriod`, `showShapeToggle` (default true). Bars/Line toggle built in |
 | `IncomeVsSpending` | `data [{label,income,spending}]` |
-| `SyncHistory` | `runs [{ok,value}]` |
+| `SyncHistory` | `runs [{ok,value}]`. Green bars scale to the largest `value`; `0` for every run gives equal bars |
 | `CategoryBars` | `data`, `title`, `max`, `onSelect` |
 
 Add a chart colour or gradient to `theme.ts`, not to the chart file.

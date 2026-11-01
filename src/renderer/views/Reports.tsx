@@ -52,7 +52,17 @@ export function Reports({
   };
 
   if (openReportId) {
-    return <ReportDetail reportId={openReportId} onBack={onCloseReport} autoExport={exportOnOpen} />;
+    return (
+      <ReportDetail
+        reportId={openReportId}
+        onBack={onCloseReport}
+        onDeleted={() => {
+          refetch();
+          onCloseReport();
+        }}
+        autoExport={exportOnOpen}
+      />
+    );
   }
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
 

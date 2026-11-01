@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { call } from '../../lib/ipc';
-import { Button, Card } from '../../components/ui';
+import { Button, Card, ListRow, ListRows } from '../../components/ui';
 import { EmptyState } from '../../components/EmptyState';
 import { shortDate } from '../../lib/format';
-import { ListRow, ListRows } from '../reports/ListRows';
 import type { OverrideKind, OverrideRecord } from '@shared/types';
 
 const GROUPS: ReadonlyArray<{ kind: OverrideKind; title: string; blurb: string }> = [

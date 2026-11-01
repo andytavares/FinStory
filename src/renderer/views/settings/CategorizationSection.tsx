@@ -4,7 +4,7 @@ import { RecategorizeButton } from '../../components/RecategorizeButton';
 import { Button, Card, Chip } from '../../components/ui';
 import { ProviderChoice } from './ProviderChoice';
 import { ClaudeFields, OllamaFields, type OllamaModel } from './ProviderFields';
-import type { AppSettings } from '@shared/types';
+import type { AppSettings, OllamaDetection } from '@shared/types';
 
 const update = (patch: Record<string, string>): void => {
   void call('settings:update', patch);
@@ -14,6 +14,7 @@ const update = (patch: Record<string, string>): void => {
 export function CategorizationSection({ settings }: { settings: AppSettings }): React.JSX.Element {
   const [provider, setProvider] = useState(settings.modelProvider);
   const models = useQuery<OllamaModel[]>('models:listOllama');
+  const detection = useQuery<OllamaDetection>('setup:detectOllama');
   const [note, setNote] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
 
@@ -45,7 +46,7 @@ export function CategorizationSection({ settings }: { settings: AppSettings }): 
         {provider === 'anthropic' && <ClaudeFields settings={settings} update={update} />}
         {provider === 'ollama' && <OllamaFields settings={settings} update={update} models={models} />}
         <div className="ds-row mt-3 flex-wrap">
-          {provider === 'ollama' && <OllamaStatus models={models} />}
+          {provider === 'ollama' && <OllamaStatus models={models} version={detection.data?.version} checking={detection.loading} />}
           {note && (
             <span role="status">
               <Chip>Last test: {note}</Chip>
@@ -76,8 +77,16 @@ export function CategorizationSection({ settings }: { settings: AppSettings }): 
   );
 }
 
-function OllamaStatus({ models }: { models: Query<OllamaModel[]> }): React.JSX.Element {
-  if (models.loading) return <Chip>Checking Ollama…</Chip>;
+function OllamaStatus({
+  models,
+  version,
+  checking,
+}: {
+  models: Query<OllamaModel[]>;
+  version: string | undefined;
+  checking: boolean;
+}): React.JSX.Element {
   if (models.error) return <Chip tone="bad">{models.error}</Chip>;
-  return <Chip tone="ok" dot="var(--color-positive)">Ollama running</Chip>;
+  if (models.loading || checking) return <Chip>Checking Ollama…</Chip>;
+  return <Chip tone="ok" dot="var(--color-positive)">{version ? `Ollama ${version} running` : 'Ollama running'}</Chip>;
 }

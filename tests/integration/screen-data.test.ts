@@ -266,13 +266,13 @@ describe('Data for the redesigned screens', () => {
   describe('dashboard', () => {
     type Dashboard = {
       kpis: {
-        spent: { thisMonthMinor: number; seriesMinor: number[] };
+        spent: { currentMinor: number; seriesMinor: number[] };
         income: {
-          thisMonthMinor: number;
+          currentMinor: number;
           seriesMinor: number[];
           nextDeposit: { date: string; amountMinor: number; merchantName: string } | null;
         };
-        recurring: { monthlyMinor: number; count: number; candidateCount: number };
+        recurring: { monthlyMinor: number; count: number; candidateCount: number; seriesMinor: number[] };
         safeToSpendPerDayMinor: number | null;
       };
       upcomingRecurring: Array<{ merchantName: string; date: string; amountMinor: number }>;
@@ -282,17 +282,53 @@ describe('Data for the redesigned screens', () => {
       } | null;
       whereItWent: Array<{ groupId: string; name: string; spentMinor: number }>;
     };
-    const load = async (): Promise<Dashboard> => (await services.dashboard(RANGE)) as Dashboard;
+    const load = async (period?: 'week' | 'month' | 'year'): Promise<Dashboard> =>
+      (await services.dashboard({ ...RANGE, ...(period ? { period } : {}) })) as Dashboard;
+    const addSpend = async (id: string, amountMinor: number, postedDate: string): Promise<void> => {
+      await handle.db.insert(schema.transactions).values({
+        id, accountId: 'acct_1', plaidTransactionId: `p_${id}`, amountMinor, merchantName: 'CORNER CAFE',
+        merchantKey: 'corner-cafe', description: 'CORNER CAFE', postedDate, datetime: `${postedDate}T14:00:00Z`,
+        pending: false, settlementState: 'posted', isInternalTransfer: false, reversesTransactionId: null,
+        originalCurrency: null, originalAmountMinor: null, firstSeenAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+      });
+      await handle.db.insert(schema.categorizations).values({
+        id: `cat_${id}`, transactionId: id, categoryId: 'dining', confidence: 0.9, source: 'model',
+        isConfirmed: false, needsReview: false, reasoning: null, supersededBy: null, createdAt: NOW.toISOString(),
+      });
+    };
 
     it('gives six months of spending, ending with this month', async () => {
       const { kpis } = await load();
-      expect(kpis.spent.thisMonthMinor).toBe(23_799);
+      expect(kpis.spent.currentMinor).toBe(23_799);
       expect(kpis.spent.seriesMinor).toEqual([0, 0, 0, 0, 10_000, 23_799]);
+    });
+
+    it('totals the current week and the five before it, weeks starting Monday', async () => {
+      await addSpend('txn_w1', -2_500, '2026-08-25');
+      const { kpis, whereItWent } = await load('week');
+      expect(kpis.spent.currentMinor).toBe(2_500);
+      expect(kpis.spent.seriesMinor).toEqual([0, 12_000, 10_200, 1_599, 0, 2_500]);
+      expect(kpis.income.currentMinor).toBe(0);
+      expect(kpis.income.seriesMinor).toEqual([0, 0, 0, 520_000, 0, 0]);
+      expect(whereItWent.map((g) => g.spentMinor)).toEqual([2_500]);
+    });
+
+    it('totals the current year and the five before it', async () => {
+      const { kpis, whereItWent } = await load('year');
+      expect(kpis.spent.currentMinor).toBe(33_799);
+      expect(kpis.spent.seriesMinor).toEqual([0, 0, 0, 0, 0, 33_799]);
+      expect(kpis.income.seriesMinor).toEqual([0, 0, 0, 0, 0, 1_040_000]);
+      expect(whereItWent.reduce((total, g) => total + g.spentMinor, 0)).toBe(33_799);
+    });
+
+    it('charts the monthly recurring total for six months, counting a charge until it stopped', async () => {
+      const { kpis } = await load();
+      expect(kpis.recurring.seriesMinor).toEqual([5_599, 1_599, 1_599, 1_599, 1_599, 1_599]);
     });
 
     it('gives six months of income and the next expected deposit', async () => {
       const { kpis } = await load();
-      expect(kpis.income.thisMonthMinor).toBe(520_000);
+      expect(kpis.income.currentMinor).toBe(520_000);
       expect(kpis.income.seriesMinor).toEqual([0, 0, 0, 0, 520_000, 520_000]);
       expect(kpis.income.nextDeposit).toEqual({
         date: '2026-09-15T00:00:00.000Z',
@@ -303,7 +339,7 @@ describe('Data for the redesigned screens', () => {
 
     it('totals active recurring charges per month and counts candidates', async () => {
       const { kpis } = await load();
-      expect(kpis.recurring).toEqual({ monthlyMinor: 1_599, count: 1, candidateCount: 0 });
+      expect(kpis.recurring).toMatchObject({ monthlyMinor: 1_599, count: 1, candidateCount: 0 });
     });
 
     it('divides what is spendable before payday by the days left', async () => {
@@ -356,6 +392,11 @@ describe('Data for the redesigned screens', () => {
       expect(source['txn_5']).toBe('local_history');
     });
 
+    it('names the account each transaction sits in', async () => {
+      const { rows } = (await query({})) as unknown as { rows: Array<{ accountName: string; accountMask: string | null }> };
+      expect(rows[0]).toMatchObject({ accountName: 'Everyday Checking', accountMask: '4321' });
+    });
+
     it('filters to one account', async () => {
       expect((await query({ accountIds: ['acct_2'] })).totalCount).toBe(0);
       expect((await query({ accountIds: ['acct_1'] })).totalCount).toBe(7);
@@ -405,7 +446,29 @@ describe('Data for the redesigned screens', () => {
     expect(rows.find((r) => r.id === 'rc_2')?.status).toBe('inactive');
   });
 
+  it('names the account on each review item', async () => {
+    const queue = (await services.reviewQueue({ limit: 10, offset: 0 })) as {
+      rows: Array<{ transaction: { accountName: string; accountMask: string | null } }>;
+    };
+    expect(queue.rows[0]?.transaction).toMatchObject({ accountName: 'Everyday Checking', accountMask: '4321' });
+  });
+
+  it('says which transaction raised each alert, with its merchant and amount', async () => {
+    await handle.db.insert(schema.alertRules).values({ id: 'rule_1', type: 'large_purchase', thresholdMinor: 5_000, windowMinutes: null, enabled: true });
+    await handle.db.insert(schema.alerts).values({
+      id: 'alert_1', ruleId: 'rule_1', triggeredByTransactionId: 'txn_3', eventOccurredAt: '2026-08-01T14:00:00Z',
+      detectedAt: '2026-08-01T14:00:00Z', deliveredAt: null, dismissedAsFalsePositive: false, dedupeKey: 'large_purchase:txn_3',
+    });
+    const [alert] = (await services.listAlerts()) as Array<object>;
+    expect(alert).toMatchObject({ transactionId: 'txn_3', merchantName: 'RENT', amountMinor: -12_000 });
+  });
+
   describe('income', () => {
+    it('names the account the deposit lands in', async () => {
+      const rows = (await services.listIncome()) as Array<{ accountName: string; accountMask: string | null }>;
+      expect(rows[0]).toMatchObject({ accountName: 'Everyday Checking', accountMask: '4321' });
+    });
+
     it('counts the days until the next deposit', async () => {
       const rows = (await services.listIncome()) as Array<{ daysUntilNext: number | null }>;
       expect(rows[0]?.daysUntilNext).toBe(17);
@@ -441,6 +504,16 @@ describe('Data for the redesigned screens', () => {
       expect(july?.series).toHaveLength(31);
       expect(july?.series[9]).toBe(10_000);
       expect(july?.series.reduce((a, b) => a + b, 0)).toBe(10_000);
+    });
+
+    it('summarises a report: biggest category, biggest purchase, price changes in the period', async () => {
+      const made = (await services.generateReport({ type: 'monthly_report', asOf: '2026-08-15T00:00:00Z' })) as { id: string };
+      const list = (await services.listReports()) as Array<{ id: string; summary: string }>;
+      expect(list.find((r) => r.id === made.id)?.summary).toBe(
+        'Rent & Mortgage was 50% of it. RENT ($120) was the largest single purchase.',
+      );
+      expect(list.find((r) => r.id === 'rep_jun')?.summary).toBe('NETFLIX.COM went up $3 in June.');
+      expect(list.find((r) => r.id === 'rep_jul')?.summary).toBe('');
     });
 
     it('lists the largest purchases by merchant, with the date', async () => {

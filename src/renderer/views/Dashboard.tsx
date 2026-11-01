@@ -1,13 +1,15 @@
+import { useState } from 'react';
 import { useQuery } from '../lib/ipc';
 import { Qualification } from '../components/Qualification';
 import { EmptyState } from '../components/EmptyState';
 import { Runway } from '../components/Runway';
 import { CategoryTree, groupByParent } from '../components/CategoryTree';
-import { Card, PageHeader } from '../components/ui';
+import { Card, PageHeader, Segmented } from '../components/ui';
 import { CategoryDonut } from '../charts/CategoryDonut';
 import { SpendingOverTime } from '../charts/SpendingOverTime';
 import { KpiTiles } from './dashboard/KpiTiles';
 import { ComingUp } from './dashboard/ComingUp';
+import { LOOKBACK_LABEL, PERIOD_OPTIONS, periodRange, periodSubtitle, type DashboardPeriod } from './dashboard/period';
 import type { DashboardExtras, DashboardResponse } from '@shared/types';
 
 interface DashboardData extends DashboardResponse, DashboardExtras {
@@ -27,19 +29,13 @@ function greeting(now: Date): string {
   return hour < 18 ? 'Good afternoon' : 'Good evening';
 }
 
-function monthSoFar(now: Date): string {
-  const month = now.toLocaleDateString('en-US', { month: 'long' });
-  const day = now.getDate();
-  return `${month} so far · ${day} ${day === 1 ? 'day' : 'days'} in`;
-}
-
 /**
  * SC-019: a user can state their position within 30 seconds without navigating
  * away. So the page leads with the headline figures and the runway (the actual
  * question), then where the money went, in that order of usefulness.
  *
- * `dashboard:get` takes one period and the headline figures are always this
- * month, so there is no Week / Month / Year switch.
+ * Week / Month / Year sets the headline figures, their series, "where it went" and the
+ * category tree. Runway and Coming up do not depend on it.
  */
 export function Dashboard({
   onDrill,
@@ -49,11 +45,10 @@ export function Dashboard({
   onReconnect?: (() => void) | undefined;
 }): React.JSX.Element {
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+  const [period, setPeriod] = useState<DashboardPeriod>('month');
   const { data, loading, error } = useQuery<DashboardData>('dashboard:get', {
-    periodStart,
-    periodEnd,
+    ...periodRange(now, period),
+    period,
   });
 
   // A year back, so the trend has something to show.
@@ -62,7 +57,7 @@ export function Dashboard({
     priorAverageMinor: number | null;
   }>('trends:overTime', {
     periodStart: new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString(),
-    periodEnd,
+    periodEnd: periodRange(now, 'month').periodEnd,
   });
 
   if (loading) return <p className="text-[var(--color-ink-faint)]">Loading…</p>;
@@ -74,13 +69,17 @@ export function Dashboard({
 
   return (
     <div className="ds-grid">
-      <PageHeader title={greeting(now)} sub={monthSoFar(now)} />
+      <PageHeader
+        title={greeting(now)}
+        sub={periodSubtitle(now, period)}
+        actions={<Segmented label="Period" value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />}
+      />
       <Qualification
         dataComplete={data.dataComplete}
         staleInstitutions={data.staleInstitutions}
         onReconnect={onReconnect}
       />
-      <KpiTiles kpis={data.kpis} floorMinor={data.runway.floorMinor} now={now} />
+      <KpiTiles kpis={data.kpis} floorMinor={data.runway.floorMinor} now={now} period={period} />
 
       <div className="ds-grid" style={{ gridTemplateColumns: '1.25fr 1fr' }}>
         <Runway
@@ -89,10 +88,10 @@ export function Dashboard({
           reason={data.runway.reason}
           series={data.runwaySeries}
         />
-        <Card title="Where it went" caption="Last 30 days">
+        <Card title="Where it went" caption={LOOKBACK_LABEL[period]}>
           {data.whereItWent.length === 0 ? (
             <p className="ds-muted" style={{ margin: '10px 0 0' }}>
-              Nothing spent in the last 30 days.
+              Nothing spent in the {LOOKBACK_LABEL[period].toLowerCase()}.
             </p>
           ) : (
             <CategoryDonut legend parts={data.whereItWent.map((g) => ({ name: g.name, value: g.spentMinor }))} />
@@ -118,7 +117,7 @@ export function Dashboard({
       <Card title="By category" caption={`${groups.length} groups · amount and transactions counted`}>
         {categoryBreakdown.rows.length === 0 ? (
           <EmptyState
-            title="Nothing spent this month yet"
+            title={`Nothing spent this ${period} yet`}
             detail="Transactions appear here automatically as they post. There is nothing to enter."
           />
         ) : (

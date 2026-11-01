@@ -66,4 +66,15 @@ describe('chart kit', () => {
     expect(bars[1]?.getAttribute('aria-label')).toBe('Failed');
     expect(bars[0]?.getAttribute('aria-label')).toBe('Succeeded');
   });
+
+  it('scales successful bars to the largest value, and gives equal bars when sizes are unknown', () => {
+    const heights = (runs: Array<{ ok: boolean; value: number }>): string[] => {
+      const { unmount } = render(<SyncHistory runs={runs} />);
+      const found = screen.getAllByRole('img').map((bar) => (bar as HTMLElement).style.height);
+      unmount();
+      return found;
+    };
+    expect(heights([{ ok: true, value: 200 }, { ok: true, value: 400 }, { ok: false, value: 0 }])).toEqual(['35px', '70px', '70px']);
+    expect(heights([{ ok: true, value: 0 }, { ok: true, value: 0 }])).toEqual(['63px', '63px']);
+  });
 });

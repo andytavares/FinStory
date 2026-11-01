@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IpcRegistry, IpcFailure } from '../registry';
 import {
+  dashboardSchema,
   dateRangeSchema,
   saveCredentialsSchema,
   credentialsUpdateSchema,
@@ -79,7 +80,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   );
 
   // Reading money — all offline-safe.
-  registry.handleOfflineSafe('dashboard:get', dateRangeSchema, (p) => services.dashboard(p), () =>
+  registry.handleOfflineSafe('dashboard:get', dashboardSchema, (p) => services.dashboard(p), () =>
     services.dashboardFromCache(),
   );
   registry.handleOfflineSafe(

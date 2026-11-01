@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { Chip } from '../../components/ui';
+import { Chip, ListRow, ListRows } from '../../components/ui';
 import { money, spend } from '../../lib/format';
-import { ListRow, ListRows } from './ListRows';
 import type { CategoryComparison } from './detailTypes';
 
 /** Spending is negative, so a more-negative change means spending went up. */

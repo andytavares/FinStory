@@ -24,6 +24,11 @@ export function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** "Gold Card ••1005", or just the name when the bank gave no last digits. */
+export function accountLabel(name: string, mask: string | null): string {
+  return mask ? `${name} ••${mask}` : name;
+}
+
 export function relativeAge(iso: string | null): string {
   if (!iso) return 'never';
   const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000;

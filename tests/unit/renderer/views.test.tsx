@@ -33,8 +33,8 @@ const DASHBOARD = {
   dataComplete: true,
   staleInstitutions: [],
   kpis: {
-    spent: { thisMonthMinor: 240700, seriesMinor: [100000, 240700] },
-    income: { thisMonthMinor: 520000, seriesMinor: [500000, 520000], nextDeposit: null },
+    spent: { currentMinor: 240700, seriesMinor: [100000, 240700] },
+    income: { currentMinor: 520000, seriesMinor: [500000, 520000], nextDeposit: null },
     recurring: { monthlyMinor: 0, count: 0, candidateCount: 0 },
     safeToSpendPerDayMinor: null,
   },
@@ -408,7 +408,7 @@ describe('Alerts', () => {
 
   it('lets the user configure each rule (FR-033)', async () => {
     installMoneyBridge({ 'alerts:list': [], 'alertRules:list': [rule] });
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByLabelText(/Threshold for/)).toBeDefined());
     // Threshold is editable, not just on/off.
     fireEvent.click(screen.getByRole('button', { name: '+ New alert' }));
@@ -428,7 +428,7 @@ describe('Alerts', () => {
       ],
       'alertRules:list': [],
     });
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() =>
       expect(screen.getByText(/detected later, while Money was closed/)).toBeDefined(),
     );
@@ -447,7 +447,7 @@ describe('Alerts', () => {
       ],
       'alertRules:list': [rule],
     });
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByText('Dismiss')).toBeDefined());
     // The rule toggle is still present and on.
     expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
@@ -455,7 +455,7 @@ describe('Alerts', () => {
 
   it('says nothing has needed attention rather than showing a blank list', async () => {
     installMoneyBridge({ 'alerts:list': [], 'alertRules:list': [] });
-    render(<Alerts />);
+    render(<Alerts onOpenMerchant={() => {}} />);
     await waitFor(() =>
       expect(screen.getByText(/Nothing has needed your attention/)).toBeDefined(),
     );

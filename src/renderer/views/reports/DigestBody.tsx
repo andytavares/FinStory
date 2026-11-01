@@ -1,7 +1,6 @@
-import { Card } from '../../components/ui';
+import { Card, ListRow, ListRows } from '../../components/ui';
 import { CategoryBars } from '../../charts/CategoryBars';
 import { spend } from '../../lib/format';
-import { ListRow, ListRows } from './ListRows';
 import { rollUp } from './rollUp';
 import type { DigestContent } from './detailTypes';
 

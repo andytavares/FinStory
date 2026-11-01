@@ -114,7 +114,7 @@ export function Review(): React.JSX.Element {
         sub={`${total} charges Money was unsure about`}
         actions={
           <>
-            <RecategorizeButton compact onDone={refetch} />
+            <RecategorizeButton variant="compact" onDone={refetch} />
             <Button variant="primary" onClick={() => void accept(rows.map((r) => r.transaction.id))}>
               Accept all {total} guesses
             </Button>

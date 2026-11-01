@@ -54,7 +54,7 @@ export function ReviewItemCard({
       <MerchantMark name={name} />
       <div className="min-w-0 flex-1">
         <div className="font-semibold">
-          {name} <span className="ds-caption font-normal">{shortDate(transaction.postedDate)}</span>
+          {name} <span className="ds-caption font-normal">{shortDate(transaction.postedDate)} · {transaction.accountName}</span>
         </div>
         {item.reasoning && <div className="ds-caption text-[12px]">{item.reasoning}</div>}
         <div className="ds-row mt-2">

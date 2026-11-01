@@ -14,6 +14,10 @@ import {
   daysUntil,
   monthlyTotals,
   monthRange,
+  periodSpan,
+  periodTotals,
+  recurringSeries,
+  type DashboardPeriod,
   MONTHS_SHOWN,
   runwaySeries,
   safeToSpendPerDayMinor,
@@ -27,7 +31,14 @@ import {
   upcomingCharges,
   yearlyCostMinor,
 } from '@main/analysis/recurring-schedule';
-import { dailySpending, reportHeadline, reportSpentMinor } from '@main/reports/headline';
+import {
+  dailySpending,
+  reportHeadline,
+  reportSpentMinor,
+  reportSummary,
+  type PriceChange,
+  type StoredContent,
+} from '@main/reports/headline';
 import { kpiSeries, presentReportContent, reportPdfName } from '@main/reports/detail';
 import { categorySpend } from '@main/categories/spend';
 import { suggestCategoryIds } from '@main/categorization/suggestions';
@@ -96,6 +107,7 @@ import { randomUUID as uuid } from 'node:crypto';
 
 const BALANCE_FLOOR_MINOR = 100_000;
 const BURN_WINDOW_DAYS = 30;
+const WHERE_IT_WENT_DAYS: Record<DashboardPeriod, number> = { week: 7, month: BURN_WINDOW_DAYS, year: 365 };
 const UNCATEGORIZABLE = 'uncategorizable';
 /** Stop a bulk recategorization rather than fire one doomed request per row. */
 const MODEL_FAILURE_LIMIT = 5;
@@ -397,7 +409,11 @@ export class Services implements AppServices {
   // ---- Reading money -------------------------------------------------------
 
   async dashboard(range: unknown): Promise<unknown> {
-    const { periodStart, periodEnd } = range as { periodStart: string; periodEnd: string };
+    const { periodStart, periodEnd, period = 'month' } = range as {
+      periodStart: string;
+      periodEnd: string;
+      period?: DashboardPeriod;
+    };
     const [transactions, names, parents, completeness, accounts, uncounted] = await Promise.all([
       this.spendingIn(periodStart, periodEnd),
       this.categoryNames(),
@@ -430,34 +446,34 @@ export class Services implements AppServices {
       },
       whatChanged: [],
       runway,
-      ...(await this.dashboardExtras(runway)),
+      ...(await this.dashboardExtras(runway, period)),
       ...completeness,
     };
   }
 
   /** Headline figures, the runway curve, upcoming charges and the last 30 days by group. */
-  private async dashboardExtras(runway: Runway): Promise<Record<string, unknown>> {
+  private async dashboardExtras(runway: Runway, period: DashboardPeriod): Promise<Record<string, unknown>> {
     const now = this.deps.clock.now();
-    const months = monthRange(now, MONTHS_SHOWN - 1);
+    const span = periodSpan(now, period);
     const [dated, recent, sources, charges, names, parents, candidates] = await Promise.all([
-      this.spendingIn(months.start, monthRange(now).end),
-      this.spendingIn(new Date(now.getTime() - BURN_WINDOW_DAYS * 86_400_000).toISOString(), now.toISOString()),
+      this.spendingIn(span.start, span.end),
+      this.spendingIn(new Date(now.getTime() - WHERE_IT_WENT_DAYS[period] * 86_400_000).toISOString(), now.toISOString()),
       this.db.select().from(t.incomeSources),
       this.db.select().from(t.recurringCharges),
       this.merchantDisplayNames(),
       this.categoryParents(),
       this.recurringCandidates(),
     ]);
-    const totals = monthlyTotals(dated, now);
+    const totals = periodTotals(dated, now, period);
     const active = charges.filter((c) => c.status === 'active');
     const nextSource = sources
       .filter((s) => s.isActive && new Date(s.nextExpectedDate) > now)
       .sort((a, b) => a.nextExpectedDate.localeCompare(b.nextExpectedDate))[0];
     return {
       kpis: {
-        spent: { thisMonthMinor: totals[totals.length - 1]?.spendingMinor ?? 0, seriesMinor: totals.map((m) => m.spendingMinor) },
+        spent: { currentMinor: totals[totals.length - 1]?.spendingMinor ?? 0, seriesMinor: totals.map((m) => m.spendingMinor) },
         income: {
-          thisMonthMinor: totals[totals.length - 1]?.incomeMinor ?? 0,
+          currentMinor: totals[totals.length - 1]?.incomeMinor ?? 0,
           seriesMinor: totals.map((m) => m.incomeMinor),
           nextDeposit: nextSource
             ? {
@@ -471,6 +487,15 @@ export class Services implements AppServices {
           monthlyMinor: active.reduce((a, c) => a + monthlyCostMinor(c.currentAmountMinor, c.cadence), 0),
           count: active.length,
           candidateCount: (candidates as unknown[]).length,
+          seriesMinor: recurringSeries(
+            charges.map((c) => ({
+              monthlyMinor: monthlyCostMinor(c.currentAmountMinor, c.cadence),
+              firstSeenDate: c.firstSeenDate,
+              lastSeenDate: c.lastSeenDate,
+              active: c.status === 'active',
+            })),
+            now,
+          ),
         },
         safeToSpendPerDayMinor: safeToSpendPerDayMinor(runway, now),
       },
@@ -552,7 +577,7 @@ export class Services implements AppServices {
       limit: number;
       offset: number;
     };
-    const [rows, live, completeness, aliases, everydayIds, recurringKeys, parents] = await Promise.all([
+    const [rows, live, completeness, aliases, everydayIds, recurringKeys, parents, accountLabels] = await Promise.all([
       this.transactionsIn(q.periodStart, q.periodEnd),
       this.liveCategorizations(),
       this.completeness(),
@@ -560,6 +585,7 @@ export class Services implements AppServices {
       this.everydayAccountIds(),
       this.activeRecurringKeys(),
       this.categoryParents(),
+      this.accountLabels(),
     ]);
 
     let filtered = rows;
@@ -636,6 +662,7 @@ export class Services implements AppServices {
           userNote: r.userNote,
           userExcluded: r.userExcluded,
           userRecurringOverride: r.userRecurringOverride,
+          ...accountLabels.get(r.accountId),
         };
       }),
       totalCount: filtered.length,
@@ -670,11 +697,13 @@ export class Services implements AppServices {
   // ---- Income --------------------------------------------------------------
 
   async listIncome(): Promise<unknown> {
-    const [rows, names] = await Promise.all([
+    const [rows, names, accountLabels] = await Promise.all([
       this.db.select().from(t.incomeSources),
       this.merchantDisplayNames(),
+      this.accountLabels(),
     ]);
     return rows.map((r) => ({
+      ...accountLabels.get(r.accountId),
       id: r.id,
       merchantKey: r.merchantKey,
       merchantName: names.get(r.merchantKey) ?? r.merchantKey,
@@ -774,13 +803,14 @@ export class Services implements AppServices {
 
   async reviewQueue(page: unknown): Promise<unknown> {
     const { limit, offset } = page as { limit: number; offset: number };
-    const [live, txs, aliases, categoryNames, recurringKeys, profiles] = await Promise.all([
+    const [live, txs, aliases, categoryNames, recurringKeys, profiles, accountLabels] = await Promise.all([
       this.liveCategorizations(),
       this.db.select().from(t.transactions),
       this.merchantAliases(),
       this.categoryNames(),
       this.activeRecurringKeys(),
       this.db.select().from(t.merchantProfiles),
+      this.accountLabels(),
     ]);
     const distributions = new Map(profiles.map((p) => [p.merchantKey, p.categoryDistribution]));
     const byId = new Map(txs.map((x) => [x.id, x]));
@@ -811,6 +841,7 @@ export class Services implements AppServices {
               isInternalTransfer: tx.isInternalTransfer,
               originalCurrency: tx.originalCurrency,
               originalAmountMinor: tx.originalAmountMinor,
+              ...accountLabels.get(tx.accountId),
             },
             guessCategoryId: c.categoryId,
             // The name, because an identifier is not a name. The model quotes
@@ -1333,21 +1364,30 @@ export class Services implements AppServices {
   // ---- Alerts and reports --------------------------------------------------
 
   async listAlerts(): Promise<unknown> {
-    const [rows, rules] = await Promise.all([
+    const [rows, rules, transactions, aliases] = await Promise.all([
       this.db.select().from(t.alerts).orderBy(desc(t.alerts.eventOccurredAt)),
       this.db.select().from(t.alertRules),
+      this.db.select().from(t.transactions),
+      this.merchantAliases(),
     ]);
     const byRule = new Map(rules.map((r) => [r.id, r.type]));
-    return rows.map((a) => ({
-      id: a.id,
-      // Falls back to the type captured at fire time, so an alert from a since
-      // deleted rule still describes itself.
-      type: (a.ruleId ? byRule.get(a.ruleId) : null) ?? a.ruleType,
-      // Both surfaced, so a replayed alert is never mistaken for live (FR-057).
-      eventOccurredAt: a.eventOccurredAt,
-      detectedAt: a.detectedAt,
-      dismissed: a.dismissedAsFalsePositive,
-    }));
+    const byId = new Map(transactions.map((x) => [x.id, x]));
+    return rows.map((a) => {
+      const tx = a.triggeredByTransactionId ? byId.get(a.triggeredByTransactionId) : undefined;
+      return {
+        id: a.id,
+        // Falls back to the type captured at fire time, so an alert from a since
+        // deleted rule still describes itself.
+        type: (a.ruleId ? byRule.get(a.ruleId) : null) ?? a.ruleType,
+        // Both surfaced, so a replayed alert is never mistaken for live (FR-057).
+        eventOccurredAt: a.eventOccurredAt,
+        detectedAt: a.detectedAt,
+        dismissed: a.dismissedAsFalsePositive,
+        transactionId: tx?.id ?? null,
+        merchantName: tx ? resolveMerchantName(tx, aliases) : null,
+        amountMinor: tx?.amountMinor ?? null,
+      };
+    });
   }
 
   async dismissAlert(id: string): Promise<unknown> {
@@ -1409,12 +1449,37 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
+  /** Every recurring-charge price change, with the merchant's display name. */
+  private async priceChanges(): Promise<PriceChange[]> {
+    const [changes, charges, names] = await Promise.all([
+      this.db.select().from(t.recurringChargeAmountChanges),
+      this.db.select().from(t.recurringCharges),
+      this.merchantDisplayNames(),
+    ]);
+    const keyById = new Map(charges.map((c) => [c.id, c.merchantKey]));
+    return changes.map((c) => {
+      const key = keyById.get(c.recurringChargeId) ?? '';
+      return { ...c, merchantName: names.get(key) ?? key };
+    });
+  }
+
   async listReports(): Promise<unknown> {
     const rows = await this.db
       .select()
       .from(t.periodReports)
       .orderBy(desc(t.periodReports.periodStart));
-    const contents = rows.map((r) => JSON.parse(r.content) as { totalSpendingMinor?: number; savingsRate?: number });
+    const stored = rows.map((r) => JSON.parse(r.content) as Parameters<typeof presentReportContent>[0]);
+    const [purchases, aliases, merchantNames, priceChanges] = await Promise.all([
+      this.db
+        .select()
+        .from(t.transactions)
+        .where(inArray(t.transactions.id, stored.flatMap((c) => c.largestPurchases?.map((p) => p.id) ?? []))),
+      this.merchantAliases(),
+      this.merchantDisplayNames(),
+      this.priceChanges(),
+    ]);
+    const lookups = { transactions: new Map(purchases.map((tx) => [tx.id, tx])), aliases, merchantNames };
+    const contents = stored.map((c) => presentReportContent(c, lookups) as unknown as StoredContent);
     const spent = contents.map((c) => reportSpentMinor(c));
     const dated = rows.length
       ? await this.spendingIn(
@@ -1427,6 +1492,10 @@ export class Services implements AppServices {
       const others = rows.flatMap((o, i) => (i !== index && o.type === r.type ? [spent[i] ?? 0] : []));
       return {
         headline: reportHeadline(spent[index] ?? 0, others),
+        summary: reportSummary(
+          content,
+          priceChanges.filter((c) => c.changedAt >= r.periodStart && c.changedAt < r.periodEnd),
+        ),
         series: dailySpending(r.periodStart, r.periodEnd, dated),
         id: r.id,
         type: r.type,
@@ -2519,6 +2588,12 @@ export class Services implements AppServices {
           lte(t.transactions.postedDate, end.slice(0, 10)),
         ),
       );
+  }
+
+  /** Name and last digits of every account, by id, for rows that say where money moved. */
+  private async accountLabels(): Promise<Map<string, { accountName: string; accountMask: string | null }>> {
+    const rows = await this.db.select().from(t.accounts);
+    return new Map(rows.map((a) => [a.id, { accountName: a.name, accountMask: a.mask }]));
   }
 
   /** Accounts that count as day-to-day money. Savings is deliberately excluded. */

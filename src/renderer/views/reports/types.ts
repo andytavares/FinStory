@@ -11,6 +11,8 @@ export interface ReportSummary {
   readonly totalSpendingMinor: number;
   readonly savingsRate: number;
   readonly headline: string;
+  /** Biggest category, biggest purchase and price changes, in plain sentences. Empty when there is nothing to say. */
+  readonly summary: string;
   /** Spending per day across the period, positive minor units. */
   readonly series: readonly number[];
 }

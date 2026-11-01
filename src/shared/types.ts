@@ -54,6 +54,8 @@ export interface TransactionView {
   readonly userNote: string | null;
   readonly userExcluded: boolean;
   readonly userRecurringOverride: 'recurring' | 'not_recurring' | null;
+  readonly accountName: string;
+  readonly accountMask: string | null;
 }
 
 /** Every total-bearing response carries its own completeness. */
@@ -115,6 +117,8 @@ export interface IncomeSourceView {
   readonly detectionConfidence: number;
   readonly isUserConfirmed: boolean;
   readonly daysUntilNext: number;
+  readonly accountName: string;
+  readonly accountMask: string | null;
 }
 
 export interface AlertView {
@@ -124,6 +128,10 @@ export interface AlertView {
   readonly eventOccurredAt: string;
   readonly detectedAt: string;
   readonly dismissed: boolean;
+  /** The transaction that triggered it; null for an alert not tied to one. */
+  readonly transactionId: string | null;
+  readonly merchantName: string | null;
+  readonly amountMinor: number | null;
 }
 
 /**
@@ -270,13 +278,14 @@ export interface MerchantRuleView {
 
 /** Dashboard additions. Money out is positive in every series. */
 export interface DashboardKpis {
-  readonly spent: { thisMonthMinor: number; seriesMinor: number[] };
+  /** `currentMinor` is the current week, month or year, depending on the requested period. */
+  readonly spent: { currentMinor: number; seriesMinor: number[] };
   readonly income: {
-    thisMonthMinor: number;
+    currentMinor: number;
     seriesMinor: number[];
     nextDeposit: { date: string; amountMinor: number; merchantName: string } | null;
   };
-  readonly recurring: { monthlyMinor: number; count: number; candidateCount: number };
+  readonly recurring: { monthlyMinor: number; count: number; candidateCount: number; seriesMinor: number[] };
   readonly safeToSpendPerDayMinor: number | null;
 }
 
