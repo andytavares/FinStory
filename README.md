@@ -12,6 +12,7 @@ changes through visibility, not discipline.
 
 Download the latest `.dmg` (Apple Silicon) from the
 [Releases page](https://github.com/andytavares/FinStory/releases). Installed copies update themselves.
+Then follow the [getting started guide](docs/user-guide/getting-started.md).
 
 ## What it does
 
@@ -31,8 +32,8 @@ These are enforced, not aspirational — each has tests behind it.
 
 | Constraint | How it holds |
 |---|---|
-| Your data stays on your machine | database encrypted with better-sqlite3-multiple-ciphers' default cipher (ChaCha20-Poly1305); app refuses to start if OS encryption is unavailable rather than writing plaintext |
-| No secret reaches the UI | All credentials live in the main process; the built renderer bundle is scanned for secrets in CI |
+| Your data stays on your machine | database encrypted with better-sqlite3-multiple-ciphers' default cipher (ChaCha20-Poly1305); the database key is in the macOS Keychain; app refuses to start if the Keychain is unavailable rather than writing plaintext |
+| No secret reaches the UI | Every secret is its own macOS Keychain item (service `com.atavares.money`), read only in the main process; the built renderer bundle is scanned for secrets in the e2e suite |
 | Totals always reconcile | One canonical spending predicate; category totals asserted equal to transaction totals to the cent |
 | Money is never a float | Integer minor units end to end |
 | Nothing incomplete looks complete | Every total carries its own completeness; stale feeds qualify every figure that depends on them |
@@ -41,7 +42,7 @@ These are enforced, not aspirational — each has tests behind it.
 
 ## Stack
 
-Electron 44 · React 19 · TypeScript · SQLite via better-sqlite3-multiple-ciphers · Drizzle ORM · Plaid · Claude ·
+Electron 44 · React 19 · TypeScript · SQLite via better-sqlite3-multiple-ciphers · Drizzle ORM · Plaid · Ollama or Claude ·
 Vitest · Playwright
 
 ## Running it
@@ -57,20 +58,24 @@ npm run build          # production build
 npm run package        # installers
 ```
 
-Setup needs a Plaid account (the free Trial plan covers this — see `docs/plaid-setup.md`) and
-optionally an Anthropic API key. Without the key the app runs in local-only categorization mode:
-nothing leaves your machine, at the cost of a larger review queue.
+Setup needs a Plaid account (the free Trial plan covers this — see [docs/plaid-setup.md](docs/plaid-setup.md)).
+Categorization is your choice: Ollama (a model on your Mac), Claude (needs an Anthropic API key), or your
+history only. Ollama and history only send nothing off your machine, at the cost of a larger review queue.
 
 ## Release
 
-See `docs/releasing.md`.
+See [docs/releasing.md](docs/releasing.md).
 
 ## Documentation
 
+- [User guide](docs/user-guide/README.md) — how to use every screen, with screenshots
+- [Architecture](docs/architecture.md) — for contributors
+- [Design system](docs/design-system.md)
+- [Releasing](docs/releasing.md)
 - `specs/001-automated-spend-tracking/` — specification, plan, research, data model, contracts
-- `docs/adr/` — architectural decisions, including the two accepted deviations and their migration
+- [docs/adr/](docs/adr) — architectural decisions, including the two accepted deviations and their migration
   triggers
-- `docs/plaid-setup.md` — Plaid plans, the 10-Item lifetime cap, and the Item log
+- [docs/plaid-setup.md](docs/plaid-setup.md) — Plaid plans, the 10-Item lifetime cap, and the Item log
 - `.specify/memory/constitution.md` — the project's governing principles
 
 ## Known limitations
@@ -78,6 +83,6 @@ See `docs/releasing.md`.
 - **Alert latency is bounded by the polling interval**, and nothing is detected while the app is
   closed. Correctness is defined as complete catch-up on launch, not uptime. See ADR 0004.
 - **Cannot be distributed to other users as-is** — the Plaid secret lives on device, which only
-  works for a single owner. See ADR 0002.
+  works for a single owner. See [ADR 0002](docs/adr/0002-plaid-client-secret-on-device.md).
 - US institutions and USD accounts only. Foreign-currency *purchases* on a USD account are
   supported; multi-currency accounts are not.
