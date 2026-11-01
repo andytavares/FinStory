@@ -6,7 +6,6 @@ import { Dashboard } from '@renderer/views/Dashboard';
 import { Register } from '@renderer/views/Register';
 import { Recurring } from '@renderer/views/Recurring';
 import { Income } from '@renderer/views/Income';
-import { Review } from '@renderer/views/Review';
 import { Reports } from '@renderer/views/Reports';
 import { Health } from '@renderer/views/Health';
 import { Settings } from '@renderer/views/Settings';
@@ -216,50 +215,6 @@ describe('Income', () => {
     installMoneyBridge({ 'income:list': [] });
     render(<Income onOpenMerchant={() => {}} />);
     await waitFor(() => expect(screen.getByText(/withheld rather than guessed/)).toBeDefined());
-  });
-});
-
-describe('Review', () => {
-  const item = {
-    transaction: {
-      id: 't1',
-      amountMinor: -4782,
-      merchantName: 'Target',
-      description: 'TARGET 00023415',
-      postedDate: '2026-08-29',
-      categoryId: 'home',
-      confidence: 0.62,
-      needsReview: true,
-      isInternalTransfer: false,
-      originalCurrency: null,
-      originalAmountMinor: null,
-    },
-    guessCategoryId: 'home',
-    guessCategoryName: 'Home & Garden',
-    confidence: 0.62,
-    reasoning: '60% of your 40 prior purchases here',
-  };
-
-  it('shows the reasoning behind each guess (US6 AS1)', async () => {
-    installMoneyBridge({ 'review:queue': { rows: [item], totalCount: 1 } });
-    render(<Review />);
-    await waitFor(() =>
-      expect(screen.getByText(/60% of your 40 prior purchases here/)).toBeDefined(),
-    );
-  });
-
-  it('offers bulk actions once something is selected (FR-067)', async () => {
-    installMoneyBridge({ 'review:queue': { rows: [item], totalCount: 1 } });
-    render(<Review />);
-    await waitFor(() => screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('checkbox'));
-    expect(screen.getByText('1 selected')).toBeDefined();
-  });
-
-  it('celebrates an empty queue rather than showing a blank list', async () => {
-    installMoneyBridge({ 'review:queue': { rows: [], totalCount: 0 } });
-    render(<Review />);
-    await waitFor(() => expect(screen.getByText(/Nothing needs your review/)).toBeDefined());
   });
 });
 

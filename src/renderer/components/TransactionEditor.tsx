@@ -1,6 +1,18 @@
 import { useState } from 'react';
 import { call, useQuery } from '../lib/ipc';
 import { transactionName } from '../lib/name';
+import { categoryColor } from '../lib/categoryColor';
+import { shortDate, signedMoney } from '../lib/format';
+import {
+  Button,
+  Drawer,
+  Field,
+  MerchantMark,
+  Segmented,
+  Select,
+  TextInput,
+  Toggle,
+} from './ui';
 import type { MerchantRuleView, TransactionView } from '@shared/types';
 
 interface CategoryOption {
@@ -34,129 +46,34 @@ export function assignableCategories(
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-/**
- * Two-step category picker.
- *
- * Choosing a top-level category prompts for a subcategory, because a top-level
- * bucket like "Food" is rarely the answer the user actually wants — and a new
- * subcategory can be created inline rather than in a separate screen.
- */
-function CategoryPicker({
-  categories,
-  value,
-  transactionLabel,
+function ScopeField({
+  scope,
   onChange,
-  onCategoriesChanged,
+  importedName,
+  ruleCategory,
 }: {
-  categories: readonly CategoryOption[];
-  value: string;
-  transactionLabel: string;
-  onChange: (categoryId: string) => void;
-  onCategoriesChanged?: (() => void) | undefined;
+  scope: 'transaction' | 'merchant';
+  onChange: (next: 'transaction' | 'merchant') => void;
+  importedName: string;
+  ruleCategory: string | null;
 }): React.JSX.Element {
-  const byId = new Map(categories.map((c) => [c.id, c]));
-  const selected = byId.get(value);
-  const parentId = selected?.parentId ?? selected?.id ?? '';
-
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const visible = categories.filter((c) => !c.isHidden && c.mergedIntoId === null);
-  const parents = visible
-    .filter((c) => c.parentId === null)
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const children = visible
-    .filter((c) => c.parentId === parentId)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const createSubcategory = (): void => {
-    const name = newName.trim();
-    if (!name || !parentId) return;
-    void call<{ id: string }>('categories:create', { name, parentId })
-      .then((created) => {
-        setCreating(false);
-        setNewName('');
-        setError(null);
-        onCategoriesChanged?.();
-        onChange(created.id);
-      })
-      .catch((e: { message?: string }) => setError(e.message ?? 'Could not add that'));
-  };
-
   return (
-    <div className="space-y-2">
-      <label className="block">
-        <span className="text-[12px] text-[var(--color-ink-faint)]">Category</span>
-        <select
-          value={parentId}
-          onChange={(e) => {
-            // Selecting a parent lands on the parent; the subcategory prompt
-            // below then asks for something more specific.
-            onChange(e.target.value);
-            setCreating(false);
-          }}
-          aria-label={`Category for ${transactionLabel}`}
-          className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px]"
-        >
-          {parents.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {parentId !== '' && (
-        <label className="block">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">
-            {value === parentId ? 'Choose a subcategory' : 'Subcategory'}
-          </span>
-          <select
-            value={value === parentId ? '' : value}
-            onChange={(e) => {
-              if (e.target.value === '__new__') {
-                setCreating(true);
-                return;
-              }
-              setCreating(false);
-              onChange(e.target.value || parentId);
-            }}
-            aria-label={`Subcategory for ${transactionLabel}`}
-            className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px]"
-          >
-            <option value="">Keep in {byId.get(parentId)?.name ?? 'this category'}</option>
-            {children.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-            <option value="__new__">+ New subcategory…</option>
-          </select>
-        </label>
-      )}
-
-      {creating && (
-        <div className="space-y-1">
-          <div className="flex gap-2">
-            <input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') createSubcategory();
-                if (e.key === 'Escape') setCreating(false);
-              }}
-              placeholder={`New subcategory under ${byId.get(parentId)?.name ?? ''}`}
-              aria-label="New subcategory name"
-              className="flex-1 border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px] outline-none"
-            />
-            <button type="button" onClick={createSubcategory} className="btn">
-              Create
-            </button>
-          </div>
-          {error && <p className="text-[12px] text-[var(--color-attention)]">{error}</p>}
-        </div>
+    <div className="ds-field">
+      Apply this change to
+      <Segmented
+        label="Apply this change to"
+        value={scope}
+        onChange={onChange}
+        options={[
+          { value: 'transaction', label: 'This transaction' },
+          { value: 'merchant', label: `All ${importedName} (rule)` },
+        ]}
+      />
+      {ruleCategory && scope === 'transaction' && (
+        <span className="text-[var(--color-ink-muted)]">
+          A rule already sorts {importedName} into {ruleCategory}. This edit changes only this one
+          charge.
+        </span>
       )}
     </div>
   );
@@ -166,47 +83,40 @@ export function TransactionEditor({
   transaction,
   categories,
   onSaved,
-  onCategoriesChanged,
+  onClose,
 }: {
   transaction: TransactionView;
   categories: readonly CategoryOption[];
   onSaved?: () => void;
-  onCategoriesChanged?: () => void;
+  onClose: () => void;
 }): React.JSX.Element {
   const [name, setName] = useState(transaction.userMerchantName ?? '');
   const [note, setNote] = useState(transaction.userNote ?? '');
   const [excluded, setExcluded] = useState(transaction.userExcluded);
-  const [recurring, setRecurring] = useState<string>(transaction.userRecurringOverride ?? '');
   const [categoryId, setCategoryId] = useState(transaction.categoryId);
   const [scope, setScope] = useState<'transaction' | 'merchant'>('transaction');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const rules = useQuery<MerchantRuleView[]>('rules:list');
-  const merchantLabel = transactionName({ ...transaction, userMerchantName: null });
+  const displayName = transactionName(transaction);
+  const importedName = transactionName({ ...transaction, userMerchantName: null });
   const rule = rules.data?.find((r) => r.merchantKey === transaction.merchantKey);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [pendingRetro, setPendingRetro] = useState<{ merchantKey: string; count: number } | null>(
-    null,
-  );
 
-  const original = {
-    name: transaction.userMerchantName ?? '',
-    note: transaction.userNote ?? '',
-    excluded: transaction.userExcluded,
-    recurring: transaction.userRecurringOverride ?? '',
-  };
+  const original = { name: transaction.userMerchantName ?? '', note: transaction.userNote ?? '' };
   const dirty =
     name !== original.name ||
     note !== original.note ||
-    excluded !== original.excluded ||
-    recurring !== original.recurring ||
+    excluded !== transaction.userExcluded ||
     categoryId !== transaction.categoryId;
+
+  const edit = <T,>(set: (value: T) => void) => (value: T): void => {
+    set(value);
+    setStatus('idle');
+  };
 
   const save = async (): Promise<void> => {
     setStatus('saving');
     try {
-      const result = await call<{
-        merchantKey: string | null;
-        retroactiveCandidateCount: number;
-      }>('transactions:update', {
+      await call('transactions:update', {
         transactionId: transaction.id,
         categoryId,
         // Unchanged names are left out: with scope merchant, null would delete the rule's name.
@@ -214,18 +124,9 @@ export function TransactionEditor({
         scope,
         userNote: note.trim() || null,
         userExcluded: excluded,
-        userRecurringOverride: recurring === '' ? null : recurring,
       });
-      setStatus('saved');
-      // Offer to fix the past too, stating the blast radius first (FR-074).
-      if (result.retroactiveCandidateCount > 0 && result.merchantKey) {
-        setPendingRetro({
-          merchantKey: result.merchantKey,
-          count: result.retroactiveCandidateCount,
-        });
-      } else {
-        onSaved?.();
-      }
+      setStatus('idle');
+      onSaved?.();
     } catch {
       setStatus('error');
     }
@@ -234,186 +135,95 @@ export function TransactionEditor({
   const revert = (): void => {
     setName(original.name);
     setNote(original.note);
-    setExcluded(original.excluded);
-    setRecurring(original.recurring);
+    setExcluded(transaction.userExcluded);
     setCategoryId(transaction.categoryId);
     setStatus('idle');
   };
 
   return (
-    <div className="space-y-3 text-[13px]">
-      <div className="grid grid-cols-2 items-start gap-3">
-        <CategoryPicker
-          categories={categories}
-          value={categoryId}
-          transactionLabel={transactionName(transaction)}
-          onChange={(next) => {
-            setCategoryId(next);
-            setStatus('idle');
-          }}
-          onCategoriesChanged={onCategoriesChanged}
-        />
-
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-[12px] text-[var(--color-ink-faint)]">
-              Rename (imported as: {transaction.description})
-            </span>
-            <input
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setStatus('idle');
-              }}
-              // Shows what the name falls back to if this override is cleared.
-              placeholder={transactionName({ ...transaction, userMerchantName: null })}
-              className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px] outline-none"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-[12px] text-[var(--color-ink-faint)]">Recurring</span>
-            <select
-              value={recurring}
-              onChange={(e) => {
-                setRecurring(e.target.value);
-                setStatus('idle');
-              }}
-              className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px]"
-            >
-              <option value="">Let Money decide</option>
-              <option value="recurring">This is recurring</option>
-              <option value="not_recurring">This is not recurring</option>
-            </select>
-          </label>
+    <Drawer className="sticky top-0 self-start" role="complementary" aria-label={`Edit ${displayName}`}>
+      <div className="ds-row">
+        <MerchantMark name={displayName} />
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold">{displayName}</div>
+          <div className="ds-caption">
+            {shortDate(transaction.postedDate)} · imported as {transaction.description}
+          </div>
         </div>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Close
+        </Button>
       </div>
+      <div className="ds-num text-[24px] font-semibold">{signedMoney(transaction.amountMinor)}</div>
+
+      <Field label="Category">
+        <span className="ds-row">
+          <i
+            aria-hidden
+            className="h-[9px] w-[9px] shrink-0 rounded-full"
+            style={{ background: categoryColor(categoryId) }}
+          />
+          <Select
+            className="flex-1"
+            value={categoryId}
+            aria-label={`Category for ${displayName}`}
+            onChange={(e) => edit(setCategoryId)(e.target.value)}
+          >
+            {assignableCategories(categories).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </span>
+      </Field>
+
+      <Field label="Name">
+        <TextInput
+          value={name}
+          placeholder={importedName}
+          onChange={(e) => edit(setName)(e.target.value)}
+        />
+      </Field>
 
       {transaction.merchantKey && (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-[12px]">
-            <span className="text-[var(--color-ink-faint)]">Apply this change to:</span>
-            <div className="flex border border-[var(--color-line)]">
-              {(
-                [
-                  ['transaction', 'This transaction'],
-                  ['merchant', `All ${merchantLabel} (rule)`],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={scope === value}
-                  onClick={() => setScope(value)}
-                  className={`px-3 py-1 ${
-                    scope === value
-                      ? 'bg-[var(--color-surface-raised)] text-[var(--color-ink)]'
-                      : 'text-[var(--color-ink-faint)] hover:text-[var(--color-ink-muted)]'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {rule?.categoryName && scope === 'transaction' && (
-            <p className="text-[12px] text-[var(--color-ink-faint)]">
-              A rule already sorts {merchantLabel} into {rule.categoryName}. This
-              edit changes only this one charge.
-            </p>
-          )}
-        </div>
+        <ScopeField
+          scope={scope}
+          onChange={setScope}
+          importedName={importedName}
+          ruleCategory={rule?.categoryName ?? null}
+        />
       )}
 
-      <label className="block">
-        <span className="text-[12px] text-[var(--color-ink-faint)]">Note</span>
-        <input
+      <Field label="Note">
+        <TextInput
           value={note}
-          onChange={(e) => {
-            setNote(e.target.value);
-            setStatus('idle');
-          }}
-          className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-ground)] px-2 py-1 text-[13px] outline-none"
+          placeholder="Add a note"
+          onChange={(e) => edit(setNote)(e.target.value)}
         />
-      </label>
+      </Field>
 
-      <label className="flex items-center gap-2 text-[13px]">
-        <input
-          type="checkbox"
-          checked={excluded}
-          onChange={(e) => {
-            setExcluded(e.target.checked);
-            setStatus('idle');
-          }}
-        />
-        <span>
-          Exclude from spending totals
-          <span className="ml-2 text-[12px] text-[var(--color-ink-faint)]">
-            For something reimbursed or counted elsewhere
-          </span>
-        </span>
-      </label>
+      <div className="ds-row text-[12px]">
+        <Toggle checked={excluded} onChange={edit(setExcluded)} label="Leave out of spending totals" />
+        Leave out of spending totals
+      </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          disabled={!dirty || status === 'saving'}
-          onClick={() => void save()}
-          className="btn"
-        >
-          {status === 'saving' ? 'Saving…' : 'Save changes'}
-        </button>
-        {dirty && (
-          <button type="button" onClick={revert} className="btn">
-            Revert
-          </button>
-        )}
-        {status === 'saved' && (
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Saved.</span>
-        )}
+      <div className="ds-row mt-auto">
+        <Button variant="ghost" onClick={revert}>
+          Revert
+        </Button>
         {status === 'error' && (
           <span className="text-[12px] text-[var(--color-attention)]">Could not save.</span>
         )}
+        <Button
+          variant="primary"
+          className="ml-auto"
+          disabled={!dirty || status === 'saving'}
+          onClick={() => void save()}
+        >
+          Save
+        </Button>
       </div>
-
-      {pendingRetro && (
-        <div className="border border-[var(--color-attention)] bg-[var(--color-ground)] p-3">
-          <p className="text-[13px]">
-            This merchant will use that category from now on. Apply it to {pendingRetro.count} past
-            transaction{pendingRetro.count === 1 ? '' : 's'} as well?
-            <span className="mt-1 block text-[12px] text-[var(--color-ink-faint)]">
-              Anything you already corrected by hand is left alone.
-            </span>
-          </p>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                void call('review:applyRetroactive', {
-                  merchantKey: pendingRetro.merchantKey,
-                  categoryId,
-                }).then(() => {
-                  setPendingRetro(null);
-                  onSaved?.();
-                });
-              }}
-              className="btn"
-            >
-              Apply to past too
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPendingRetro(null);
-                onSaved?.();
-              }}
-              className="btn"
-            >
-              Going forward only
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </Drawer>
   );
 }

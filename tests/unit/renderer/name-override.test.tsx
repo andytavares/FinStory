@@ -76,8 +76,9 @@ describe('the review queue honours the name override', () => {
       'categories:list': [],
     });
     render(<Review />);
-    await waitFor(() => expect(screen.getByLabelText('Select Dinner delivery')).toBeDefined());
-    expect(screen.getByLabelText('Edit Dinner delivery')).toBeDefined();
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Always for Dinner delivery' })).toBeDefined(),
+    );
   });
 });
 
