@@ -998,6 +998,18 @@ describe('Services with realistic data', () => {
       expect(result.message).toContain('claude-haiku-4-5');
     });
 
+    it('classifies three real merchants and names each answer', async () => {
+      modelDescription = { provider: 'ollama', model: 'llama3.1:8b', localOnly: false, reason: '' };
+      classify = async () => ({ categoryId: 'dining', confidence: 0.9, reasoning: '' });
+      const result = (await services.testModel()) as { ok: boolean; message: string };
+      expect(result.ok).toBe(true);
+      expect(result.message).toMatch(/^llama3\.1:8b answered in \d+\.\d s: /);
+      expect(result.message).toContain('Whole Foods →');
+      expect(result.message).toContain('Shell →');
+      expect(result.message).toContain('Netflix →');
+      expect(result.message).not.toContain('ZZQX');
+    });
+
     it('surfaces the raw error instead of degrading quietly', async () => {
       modelDescription = { provider: 'anthropic', model: 'claude-haiku-4-5', localOnly: false, reason: '' };
       classify = () => Promise.reject(new Error('401 invalid x-api-key'));

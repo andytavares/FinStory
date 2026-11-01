@@ -117,27 +117,44 @@ function ModelSection({ settings }: { settings: AppSettings }): React.JSX.Elemen
       )}
 
       {provider === 'ollama' && (
-        <label className="block text-[13px]">
-          <span className="text-[12px] text-[var(--color-ink-faint)]">Installed model</span>
-          {ollama.data && ollama.data.length > 0 ? (
-            <select
-              defaultValue={settings.ollamaModel}
-              onChange={(e) => update({ ollamaModel: e.target.value })}
+        <>
+          <label className="block text-[13px]">
+            <span className="text-[12px] text-[var(--color-ink-faint)]">Ollama address</span>
+            <input
+              defaultValue={settings.ollamaBaseUrl}
+              onChange={(e) => update({ ollamaBaseUrl: e.target.value.trim() })}
+              placeholder="http://localhost:11434"
+              aria-label="Ollama address"
               className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px]"
-            >
-              <option value="">Choose a model</option>
-              {ollama.data.map((m) => (
-                <option key={m.name} value={m.name}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="mt-1 text-[12px] text-[var(--color-ink-faint)]">
-              No local models found. Start Ollama and pull a model, then reopen this screen.
-            </p>
-          )}
-        </label>
+            />
+          </label>
+          <label className="block text-[13px]">
+            <span className="text-[12px] text-[var(--color-ink-faint)]">Installed model</span>
+            {ollama.data && ollama.data.length > 0 ? (
+              <select
+                defaultValue={settings.ollamaModel}
+                onChange={(e) => update({ ollamaModel: e.target.value })}
+                className="mt-1 w-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-[13px]"
+              >
+                <option value="">Choose a model</option>
+                {ollama.data.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="mt-1 text-[12px] text-[var(--color-ink-faint)]">
+                {ollama.loading
+                  ? 'Loading models…'
+                  : (ollama.error ?? 'No local models found. Pull a model with `ollama pull`, then refresh.')}
+              </p>
+            )}
+          </label>
+          <button type="button" className="btn" onClick={ollama.refetch}>
+            Refresh models
+          </button>
+        </>
       )}
 
       <ModelCheck />

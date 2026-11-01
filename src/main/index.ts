@@ -11,13 +11,14 @@ import { IpcRegistry } from './ipc/registry';
 import { registerHandlers } from './ipc/handlers/index';
 import { Services, type ModelDescription } from './services/index';
 import { CategorizationPipeline } from './categorization/pipeline';
+import { loadMerchantProfiles } from './categorization/profiles';
 import { buildClassifier, DEFAULT_ANTHROPIC_MODEL, type ModelProvider } from './categorization/factory';
 import { taxonomyPromptList } from './db/seed-categories';
 import { EMPTY_SYNC, type SyncOutcome } from '@main/sync/outcome';
 import { SyncEngine, type SyncPage } from './sync/engine';
 import { DrizzleSyncStore } from './sync/store';
 import { createPlaidClient } from './plaid/client';
-import { settings as settingsTable, institutions as institutionsTable, alertRules as alertRulesTable } from './db/schema';
+import { settings as settingsTable, institutions as institutionsTable, alertRules as alertRulesTable, merchantProfiles as merchantProfilesTable } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { DiagnosticLogger } from './diagnostics/logger';
 import { MemorySink } from './diagnostics/sink';
@@ -93,7 +94,7 @@ async function bootstrap(): Promise<void> {
       ollamaBaseUrl: (await readSetting('ollamaBaseUrl')) ?? undefined,
     });
     const threshold = Number((await readSetting('confidenceThreshold')) ?? 0.8);
-    return new CategorizationPipeline(
+    const pipeline = new CategorizationPipeline(
       built.classifier ?? { classify: () => Promise.reject(new Error(built.reason)) },
       {
         confidenceThreshold: threshold,
@@ -102,6 +103,8 @@ async function bootstrap(): Promise<void> {
         validCategoryIds: new Set(categories.filter((c) => c.mergedIntoId === null).map((c) => c.id)),
       },
     );
+    loadMerchantProfiles(await handle.db.select().from(merchantProfilesTable), pipeline);
+    return pipeline;
   };
 
   const pipeline = await buildPipeline();

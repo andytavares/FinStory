@@ -357,9 +357,9 @@ describe('Plaid link flow error handling', () => {
     expect(status.plaidConfigured).toBe(true);
   });
 
-  it('lists no Ollama models when Ollama is unreachable, without erroring', async () => {
+  it('reports why no Ollama models are listed when Ollama is unreachable', async () => {
     await services.updateSettings({ ollamaBaseUrl: 'http://127.0.0.1:1' });
-    expect(await services.listOllamaModels()).toEqual([]);
+    await expect(services.listOllamaModels()).rejects.toThrow(/Ollama is not running at http:\/\/127\.0\.0\.1:1/);
   });
 
   it('exposes the model settings with Haiku as the default', async () => {

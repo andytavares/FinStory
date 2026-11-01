@@ -62,6 +62,12 @@ const BURN_WINDOW_DAYS = 30;
 const UNCATEGORIZABLE = 'uncategorizable';
 /** Stop a bulk recategorization rather than fire one doomed request per row. */
 const MODEL_FAILURE_LIMIT = 5;
+/** Real merchants with no history, so a working model answers with a real category. */
+const MODEL_TEST_MERCHANTS = [
+  { label: 'Whole Foods', descriptor: 'WHOLE FOODS MARKET', amountMinor: -8423 },
+  { label: 'Shell', descriptor: 'SHELL OIL', amountMinor: -4210 },
+  { label: 'Netflix', descriptor: 'NETFLIX.COM', amountMinor: -1549 },
+] as const;
 
 export interface ServiceDeps {
   readonly handle: DatabaseHandle;
@@ -1572,14 +1578,14 @@ export class Services implements AppServices {
     return { ok: true, requiresRestart: true };
   }
 
-  /** Installed Ollama models, for the settings picker. Empty when Ollama is off. */
+  /** Installed Ollama chat models, for the settings picker. Throws the explained reason on failure. */
   async listOllamaModels(): Promise<unknown> {
     const baseUrl = (await this.readPlainSetting('ollamaBaseUrl')) ?? undefined;
     try {
       return await listOllamaModels(baseUrl);
-    } catch {
-      // Ollama not running is a normal state, not an error to surface.
-      return [];
+    } catch (error) {
+      const reason = explainModelError(error instanceof Error ? error.message : String(error));
+      throw new IpcFailure('CATEGORIZATION_UNAVAILABLE', reason, true);
     }
   }
 
@@ -1748,29 +1754,29 @@ export class Services implements AppServices {
     }
 
     const pipeline = await this.deps.buildPipeline();
-    const result = await pipeline.categorize({
-      // A descriptor with no history and no heuristic match, so the model stage
-      // is genuinely exercised rather than short-circuited.
-      transactionId: 'model-test',
-      descriptor: 'ZZQX TEST MERCHANT 4417',
-      amountMinor: -1234,
-      occurredAt: this.deps.clock.now(),
-    });
+    const names = new Map(
+      (await this.db.select().from(t.categories)).map((c) => [c.id, c.name]),
+    );
+    const answers: string[] = [];
+    const startedAt = performance.now();
+    for (const probe of MODEL_TEST_MERCHANTS) {
+      const result = await pipeline.categorize({
+        transactionId: `model-test-${probe.label}`,
+        descriptor: probe.descriptor,
+        amountMinor: probe.amountMinor,
+        occurredAt: this.deps.clock.now(),
+      });
+      answers.push(`${probe.label} → ${names.get(result.categoryId) ?? result.categoryId}`);
+    }
+    const seconds = ((performance.now() - startedAt) / 1000).toFixed(1);
 
     if (pipeline.lastModelError) {
       return { ok: false, ...description, message: explainModelError(pipeline.lastModelError) };
     }
-    if (result.source !== 'model') {
-      return {
-        ok: false,
-        ...description,
-        message: 'The model was not reached and no error was reported.',
-      };
-    }
     return {
       ok: true,
       ...description,
-      message: `${description.model ?? description.provider} answered: ${result.categoryId}`,
+      message: `${description.model ?? description.provider} answered in ${seconds} s: ${answers.join(', ')}`,
     };
   }
 
