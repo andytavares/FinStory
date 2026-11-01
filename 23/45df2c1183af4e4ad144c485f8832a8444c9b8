@@ -1,0 +1,75 @@
+tests/unit/ipc/handlers.test.ts
+  s_d8b2366061c670::t_ed9d0016be499c 27,54,59,140
+src/shared/features.ts
+  s_d8b2366061c670::t_ed9d0016be499c 74,112,120
+src/main/diagnostics/sync-history.ts
+  s_d8b2366061c670::t_be6407efd2a0a3 1-18
+src/main/sync/record-attempt.ts
+  s_d8b2366061c670::t_be6407efd2a0a3 1-23
+src/main/analysis/recurring-schedule.ts
+  s_d8b2366061c670::t_be6407efd2a0a3 1-46
+src/main/reports/detail.ts
+  s_d8b2366061c670::t_be6407efd2a0a3 1-79
+tests/unit/sync/record-attempt.test.ts
+  s_d8b2366061c670::t_3968b9fab2eeae 15
+  s_d8b2366061c670::t_d732eba80816b5 1-14,16-35
+src/main/ipc/handlers/index.ts
+  s_d8b2366061c670::t_ed9d0016be499c 116,164,171
+src/main/index.ts
+  s_d8b2366061c670::t_414c4127aae18b 1,208-209,224-228
+src/preload/index.ts
+  s_d8b2366061c670::t_ed9d0016be499c 32,59,64
+src/main/services/index.ts
+  s_d8b2366061c670::t_22dffb0f236ffa 2,13-34,61,67,126-129,2492,2507
+  s_d8b2366061c670::t_ed9d0016be499c 1417-1427,1429-1430,1586-1612,1638-1644,1715,1761,1790-1793
+  s_d8b2366061c670::t_6b9e9ef6ce908e 415,432-433,438,440-489,2444,2453,2456,2477
+  s_d8b2366061c670::t_693af1d63e96c9 439,545-546,555,562,567,569-571,573-577,630,684,690-696,777,783,785,809,819-821,958-959,962,964-967,980-983,1176-1178
+  s_d8b2366061c670::t_ebb2975100dd0c 1794
+src/main/analysis/dashboard-kpis.ts
+  s_d8b2366061c670::t_be6407efd2a0a3 1-65,67-112
+  s_d8b2366061c670::t_18df229fc579cf 66
+src/main/categories/spend.ts
+  s_d8b2366061c670::t_be6407efd2a0a3 1-8,10-16
+  s_d8b2366061c670::t_18df229fc579cf 9
+tests/integration/screen-data.test.ts
+  s_d8b2366061c670::t_d732eba80816b5 1-2,4-529,531-556
+  s_d8b2366061c670::t_18df229fc579cf 3,530
+src/main/settings/index.ts
+  s_d8b2366061c670::t_ed9d0016be499c 28,52
+src/shared/types.ts
+  s_d8b2366061c670::t_c462ad30897957 266-307
+  s_d8b2366061c670::t_414c4127aae18b 47
+  s_d8b2366061c670::t_ed9d0016be499c 46,229-230
+src/main/categorization/ollama.ts
+  s_d8b2366061c670::t_ed9d0016be499c 100-104,112-138
+tests/unit/renderer/money-zero.test.tsx
+  s_d8b2366061c670::t_5835cc59a54069 4-6,9-18
+  s_d8b2366061c670::t_e149f085cd7a2b 1-3,7-8
+src/main/categorization/suggestions.ts
+  s_d8b2366061c670::t_be6407efd2a0a3 1-13
+src/main/reports/headline.ts
+  s_d8b2366061c670::t_18df229fc579cf 44
+  s_d8b2366061c670::t_be6407efd2a0a3 1-43,45-46
+src/shared/schemas.ts
+  s_d8b2366061c670::t_ed9d0016be499c 64
+src/renderer/components/Money.tsx
+  s_d8b2366061c670::t_196428f430c899 21
+src/main/ipc/handlers/services.ts
+  s_d8b2366061c670::t_ed9d0016be499c 36,68,83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2345df2c1183af4e4ad144c485f8832a8444c9b8",
+  "prompts": {},
+  "sessions": {
+    "s_d8b2366061c670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "193b711d-1e2f-496f-8740-7dec40a32e82",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
