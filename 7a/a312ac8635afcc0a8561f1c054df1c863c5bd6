@@ -1,0 +1,19 @@
+.github/workflows/release.yml
+  s_b925211b8c16b7::t_1cecc40007f314 52-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7aa312ac8635afcc0a8561f1c054df1c863c5bd6",
+  "prompts": {},
+  "sessions": {
+    "s_b925211b8c16b7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "232f4855-19ab-4a11-afdf-d0057f511108",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
