@@ -32,6 +32,20 @@ describe('Hosted Link (research.md R1)', () => {
     expect(captured['redirect_uri']).toBeUndefined();
   });
 
+  it('opens update mode on the existing login when given an access token', async () => {
+    let captured: Record<string, unknown> = {};
+    const client = fakeClient({
+      linkTokenCreate: async (req: Record<string, unknown>) => {
+        captured = req;
+        return { data: { link_token: 'lt_1', hosted_link_url: 'https://link.plaid.com/x' } };
+      },
+    });
+    await startHostedLink(client, 'user_1', 'at_1');
+    expect(captured['access_token']).toBe('at_1');
+    // Plaid: products must be omitted in update mode.
+    expect(captured['products']).toBeUndefined();
+  });
+
   it('fails loudly when Plaid returns no hosted URL', async () => {
     const client = fakeClient({
       linkTokenCreate: async () => ({ data: { link_token: 'lt_1' } }),
@@ -51,6 +65,19 @@ describe('Hosted Link (research.md R1)', () => {
       }),
     });
     expect(await pollForPublicToken(client, 'lt_1')).toBe('pt_1');
+  });
+
+  it('detects a finished update-mode session, which adds no new item', async () => {
+    const client = fakeClient({
+      linkTokenGet: async () => ({
+        data: {
+          link_sessions: [
+            { results: { item_add_results: [] }, on_success: { public_token: 'pt_update' } },
+          ],
+        },
+      }),
+    });
+    expect(await pollForPublicToken(client, 'lt_1')).toBe('pt_update');
   });
 
   it('exchanges the public token for a durable access token', async () => {

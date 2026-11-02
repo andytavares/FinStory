@@ -7,6 +7,7 @@ import type { CategorizationPipeline, CategorizationResult } from '@main/categor
 import type { Clock } from '@shared/clock';
 import type { ImportResult } from '@shared/types';
 import type { ImportCommitInput } from '@shared/schemas';
+import { NEW_CATEGORY, planQuickenCategories, type QuickenCategoryPlan } from './categories';
 import { planRows, type PlannedRow } from './duplicates';
 import { IMPORT_INSTITUTION_NAME } from './institutions';
 import { loadImportContext, parseOrExplain } from './preview';
@@ -83,6 +84,7 @@ async function importInstitutionId(db: DatabaseHandle['db']): Promise<{ id: stri
 }
 
 interface WritePlan {
+  categories: QuickenCategoryPlan['create'];
   institution: { id: string; isNew: boolean };
   accounts: { id: string; name: string; mask: string | null }[];
   rows: { planned: PlannedRow; transactionId: string; accountId: string; decision: Decision }[];
@@ -91,6 +93,7 @@ interface WritePlan {
 function writeAll(deps: CommitDeps, plan: WritePlan): void {
   const at = deps.clock.now().toISOString();
   deps.handle.db.transaction((tx) => {
+    for (const category of plan.categories) tx.insert(t.categories).values(category).run();
     if (plan.institution.isNew) {
       tx.insert(t.institutions).values({
         id: plan.institution.id, plaidItemId: null, accessTokenEncrypted: '',
@@ -161,8 +164,15 @@ export async function commitImport(deps: CommitDeps, input: ImportCommitInput): 
     return target && !target.isNew ? target.id : null;
   };
   const planned = planRows(result.transactions, accountIdFor, existing);
-  const live = new Set(categories.filter((c) => c.mergedIntoId === null).map((c) => c.id));
-  const sources = await categorySources(deps, input, live);
+  const created = planQuickenCategories(
+    input.categoryMap.filter((m) => m.categoryId === NEW_CATEGORY).map((m) => m.quickenCategory),
+    categories,
+  );
+  const categoryMap = input.categoryMap.map((m) =>
+    m.categoryId === NEW_CATEGORY ? { ...m, categoryId: created.idFor.get(m.quickenCategory) ?? null } : m,
+  );
+  const live = new Set([...categories.filter((c) => c.mergedIntoId === null), ...created.create].map((c) => c.id));
+  const sources = await categorySources(deps, { ...input, categoryMap }, live);
   const rows = await decideAll(planned.filter((p) => !p.duplicate), targets, { sources, onProgress: deps.onProgress });
 
   const used = new Set(rows.map((r) => r.accountId));
@@ -170,6 +180,11 @@ export async function commitImport(deps: CommitDeps, input: ImportCommitInput): 
     .filter(([, a]) => a.isNew && used.has(a.id))
     .map(([label, a]) => ({ id: a.id, name: a.name, mask: /••(\d{4})/.exec(label)?.[1] ?? null }));
   const institution = accounts.length ? await importInstitutionId(deps.handle.db) : { id: '', isNew: false };
-  writeAll(deps, { institution, accounts, rows });
-  return { imported: rows.length, skippedDuplicates: planned.length - rows.length, createdAccounts: accounts.length };
+  writeAll(deps, { categories: created.create, institution, accounts, rows });
+  return {
+    imported: rows.length,
+    skippedDuplicates: planned.length - rows.length,
+    createdAccounts: accounts.length,
+    createdCategories: created.create.length,
+  };
 }

@@ -23,9 +23,13 @@ function syncLine(institution: InstitutionSummary): string {
 export function BankCard({
   institution,
   onChanged,
+  onSignIn,
+  signingIn,
 }: {
   institution: InstitutionSummary;
   onChanged: () => void;
+  onSignIn: () => void;
+  signingIn: boolean;
 }): React.JSX.Element {
   const chip = STATUS_CHIP[institution.status];
   return (
@@ -43,11 +47,7 @@ export function BankCard({
       ))}
       <div className="ds-row mt-3">
         {institution.status !== 'healthy' && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => void call('institutions:reauth', { institutionId: institution.id })}
-          >
+          <Button variant="primary" size="sm" disabled={signingIn} onClick={onSignIn}>
             Sign in again
           </Button>
         )}

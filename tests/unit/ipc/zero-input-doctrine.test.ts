@@ -14,12 +14,10 @@ const VIEWS = join(process.cwd(), 'src/renderer/views');
 
 /**
  * Patterns target entry AFFORDANCES, not any mention of a word. "Check for new
- * transactions" is sync copy; "Add transaction" is a form. The distinction is
- * the whole point, so the patterns are anchored on imperative verbs and form
- * elements rather than nouns.
+ * transactions" is sync copy; "Reconcile" is a step. Optional manual entry for
+ * cash is allowed (Constitution VIII), so it is not matched here.
  */
 const FORBIDDEN_PATTERNS: ReadonlyArray<[RegExp, string]> = [
-  [/>\s*(Add|New|Record|Log|Enter)\s+(a\s+)?(transaction|expense|purchase)/i, 'a manual entry control'],
   [/onSubmit|<form\b/i, 'a data-entry form'],
   [/>\s*Reconcile|reconciliation\s+(step|screen|flow)/i, 'a reconciliation step'],
   [/envelope\s+budget|assign\s+every\s+dollar|>\s*Allocate/i, 'budget allocation'],

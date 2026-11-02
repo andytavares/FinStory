@@ -196,9 +196,10 @@ A feature that reintroduces that effort defeats the entire product, however good
   complete. All ongoing interaction MUST be optional.
 - The application MUST NOT require the user to pre-allocate, budget, or approve spending
   before or at the time of a purchase.
-- Manual transaction entry, reconciliation steps, and budget-allocation gates MUST NOT be
-  introduced. Editing exists only as a correction to an automated result, never as a
-  prerequisite for one.
+- Reconciliation steps and budget-allocation gates MUST NOT be introduced. Editing exists
+  only as a correction to an automated result, never as a prerequisite for one.
+- Manual transaction entry MAY exist for money the feed cannot see (such as cash). It MUST
+  stay optional: nothing may depend on the user entering anything.
 - If the user never opens the application, the system MUST continue to operate, report,
   and deliver correctly.
 - **The test**: if a proposed feature stops working correctly when the user ignores it,

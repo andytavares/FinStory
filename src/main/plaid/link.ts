@@ -18,15 +18,17 @@ export interface HostedLinkSession {
   readonly hostedLinkUrl: string;
 }
 
+/** With `accessToken`, Link opens in update mode to repair that existing login. */
 export async function startHostedLink(
   client: PlaidApi,
   clientUserId: string,
+  accessToken?: string,
 ): Promise<HostedLinkSession> {
   const response = await client.linkTokenCreate({
     client_name: 'Money',
     // Transactions only. FR-049 forbids money movement, and the read-only test
-    // asserts no other product appears here.
-    products: [Products.Transactions],
+    // asserts no other product appears here. Plaid requires no products in update mode.
+    ...(accessToken ? { access_token: accessToken } : { products: [Products.Transactions] }),
     country_codes: [CountryCode.Us],
     language: 'en',
     user: { client_user_id: clientUserId },
@@ -56,7 +58,9 @@ export async function pollForPublicToken(
   const response = await client.linkTokenGet({ link_token: linkToken });
   const results = response.data.link_sessions ?? [];
   for (const session of results) {
-    const publicToken = session.results?.item_add_results?.[0]?.public_token;
+    // Update mode adds no item, so its token only appears in on_success.
+    const publicToken =
+      session.results?.item_add_results?.[0]?.public_token ?? session.on_success?.public_token;
     if (publicToken) return publicToken;
   }
   return null;

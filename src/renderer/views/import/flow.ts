@@ -125,8 +125,9 @@ export function useImportFlow() {
     openFile: async (picked: File) => load({ name: picked.name, text: await readText(picked) }, undefined),
     readWithMapping: (columns: CsvColumnChoice) => (file ? load(file, columns) : Promise.resolve()),
     chooseAccount,
+    // Functional update: "Create all unmatched" chooses several in one tick.
     chooseCategory: (quickenCategory: string, categoryId: string) =>
-      setCategories({ ...categories, [quickenCategory]: categoryId }),
+      setCategories((current) => ({ ...current, [quickenCategory]: categoryId })),
     goTo: setStep,
     startOver: () => {
       setFile(null);

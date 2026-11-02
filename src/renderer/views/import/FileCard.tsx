@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Card, Eyebrow, MerchantMark } from '../../components/ui';
 
 export const EXPLANATION =
-  'Quicken cannot share its own .QDF file. In Quicken choose File › Export › Register Transactions to CSV File, then pick that file here.';
+  'Quicken cannot share its own .QDF file. In Quicken choose File › Export › Register Transactions to CSV File, then pick that file here. To bring your categories too, export a QIF file that includes the category list.';
 
 interface FileCardProps {
   readonly fileName: string | null;

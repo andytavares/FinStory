@@ -6,7 +6,7 @@ import { accountLabel, shortDate, signedMoney } from '../lib/format';
 import { Button, Drawer, Field, MerchantMark, Segmented, Select, TextInput, Toggle } from './ui';
 import type { MerchantRuleView, TransactionView } from '@shared/types';
 
-interface CategoryOption {
+export interface CategoryOption {
   readonly id: string;
   readonly name: string;
   readonly parentId: string | null;

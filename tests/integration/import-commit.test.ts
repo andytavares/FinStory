@@ -116,6 +116,65 @@ describe('Quicken import', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  describe('Quicken categories', () => {
+    const CATEGORY_LIST = '!Type:Cat\nNPets\nE\n^\nNPets:Vet\nE\n^\nNAuto:Fuel:Premium\nE\n^\nNFood:Groceries\nE\n^\n';
+    const categoriesNamed = async (name: string) =>
+      (await handle.db.select().from(schema.categories)).filter((c) => c.name === name);
+
+    it('lists categories from a QIF category list in the preview', async () => {
+      const result = await preview({ fileName: 'cats.qif', text: CATEGORY_LIST });
+      expect(result.categoryMappings.map((m) => [m.quickenCategory, m.count])).toEqual([
+        ['Pets', 0],
+        ['Pets:Vet', 0],
+        ['Auto:Fuel:Premium', 0],
+        ['Food:Groceries', 0],
+      ]);
+    });
+
+    it('creates the categories marked new, nested one level under their parent', async () => {
+      const result = await commit({
+        fileName: 'cats.qif',
+        text: CATEGORY_LIST,
+        accountMap: [],
+        categoryMap: [
+          { quickenCategory: 'Pets', categoryId: 'new' },
+          { quickenCategory: 'Pets:Vet', categoryId: 'new' },
+          { quickenCategory: 'Auto:Fuel:Premium', categoryId: 'new' },
+          { quickenCategory: 'Food:Groceries', categoryId: 'groceries' },
+        ],
+      });
+      expect(result.createdCategories).toBe(4);
+      const [pets] = await categoriesNamed('Pets');
+      expect(pets?.parentId).toBeNull();
+      expect((await categoriesNamed('Vet'))[0]?.parentId).toBe(pets?.id);
+      // Only one level of nesting exists, so deeper Quicken levels fold into the child name.
+      const [auto] = await categoriesNamed('Auto');
+      expect((await categoriesNamed('Fuel › Premium'))[0]?.parentId).toBe(auto?.id);
+      expect(await categoriesNamed('Pets')).toHaveLength(1);
+    });
+
+    it('reuses a category that already has the same name, and files transactions under a created one', async () => {
+      const text = [
+        'Date,Account,Payee,Category,Amount',
+        `3/20/2026,${CHECKING},Corner Vet,Pets:Vet,-120.00`,
+        `3/21/2026,${CHECKING},Whole Foods,Groceries,-30.00`,
+      ].join('\n');
+      const result = await commit({
+        text,
+        accountMap: [{ label: CHECKING, accountId: 'acct_1' }],
+        categoryMap: [
+          { quickenCategory: 'Pets:Vet', categoryId: 'new' },
+          { quickenCategory: 'Groceries', categoryId: 'new' },
+        ],
+      });
+      expect(result.createdCategories).toBe(2);
+      expect(await categoriesNamed('Groceries')).toHaveLength(1);
+      expect((await liveCategory('Whole Foods'))?.categoryId).toBe('groceries');
+      const [vet] = await categoriesNamed('Vet');
+      expect((await liveCategory('Corner Vet'))?.categoryId).toBe(vet?.id);
+    });
+  });
+
   describe('preview', () => {
     it('counts rows already present by amount, date and payee as duplicates', async () => {
       const result = await preview();
@@ -150,7 +209,7 @@ describe('Quicken import', () => {
 
   describe('commit', () => {
     it('inserts rows, creates the new account and skips the duplicate', async () => {
-      expect(await commit()).toEqual({ imported: 3, skippedDuplicates: 1, createdAccounts: 1 });
+      expect(await commit()).toEqual({ imported: 3, skippedDuplicates: 1, createdAccounts: 1, createdCategories: 0 });
       const imported = (await handle.db.select().from(schema.institutions)).find((i) => i.source === 'import');
       expect(imported).toMatchObject({ plaidItemId: null, status: 'healthy', accessTokenEncrypted: '' });
       const created = (await handle.db.select().from(schema.accounts)).find((a) => a.name === 'Old Savings');

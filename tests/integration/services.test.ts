@@ -316,6 +316,10 @@ describe('Plaid link flow error handling', () => {
     });
   });
 
+  it('asks to reconnect when a bank has no saved login to repair', async () => {
+    await expect(services.reauthInstitution('inst_missing')).rejects.toThrow(/connect it again/);
+  });
+
   it('refuses to complete a link with no session in progress', async () => {
     await expect(services.completeLink('')).rejects.toMatchObject({
       code: 'PLAID_UNCONFIGURED',

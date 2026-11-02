@@ -65,11 +65,12 @@ export function Accounts(): React.JSX.Element {
     }
   };
 
-  const connect = async (): Promise<void> => {
+  /** New connection by default; "Sign in again" passes the reauth call instead. */
+  const connect = async (start = () => call<LinkSession>('link:start')): Promise<void> => {
     setError(null);
     setState('opening');
     try {
-      const session = await call<LinkSession>('link:start');
+      const session = await start();
       window.open(session.hostedLinkUrl, '_blank');
       setState('waiting');
 
@@ -81,6 +82,7 @@ export function Accounts(): React.JSX.Element {
         setState('importing');
         setAdded(accountsAdded);
         setState('done');
+        institutions.refetch();
       }
     } catch (e) {
       setError(messageOf(e, 'Could not start the connection'));
@@ -121,7 +123,10 @@ export function Accounts(): React.JSX.Element {
         </Card>
       )}
       {state === 'importing' && <p className="ds-muted">Importing your history…</p>}
-      {state === 'done' && added !== null && (
+      {state === 'done' && added === 0 && (
+        <p className="ds-muted">Signed in again. Your accounts are syncing.</p>
+      )}
+      {state === 'done' && added !== null && added > 0 && (
         <p className="ds-muted">
           Connected. {added} account{added === 1 ? '' : 's'} added and your history is importing in
           the background.
@@ -132,14 +137,24 @@ export function Accounts(): React.JSX.Element {
       {list && list.length === 0 && state === 'idle' && (
         <EmptyState
           title="No accounts connected yet"
-          detail="Connect a bank, card, or payment app and Money imports your history automatically. You will never enter a transaction by hand."
+          detail="Connect a bank, card, or payment app and Money imports your history automatically. You never have to enter a transaction by hand."
         />
       )}
 
       {list && list.length > 0 && (
         <div className="ds-grid grid-cols-2">
           {list.map((institution) => (
-            <BankCard key={institution.id} institution={institution} onChanged={institutions.refetch} />
+            <BankCard
+              key={institution.id}
+              institution={institution}
+              onChanged={institutions.refetch}
+              onSignIn={() =>
+                void connect(() =>
+                  call<LinkSession>('institutions:reauth', { institutionId: institution.id }),
+                )
+              }
+              signingIn={busy}
+            />
           ))}
         </div>
       )}

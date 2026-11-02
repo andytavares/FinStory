@@ -3,6 +3,7 @@ import { useQuery, trackAction } from '../lib/ipc';
 import { Qualification } from '../components/Qualification';
 import { EmptyState } from '../components/EmptyState';
 import { TransactionEditor } from '../components/TransactionEditor';
+import { AddTransaction } from '../components/AddTransaction';
 import { Button, PageHeader } from '../components/ui';
 import { money, relativeAge } from '../lib/format';
 import { DrillNote } from './transactions/DrillNote';
@@ -149,6 +150,7 @@ export function Register({
   // Show everything in the category, which is what the count on the dashboard
   // says. Narrowing to what built the amount is offered, not imposed.
   const [spendingOnly, setSpendingOnly] = useState(false);
+  const [adding, setAdding] = useState(false);
   const categories = useQuery<CategoryOption[]>('categories:list', { includeHidden: false });
   const institutions = useQuery<InstitutionSummary[]>('institutions:list');
   const { data, loading, refetch } = useQuery<RegisterResponse>(
@@ -168,11 +170,20 @@ export function Register({
         title="Transactions"
         {...(data && { sub: headerSub(data) })}
         actions={
-          <Button onClick={() => downloadCsv(rows, categoryName)} disabled={rows.length === 0}>
-            Export CSV
-          </Button>
+          <>
+            <Button onClick={() => downloadCsv(rows, categoryName)} disabled={rows.length === 0}>
+              Export CSV
+            </Button>
+            <Button variant="primary" onClick={() => setAdding(true)} disabled={adding}>
+              Add transaction
+            </Button>
+          </>
         }
       />
+
+      {adding && (
+        <AddTransaction categories={categories.data ?? []} onClose={() => setAdding(false)} onAdded={refetch} />
+      )}
 
       <FilterRow
         filter={{ value: filters, onChange: patch }}

@@ -29,7 +29,7 @@ function installBridge(overrides: Record<string, unknown> = {}) {
       { id: 'groceries', name: 'Groceries', parentId: 'food', isHidden: false, mergedIntoId: null },
     ],
     'import:preview': PREVIEW,
-    'import:commit': { imported: 2, skippedDuplicates: 1, createdAccounts: 1 },
+    'import:commit': { imported: 2, skippedDuplicates: 1, createdAccounts: 1, createdCategories: 0 },
     ...overrides,
   };
   const invoke = vi.fn((channel: string) => Promise.resolve(responses[channel]));
@@ -79,6 +79,39 @@ describe('Import view', () => {
     expect(onViewTransactions).toHaveBeenCalled();
   });
 
+  it('creates every unmatched Quicken category in Money when asked', async () => {
+    const invoke = installBridge({
+      'import:preview': {
+        ...PREVIEW,
+        categoryMappings: [
+          { quickenCategory: 'Food:Groceries', count: 2, suggestedCategoryId: 'groceries' },
+          { quickenCategory: 'Pets:Vet', count: 0, suggestedCategoryId: null },
+        ],
+      },
+      'import:commit': { imported: 2, skippedDuplicates: 1, createdAccounts: 1, createdCategories: 2 },
+    });
+    render(<Import onViewTransactions={() => {}} />);
+    await chooseFile();
+    fireEvent.click(screen.getByText(/Your Quicken categories/));
+    fireEvent.click(screen.getByText('Create all unmatched in Money'));
+    expect((screen.getByLabelText('Money category for Pets:Vet') as HTMLSelectElement).value).toBe('new');
+
+    fireEvent.click(screen.getByText('Check 2 transactions'));
+    expect(await screen.findByText('1 category will be created.')).toBeTruthy();
+    fireEvent.click(screen.getByText('Import 2 transactions'));
+
+    await screen.findByText(/2 categories created/);
+    expect(invoke).toHaveBeenCalledWith(
+      'import:commit',
+      expect.objectContaining({
+        categoryMap: [
+          { quickenCategory: 'Food:Groceries', categoryId: 'groceries' },
+          { quickenCategory: 'Pets:Vet', categoryId: 'new' },
+        ],
+      }),
+    );
+  });
+
   it('asks which columns hold the date, payee and amount when no header is found', async () => {
     const invoke = installBridge({
       'import:preview': { ...PREVIEW, accounts: [], needsMapping: true, headers: ['When', 'Who', 'How much'] },
@@ -118,7 +151,7 @@ describe('Import view', () => {
     act(() => emitToRenderer('import:progress', { running: true, processed: 13267, total: 13267 }));
     await screen.findByText(/Saving/);
 
-    const result = { imported: 13267, skippedDuplicates: 180, createdAccounts: 0 };
+    const result = { imported: 13267, skippedDuplicates: 180, createdAccounts: 0, createdCategories: 0 };
     act(() => emitToRenderer('import:progress', { running: false, processed: 13267, total: 13267, result }));
     await screen.findByText('Imported 13,267 transactions');
   });

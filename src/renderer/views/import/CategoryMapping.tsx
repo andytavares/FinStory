@@ -1,4 +1,4 @@
-import { Select } from '../../components/ui';
+import { Button, Select } from '../../components/ui';
 import type { ImportPreview } from '@shared/types';
 
 export interface MoneyCategory {
@@ -27,38 +27,51 @@ export function CategoryMapping({
   const usable = categories.filter(
     (c) => !c.isHidden && c.mergedIntoId === null && c.id !== 'uncategorizable',
   );
+  const unmatched = mappings.filter((m) => !choice[m.quickenCategory]);
   return (
-    <div
-      className="ds-list"
-      style={{ maxHeight: 220, overflowY: 'auto' }}
-      aria-label="Category mapping"
-    >
-      {mappings.map((m) => (
-        <div key={m.quickenCategory} className="ds-row" style={{ padding: '6px 0' }}>
-          <div style={{ flex: 1 }}>
-            <div className="ds-num" style={{ fontSize: 12 }}>
-              {m.quickenCategory}
+    <>
+      {unmatched.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => unmatched.forEach((m) => onChoose(m.quickenCategory, 'new'))}
+        >
+          Create all unmatched in Money
+        </Button>
+      )}
+      <div
+        className="ds-list"
+        style={{ maxHeight: 220, overflowY: 'auto' }}
+        aria-label="Category mapping"
+      >
+        {mappings.map((m) => (
+          <div key={m.quickenCategory} className="ds-row" style={{ padding: '6px 0' }}>
+            <div style={{ flex: 1 }}>
+              <div className="ds-num" style={{ fontSize: 12 }}>
+                {m.quickenCategory}
+              </div>
+              <div className="ds-faint" style={{ fontSize: 11.5 }}>
+                {m.count > 0 ? `${m.count} transactions` : 'From your category list'}
+              </div>
             </div>
-            <div className="ds-faint" style={{ fontSize: 11.5 }}>
-              {m.count} transactions
-            </div>
+            <span className="ds-faint">→</span>
+            <Select
+              aria-label={`Money category for ${m.quickenCategory}`}
+              style={{ width: 220 }}
+              value={choice[m.quickenCategory] ?? ''}
+              onChange={(e) => onChoose(m.quickenCategory, e.target.value)}
+            >
+              <option value="">Let Money decide</option>
+              <option value="new">Create in Money</option>
+              {usable.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
           </div>
-          <span className="ds-faint">→</span>
-          <Select
-            aria-label={`Money category for ${m.quickenCategory}`}
-            style={{ width: 220 }}
-            value={choice[m.quickenCategory] ?? ''}
-            onChange={(e) => onChoose(m.quickenCategory, e.target.value)}
-          >
-            <option value="">Let Money decide</option>
-            {usable.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }

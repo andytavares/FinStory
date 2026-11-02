@@ -3,6 +3,7 @@ import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { normalizeMerchantKey } from '@main/categorization/local';
 import * as t from '@main/db/schema';
 import type { DatabaseHandle } from '@main/db/client';
 import type { AppServices } from '@main/ipc/handlers/services';
@@ -226,6 +227,8 @@ function cashFlowOf(transactions: Parameters<typeof spendingTotalMinor>[0]) {
 
 export class Services implements AppServices {
   private pendingLinkToken: string | null = null;
+  /** The institution a pending Link session repairs, or null for a new connection. */
+  private pendingReauthId: string | null = null;
   /** Set by cancelRecategorize; read by the loop between transactions. */
   private recategorizeCancelled = false;
   private recategorizeRunning = false;
@@ -323,11 +326,12 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
-  async startLink(): Promise<unknown> {
+  async startLink(reauthId: string | null = null, accessToken?: string): Promise<unknown> {
     const client = await this.plaidClient();
     try {
-      const session = await startHostedLink(client, 'local-user');
+      const session = await startHostedLink(client, 'local-user', accessToken);
       this.pendingLinkToken = session.linkToken;
+      this.pendingReauthId = reauthId;
       return session;
     } catch (error) {
       throw this.plaidFailure(error);
@@ -353,6 +357,15 @@ export class Services implements AppServices {
     }
     // Not an error: the user is still in the flow. The renderer keeps polling.
     if (!publicToken) return { pending: true };
+
+    // Update mode repairs the existing access token in place; nothing to exchange.
+    if (this.pendingReauthId && token === this.pendingLinkToken) {
+      const institutionId = this.pendingReauthId;
+      this.pendingLinkToken = null;
+      this.pendingReauthId = null;
+      await this.deps.sync();
+      return { institutionId, accountsAdded: 0 };
+    }
 
     const { accessToken, itemId } = await exchangePublicToken(client, publicToken);
     const fetched = await fetchItemAccounts(client, accessToken);
@@ -504,8 +517,12 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
-  async reauthInstitution(): Promise<unknown> {
-    return this.startLink();
+  async reauthInstitution(id: string): Promise<unknown> {
+    const accessToken = await this.deps.store.get(accessTokenAccount(id));
+    if (!accessToken) {
+      throw new IpcFailure('PLAID_UNCONFIGURED', 'This bank has no saved login; disconnect and connect it again', true);
+    }
+    return this.startLink(id, accessToken);
   }
 
   // ---- Reading money -------------------------------------------------------
@@ -956,6 +973,41 @@ export class Services implements AppServices {
     const { merchantKey, categoryId } = input as { merchantKey: string; categoryId: string };
     const { updated, skippedOneOffs } = await this.setCategoryRule(merchantKey, categoryId);
     return { updated, skippedUserConfirmed: skippedOneOffs, restatedPeriods: [] };
+  }
+
+  /** Record a transaction the bank feed does not have, such as cash. The user's category is final. */
+  async createTransaction(input: unknown): Promise<unknown> {
+    const p = input as {
+      accountId: string;
+      postedDate: string;
+      amountMinor: number;
+      payee: string;
+      categoryId: string;
+      note?: string;
+    };
+    const accounts = await this.db.select().from(t.accounts).where(eq(t.accounts.id, p.accountId));
+    if (accounts.length === 0) {
+      throw new IpcFailure('VALIDATION_FAILED', 'That account no longer exists', true, 'Choose another');
+    }
+    const id = `txn_${randomUUID().slice(0, 12)}`;
+    const at = this.deps.clock.now().toISOString();
+    await this.db.insert(t.transactions).values({
+      id,
+      accountId: p.accountId,
+      // Unique and never sent by Plaid, so a sync cannot collide with it.
+      plaidTransactionId: `manual:${id}`,
+      amountMinor: p.amountMinor,
+      merchantName: p.payee,
+      merchantKey: normalizeMerchantKey(p.payee),
+      description: p.payee,
+      postedDate: p.postedDate,
+      settlementState: 'posted',
+      userNote: p.note?.trim() || null,
+      firstSeenAt: at,
+      updatedAt: at,
+    });
+    await this.supersede(id, p.categoryId, at);
+    return { id };
   }
 
   /**

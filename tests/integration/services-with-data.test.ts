@@ -1,6 +1,6 @@
 import { EMPTY_SYNC } from '@main/sync/outcome';
 import type { ModelDescription } from '@main/services/index';
-import type { HealthContents } from '@shared/types';
+import type { HealthContents, TransactionView } from '@shared/types';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1446,6 +1446,55 @@ describe('Services with realistic data', () => {
     });
   });
 
+
+  describe('adding a transaction by hand', () => {
+    it('shows in the register with the chosen category, confirmed', async () => {
+      const { id } = (await services.createTransaction({
+        accountId: 'acct_1',
+        postedDate: '2026-08-20',
+        amountMinor: -1_250,
+        payee: 'Farmers market',
+        categoryId: 'groceries',
+        note: 'cash',
+      })) as { id: string };
+      const q = (await services.queryTransactions({ limit: 200, offset: 0 })) as { rows: TransactionView[] };
+      const row = q.rows.find((r) => r.id === id);
+      expect(row).toMatchObject({
+        amountMinor: -1_250,
+        merchantName: 'Farmers market',
+        postedDate: '2026-08-20',
+        categoryId: 'groceries',
+        categorySource: 'user',
+        needsReview: false,
+        userNote: 'cash',
+      });
+    });
+
+    it('counts toward spending in its period', async () => {
+      const before = (await services.dashboard(RANGE)) as { cashFlowMinor: { spendingMinor: number } };
+      await services.createTransaction({
+        accountId: 'acct_1',
+        postedDate: '2026-08-20',
+        amountMinor: -1_250,
+        payee: 'Farmers market',
+        categoryId: 'groceries',
+      });
+      const after = (await services.dashboard(RANGE)) as { cashFlowMinor: { spendingMinor: number } };
+      expect(after.cashFlowMinor.spendingMinor - before.cashFlowMinor.spendingMinor).toBe(-1_250);
+    });
+
+    it('refuses an account that does not exist', async () => {
+      await expect(
+        services.createTransaction({
+          accountId: 'acct_nope',
+          postedDate: '2026-08-20',
+          amountMinor: -100,
+          payee: 'x',
+          categoryId: 'groceries',
+        }),
+      ).rejects.toThrow(/no longer exists/);
+    });
+  });
 
   describe('adding income the detector cannot see', () => {
     async function anAccountId(): Promise<string> {

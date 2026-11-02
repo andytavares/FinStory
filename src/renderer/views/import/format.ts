@@ -21,4 +21,5 @@ export function describeFile(preview: ImportPreview, fileName: string): string {
   return `${formatName(preview.format, fileName)} · ${total.toLocaleString('en-US')} transactions${range}`;
 }
 
+export const categoryCount = (n: number): string => `${n.toLocaleString('en-US')} ${n === 1 ? 'category' : 'categories'}`;
 export const plural = (n: number, noun: string): string => `${n.toLocaleString('en-US')} ${noun}${n === 1 ? '' : 's'}`;
