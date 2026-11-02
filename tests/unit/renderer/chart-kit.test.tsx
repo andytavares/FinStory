@@ -4,6 +4,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { Sparkline } from '@renderer/charts/Sparkline';
 import { CategoryDonut } from '@renderer/charts/CategoryDonut';
 import { RunwayChart } from '@renderer/charts/RunwayChart';
+import { SpendingOverTime } from '@renderer/charts/SpendingOverTime';
 import { IncomeVsSpending } from '@renderer/charts/IncomeVsSpending';
 import { SyncHistory } from '@renderer/charts/SyncHistory';
 
@@ -42,6 +43,19 @@ describe('chart kit', () => {
       />,
     );
     expect(container.firstChild).not.toBeNull();
+    // Drawn as text outside the plot so it cannot sit on the line or the axis.
+    expect(screen.getByText('$1,416 on payday')).toBeDefined();
+  });
+
+  it('names the spending average outside the plot so it cannot cover a bar', () => {
+    render(
+      <SpendingOverTime
+        data={[{ label: '2026-10', spendingMinor: 1_000_000 }]}
+        priorAverageMinor={1_642_035}
+        title="Spending by month"
+      />,
+    );
+    expect(screen.getByText('avg $16,420.35')).toBeDefined();
   });
 
   it('renders income vs spending', () => {

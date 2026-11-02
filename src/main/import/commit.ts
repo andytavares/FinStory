@@ -103,7 +103,7 @@ function writeAll(deps: CommitDeps, plan: WritePlan): void {
     for (const a of plan.accounts) {
       tx.insert(t.accounts).values({
         id: a.id, institutionId: plan.institution.id, plaidAccountId: `import:${a.id}`,
-        name: a.name, mask: a.mask, type: 'depository', isEveryday: false,
+        name: a.name, mask: a.mask, type: 'depository', isEveryday: true,
       }).run();
     }
     for (const { planned, transactionId, accountId, decision } of plan.rows) {

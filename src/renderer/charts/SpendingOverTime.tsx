@@ -72,6 +72,9 @@ export function SpendingOverTime({
       <figcaption className="mb-3 flex items-center justify-between text-[13px] font-semibold">
         <span>{title}</span>
         <span className="flex items-center gap-3 text-[12px] font-normal">
+          {priorAverageMinor !== null && (
+            <span style={{ color: AVERAGE_STROKE }}>avg {money(priorAverageMinor)}</span>
+          )}
           {onSelectPeriod && (
             <span className="text-[var(--color-ink-faint)]">Click a period to open it</span>
           )}
@@ -131,12 +134,6 @@ export function SpendingOverTime({
                 stroke={AVERAGE_STROKE}
                 strokeDasharray="4 4"
                 strokeWidth={1.2}
-                label={{
-                  value: `avg ${money(priorAverageMinor)}`,
-                  position: 'insideTopRight',
-                  fill: AVERAGE_STROKE,
-                  fontSize: 10,
-                }}
               />
             )}
             {shape === 'bars' ? (
