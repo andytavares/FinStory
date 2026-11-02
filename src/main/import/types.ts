@@ -18,6 +18,8 @@ export interface ParseResult {
   transactions: ImportedTransaction[];
   accounts: { label: string; count: number; firstDate: string; lastDate: string }[];
   warnings: string[];
+  /** QIF `!Type:Cat` names, used by a transaction or not. */
+  listedCategories?: string[];
 }
 
 /** Zero-based column indexes. */

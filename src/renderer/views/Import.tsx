@@ -4,7 +4,7 @@ import type { AccountRow, ImportPreview, ImportProgress } from '@shared/types';
 import { ColumnMapping } from './import/ColumnMapping';
 import type { MoneyCategory } from './import/CategoryMapping';
 import { FileCard } from './import/FileCard';
-import { describeFile, plural } from './import/format';
+import { categoryCount, describeFile, plural } from './import/format';
 import { useImportFlow } from './import/flow';
 import { MatchAccounts, type MoneyAccountOption } from './import/MatchAccounts';
 import { StepChips } from './import/StepChips';
@@ -18,10 +18,10 @@ function CheckCard({
   check,
   actions,
 }: {
-  check: { preview: ImportPreview; creating: number; busy: boolean };
+  check: { preview: ImportPreview; creating: number; creatingCategories: number; busy: boolean };
   actions: { onBack: () => void; onImport: () => void };
 }): React.JSX.Element {
-  const { preview, creating, busy } = check;
+  const { preview, creating, creatingCategories, busy } = check;
   const { onBack, onImport } = actions;
   return (
     <Card>
@@ -35,6 +35,9 @@ function CheckCard({
           <div className="ds-faint">
             {plural(creating, 'new account')} will be created, left out of day-to-day money.
           </div>
+        )}
+        {creatingCategories > 0 && (
+          <div className="ds-faint">{categoryCount(creatingCategories)} will be created.</div>
         )}
         {preview.warnings.map((w) => (
           <div key={w} className="ds-warn" style={{ fontSize: 12 }}>
@@ -67,7 +70,9 @@ function ProgressCard({ progress }: { progress: ImportProgress }): React.JSX.Ele
       <Eyebrow>Importing</Eyebrow>
       <ProgressBar value={total ? processed / total : 0} label="Import progress" />
       <div>{status}</div>
-      <div className="ds-faint">You can leave this screen. The import keeps going, and this page shows where it is.</div>
+      <div className="ds-faint">
+        You can leave this screen. The import keeps going, and this page shows where it is.
+      </div>
     </Card>
   );
 }
@@ -85,6 +90,7 @@ export function Import({
   );
   const { preview, step } = flow;
   const creating = Object.values(flow.accounts).filter((v) => v === 'new').length;
+  const creatingCategories = Object.values(flow.categories).filter((v) => v === 'new').length;
 
   return (
     <>
@@ -100,7 +106,8 @@ export function Import({
           <h3 className="ds-card-title">Imported {plural(flow.result.imported, 'transaction')}</h3>
           <div className="ds-faint">
             {plural(flow.result.skippedDuplicates, 'duplicate')} skipped ·{' '}
-            {plural(flow.result.createdAccounts, 'account')} created
+            {plural(flow.result.createdAccounts, 'account')} created ·{' '}
+            {categoryCount(flow.result.createdCategories)} created
           </div>
           <div className="ds-row">
             <Button variant="primary" onClick={onViewTransactions}>
@@ -142,7 +149,7 @@ export function Import({
           )}
           {preview && step === 3 && (
             <CheckCard
-              check={{ preview, creating, busy: flow.busy }}
+              check={{ preview, creating, creatingCategories, busy: flow.busy }}
               actions={{ onBack: () => flow.goTo(2), onImport: () => void flow.commit() }}
             />
           )}

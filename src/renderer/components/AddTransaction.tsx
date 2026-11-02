@@ -31,7 +31,14 @@ export function AddTransaction({
   const submit = async (): Promise<void> => {
     setError(null);
     const minor = toMinor(Number(amount));
-    if (!accountId || !postedDate || !payee.trim() || !categoryId || !Number.isFinite(minor) || minor <= 0) {
+    if (
+      !accountId ||
+      !postedDate ||
+      !payee.trim() ||
+      !categoryId ||
+      !Number.isFinite(minor) ||
+      minor <= 0
+    ) {
       setError('Fill in the account, date, payee, an amount above zero, and a category.');
       return;
     }
@@ -54,7 +61,11 @@ export function AddTransaction({
     <Card title="Add a transaction" className="space-y-3">
       <div className="ds-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <Field label="Account">
-          <Select value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label="Account">
+          <Select
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            aria-label="Account"
+          >
             <option value="">Choose an account</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -64,10 +75,20 @@ export function AddTransaction({
           </Select>
         </Field>
         <Field label="Date">
-          <TextInput type="date" value={postedDate} onChange={(e) => setPostedDate(e.target.value)} aria-label="Date" />
+          <TextInput
+            type="date"
+            value={postedDate}
+            onChange={(e) => setPostedDate(e.target.value)}
+            aria-label="Date"
+          />
         </Field>
         <Field label="Payee">
-          <TextInput value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Farmers market" aria-label="Payee" />
+          <TextInput
+            value={payee}
+            onChange={(e) => setPayee(e.target.value)}
+            placeholder="Farmers market"
+            aria-label="Payee"
+          />
         </Field>
         <Field label="Amount">
           <TextInput
@@ -80,13 +101,21 @@ export function AddTransaction({
           />
         </Field>
         <Field label="Direction">
-          <Select value={direction} onChange={(e) => setDirection(e.target.value as 'out' | 'in')} aria-label="Direction">
+          <Select
+            value={direction}
+            onChange={(e) => setDirection(e.target.value as 'out' | 'in')}
+            aria-label="Direction"
+          >
             <option value="out">Money out</option>
             <option value="in">Money in</option>
           </Select>
         </Field>
         <Field label="Category">
-          <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label="Category">
+          <Select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            aria-label="Category"
+          >
             <option value="">Choose a category</option>
             {assignableCategories(categories).map((c) => (
               <option key={c.id} value={c.id}>

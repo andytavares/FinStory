@@ -51,6 +51,7 @@ export interface ImportResult {
   readonly imported: number;
   readonly skippedDuplicates: number;
   readonly createdAccounts: number;
+  readonly createdCategories: number;
 }
 
 /** Where a running import is, or how the last one ended. Held by the main process so a view can leave and come back. */

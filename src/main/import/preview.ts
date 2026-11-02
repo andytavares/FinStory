@@ -56,6 +56,7 @@ export function suggestCategoryId(quickenCategory: string, categories: readonly 
 
 function categoryMappings(result: ParseResult, categories: readonly CategoryRecord[]): ImportPreview['categoryMappings'] {
   const counts = new Map<string, number>();
+  for (const listed of result.listedCategories ?? []) counts.set(listed, 0);
   for (const { category } of result.transactions) {
     if (category) counts.set(category, (counts.get(category) ?? 0) + 1);
   }

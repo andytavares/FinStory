@@ -9,6 +9,8 @@ interface QifState {
   accountName: string | null;
   label: string;
   skipping: boolean;
+  inCategoryList: boolean;
+  categories: string[];
   inAccountBlock: boolean;
   fields: Map<string, string>;
   transactions: ImportedTransaction[];
@@ -50,6 +52,7 @@ function startSection(state: QifState, line: string): void {
   const type = /^!Type:\s*(.*)$/i.exec(line)?.[1]?.trim();
   if (type === undefined) return;
   state.skipping = SKIPPED_TYPES.includes(type);
+  state.inCategoryList = type === 'Cat';
   state.label = state.accountName ?? type;
   if (type === 'Invst' && !state.warnings.includes(INVESTMENT_WARNING)) state.warnings.push(INVESTMENT_WARNING);
 }
@@ -59,6 +62,9 @@ function endRecord(state: QifState): void {
   if (state.inAccountBlock) {
     state.accountName = fields.get('N') ?? state.accountName;
     state.inAccountBlock = false;
+  } else if (state.inCategoryList) {
+    const name = fields.get('N');
+    if (name) state.categories.push(name);
   } else if (!state.skipping && fields.size > 0) {
     const transaction = toTransaction(fields, state.label);
     if (transaction) state.transactions.push(transaction);
@@ -78,6 +84,8 @@ export function parseQif(text: string): ParseResult {
     accountName: null,
     label: 'Imported account',
     skipping: false,
+    inCategoryList: false,
+    categories: [],
     inAccountBlock: false,
     fields: new Map(),
     transactions: [],
@@ -88,5 +96,5 @@ export function parseQif(text: string): ParseResult {
     else if (line === '^') endRecord(state);
     else if (line !== '') addField(state, line);
   }
-  return buildResult('qif', state.transactions, state.warnings);
+  return { ...buildResult('qif', state.transactions, state.warnings), listedCategories: state.categories };
 }

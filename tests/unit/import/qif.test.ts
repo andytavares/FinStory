@@ -72,4 +72,10 @@ describe('parseQif', () => {
     const r = parseQif('!Type:CCard\nD1/2/2025\nT-5.00\nPCafe\n^');
     expect(r.transactions[0]?.accountLabel).toBe('CCard');
   });
+
+  it('reads the category list, including categories no transaction uses', () => {
+    const r = parseQif('!Type:Cat\nNFood\nE\n^\nNFood:Groceries\nDWeekly shop\nE\n^\nNSalary\nI\n^\n');
+    expect(r.listedCategories).toEqual(['Food', 'Food:Groceries', 'Salary']);
+    expect(r.transactions).toEqual([]);
+  });
 });
