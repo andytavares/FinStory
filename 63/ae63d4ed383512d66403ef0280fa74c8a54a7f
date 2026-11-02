@@ -1,0 +1,19 @@
+tests/e2e/review.spec.ts
+  s_9a9a2a932e4490::t_e3d3701b9c8617 26-27,31-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "63ae63d4ed383512d66403ef0280fa74c8a54a7f",
+  "prompts": {},
+  "sessions": {
+    "s_9a9a2a932e4490": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fcde5970-a658-4156-99ff-d2c469bcf8e8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
