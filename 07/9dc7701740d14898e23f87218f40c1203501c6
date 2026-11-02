@@ -1,0 +1,52 @@
+src/main/import/types.ts
+  s_9a9a2a932e4490::t_5d9de93a0f2de4 21-22
+src/renderer/views/import/flow.ts
+  s_9a9a2a932e4490::t_6b6ed498b91e57 128,130
+src/renderer/views/import/CategoryMapping.tsx
+  s_9a9a2a932e4490::t_6b6ed498b91e57 1,30,32,75
+  s_9a9a2a932e4490::t_b94158a901e624 33-55,57-71,73-74
+src/shared/types.ts
+  s_9a9a2a932e4490::t_3f3ef6890d20df 54
+tests/integration/import-commit.test.ts
+  s_9a9a2a932e4490::t_e2fa751f5b0cf6 212
+  s_9a9a2a932e4490::t_b40b578070cabd 119-177
+src/main/import/categories.ts
+  s_9a9a2a932e4490::t_09aa86c9e7488f 1-15,18-22,27-31,40-51
+  s_9a9a2a932e4490::t_b94158a901e624 16-17,23-26,32-39
+tests/unit/renderer/import.test.tsx
+  s_9a9a2a932e4490::t_3550aaf3b1e14a 32,82-99,101-114,154
+  s_9a9a2a932e4490::t_b94158a901e624 100
+src/renderer/components/AddTransaction.tsx
+  s_9a9a2a932e4490::t_b94158a901e624 34-41,64-68,78-83,86-91,104-108,114-118
+tests/unit/import/qif.test.ts
+  s_9a9a2a932e4490::t_b40b578070cabd 75-80
+src/renderer/views/Import.tsx
+  s_9a9a2a932e4490::t_6b6ed498b91e57 7,21,24,39,41,93,109-110,152
+  s_9a9a2a932e4490::t_b94158a901e624 40,73-75
+src/main/import/qif.ts
+  s_9a9a2a932e4490::t_5d9de93a0f2de4 12-13,55,65-67,87-88,99
+src/renderer/views/import/format.ts
+  s_9a9a2a932e4490::t_6b6ed498b91e57 24
+src/main/import/commit.ts
+  s_9a9a2a932e4490::t_3f3ef6890d20df 10,87,96,167-175,183-189
+src/main/import/preview.ts
+  s_9a9a2a932e4490::t_5d9de93a0f2de4 59
+src/renderer/views/import/FileCard.tsx
+  s_9a9a2a932e4490::t_bd33de5e7ab6f1 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "079dc7701740d14898e23f87218f40c1203501c6",
+  "prompts": {},
+  "sessions": {
+    "s_9a9a2a932e4490": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fcde5970-a658-4156-99ff-d2c469bcf8e8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
