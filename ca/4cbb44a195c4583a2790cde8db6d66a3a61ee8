@@ -1,0 +1,21 @@
+resources/icon-source.svg
+  s_9a9a2a932e4490::t_f6495ddc640ed0 1-28
+tests/unit/release-config.test.ts
+  s_9a9a2a932e4490::t_8e34a7a2195a86 40-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ca4cbb44a195c4583a2790cde8db6d66a3a61ee8",
+  "prompts": {},
+  "sessions": {
+    "s_9a9a2a932e4490": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fcde5970-a658-4156-99ff-d2c469bcf8e8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
