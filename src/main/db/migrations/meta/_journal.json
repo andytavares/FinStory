@@ -71,6 +71,13 @@
       "when": 1788101358389,
       "tag": "0009_import_institutions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788101358390,
+      "tag": "0010_imported_is_everyday",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ import { MemorySecretStore } from '../fixtures/memory-secret-store';
 
 const MIGRATIONS = join(process.cwd(), 'src/main/db/migrations');
 const BEFORE_IMPORT_MIGRATION = 9;
+const BEFORE_IMPORTED_EVERYDAY = 10;
 
 function migrateFirst(handle: DatabaseHandle, count: number): void {
   const partial = mkdtempSync(join(tmpdir(), 'money-mig-'));
@@ -64,5 +65,20 @@ describe('institutions without Plaid', () => {
     expect(() =>
       raw.exec(`INSERT INTO institutions (id,plaid_item_id,access_token_encrypted,institution_name,created_at) VALUES ('i4','item_1','','Dup','2026-01-01')`),
     ).toThrow(/UNIQUE/);
+  });
+
+  it('makes imported accounts day-to-day and leaves a Plaid savings account alone', () => {
+    migrateFirst(handle, BEFORE_IMPORTED_EVERYDAY);
+    handle.raw.exec(`
+      INSERT INTO institutions (id,plaid_item_id,access_token_encrypted,institution_name,source,created_at) VALUES ('i1','item_1','','Chase','plaid','2026-01-01'), ('i2',NULL,'','Imported from Quicken','import','2026-01-01');
+      INSERT INTO accounts (id,institution_id,plaid_account_id,name,type,subtype,is_everyday) VALUES ('a1','i1','pa_1','Savings','depository','savings',0), ('a2','i2','import:a2','Quicken Checking','depository',NULL,0);
+    `);
+
+    runMigrations(handle, MIGRATIONS);
+
+    expect(handle.raw.prepare('SELECT id, is_everyday FROM accounts ORDER BY id').all()).toEqual([
+      { id: 'a1', is_everyday: 0 },
+      { id: 'a2', is_everyday: 1 },
+    ]);
   });
 });

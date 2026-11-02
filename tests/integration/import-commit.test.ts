@@ -213,7 +213,16 @@ describe('Quicken import', () => {
       const imported = (await handle.db.select().from(schema.institutions)).find((i) => i.source === 'import');
       expect(imported).toMatchObject({ plaidItemId: null, status: 'healthy', accessTokenEncrypted: '' });
       const created = (await handle.db.select().from(schema.accounts)).find((a) => a.name === 'Old Savings');
-      expect(created).toMatchObject({ institutionId: imported?.id, isEveryday: false });
+      expect(created).toMatchObject({ institutionId: imported?.id, isEveryday: true });
+    });
+
+    it('counts purchases imported into a new account as spending', async () => {
+      await commit();
+      const breakdown = (await services.breakdownByCategory({
+        periodStart: '2026-03-03T00:00:00Z',
+        periodEnd: '2026-03-03T23:59:59Z',
+      })) as { totalMinor: number };
+      expect(breakdown.totalMinor).toBe(-999);
     });
 
     it('imports again as all duplicates and inserts nothing', async () => {

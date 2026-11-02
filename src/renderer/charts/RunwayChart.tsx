@@ -14,7 +14,6 @@ import {
   FLOOR_STROKE,
   FLOOR_TEXT,
   GROUND,
-  INK,
   LABEL_TICK,
   POSITIVE,
   VALUE_TICK,
@@ -66,10 +65,6 @@ function floorLabel(floor: number) {
   } as const;
 }
 
-function endLabel(label: string) {
-  return { value: label, position: 'left', offset: 10, fill: INK, fontSize: 11 } as const;
-}
-
 export function RunwayChart({
   points,
   floor,
@@ -84,41 +79,47 @@ export function RunwayChart({
   const first = points[0];
   const last = points[points.length - 1];
   return (
-    <div style={{ width: '100%', height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={[...points]} margin={{ top: 12, right: 12, bottom: 0, left: 0 }}>
-          <defs>
-            <linearGradient id={GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor={POSITIVE} stopOpacity={0.25} />
-              <stop offset="1" stopColor={POSITIVE} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <XAxis {...X_AXIS} />
-          <YAxis {...Y_AXIS} />
-          <ReferenceArea y1={0} y2={floor} fill={FLOOR_FILL} stroke="none" />
-          <ReferenceLine
-            y={floor}
-            stroke={FLOOR_STROKE}
-            strokeDasharray="3 4"
-            label={floorLabel(floor)}
-          />
-          <Area {...BALANCE_AREA} />
-          {first && (
-            <ReferenceDot x={first.date} y={first.balance} r={4} fill={POSITIVE} stroke="none" />
-          )}
-          {last && (
-            <ReferenceDot
-              x={last.date}
-              y={last.balance}
-              r={4}
-              fill={GROUND}
-              stroke={POSITIVE}
-              strokeWidth={2}
-              label={endLabel(label)}
+    <div style={{ width: '100%' }}>
+      <div className="ds-num" style={{ textAlign: 'right', fontSize: 11 }}>
+        {label}
+      </div>
+      <div style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          {/* Right margin leaves room for the last date tick. */}
+          <ComposedChart data={[...points]} margin={{ top: 12, right: 24, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id={GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor={POSITIVE} stopOpacity={0.25} />
+                <stop offset="1" stopColor={POSITIVE} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis {...X_AXIS} />
+            <YAxis {...Y_AXIS} />
+            <ReferenceArea y1={0} y2={floor} fill={FLOOR_FILL} stroke="none" />
+            <ReferenceLine
+              y={floor}
+              stroke={FLOOR_STROKE}
+              strokeDasharray="3 4"
+              ifOverflow="extendDomain"
+              label={floorLabel(floor)}
             />
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
+            <Area {...BALANCE_AREA} />
+            {first && (
+              <ReferenceDot x={first.date} y={first.balance} r={4} fill={POSITIVE} stroke="none" />
+            )}
+            {last && (
+              <ReferenceDot
+                x={last.date}
+                y={last.balance}
+                r={4}
+                fill={GROUND}
+                stroke={POSITIVE}
+                strokeWidth={2}
+              />
+            )}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
