@@ -138,7 +138,9 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   );
 
   // Categories
-  registry.handle('categories:list', empty, () => services.listCategories());
+  registry.handle('categories:list', dateRangeSchema.partial().optional().default({}), (p) =>
+    services.listCategories(p),
+  );
   registry.handle('categories:create', createCategorySchema, (p) => services.createCategory(p));
   registry.handle('categories:rename', z.object({ id: z.string(), name: z.string() }), (p) =>
     services.renameCategory(p),

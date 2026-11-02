@@ -43,7 +43,7 @@ export interface AppServices {
   createTransaction(input: unknown): Promise<unknown>;
   dismissFlags(ids: string[]): Promise<unknown>;
 
-  listCategories(): Promise<unknown>;
+  listCategories(range?: unknown): Promise<unknown>;
   createCategory(input: unknown): Promise<unknown>;
   renameCategory(input: unknown): Promise<unknown>;
   mergeCategories(input: unknown): Promise<unknown>;

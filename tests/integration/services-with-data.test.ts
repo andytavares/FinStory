@@ -519,6 +519,14 @@ describe('Services with realistic data', () => {
     expect(cats.find((c) => c.id === 'dining')?.needsReassignment).toBe(true);
   });
 
+  it('totals category spending over the range it is given', async () => {
+    const spentIn = async (periodStart: string, periodEnd: string) =>
+      ((await services.listCategories({ periodStart, periodEnd })) as Array<{ id: string; spentMinor: number }>)
+        .find((c) => c.id === 'dining')?.spentMinor;
+    expect(await spentIn('2026-08-01T00:00:00Z', '2026-08-31T23:59:59Z')).toBe(6_400);
+    expect(await spentIn('2026-08-06T00:00:00Z', '2026-08-31T23:59:59Z')).toBe(0);
+  });
+
   it('deletes an unused category with no prompt', async () => {
     const created = (await services.createCategory({ name: 'Scratch', parentId: null })) as {
       id: string;

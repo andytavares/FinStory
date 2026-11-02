@@ -1151,12 +1151,17 @@ export class Services implements AppServices {
 
   // ---- Categories ----------------------------------------------------------
 
-  async listCategories(): Promise<unknown> {
+  /** Spending totals cover `range`, or this month when none is given. */
+  async listCategories(range?: unknown): Promise<unknown> {
     const month = monthRange(this.deps.clock.now());
+    const { periodStart = month.start, periodEnd = month.end } = (range ?? {}) as {
+      periodStart?: string;
+      periodEnd?: string;
+    };
     const [categories, categorizations, monthRows] = await Promise.all([
       this.db.select().from(t.categories),
       this.db.select().from(t.categorizations).where(isNull(t.categorizations.supersededBy)),
-      this.spendingIn(month.start, month.end),
+      this.spendingIn(periodStart, periodEnd),
     ]);
     const spend = categorySpend(
       breakdownByCategory(monthRows).rows,
@@ -1174,9 +1179,9 @@ export class Services implements AppServices {
       ...c,
       usageCount: countOf(usage, c.id),
       childCount: countOf(childCount, c.id),
-      /** This month's spending in this category alone, positive. */
+      /** Spending in the range in this category alone, positive. */
       spentMinor: countOf(spend.direct, c.id),
-      /** This month's spending in this category and its subcategories, positive. */
+      /** Spending in the range in this category and its subcategories, positive. */
       rolledUpSpentMinor: countOf(spend.rolledUp, c.id),
       // Only an unused, childless, non-system category can be deleted; anything
       // else would orphan history or break reconciliation.

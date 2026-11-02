@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, call } from '../lib/ipc';
 import { EmptyState } from '../components/EmptyState';
-import { Button, Card, PageHeader, TextInput } from '../components/ui';
+import { Button, Card, PageHeader, Segmented, TextInput } from '../components/ui';
+import { PERIOD_OPTIONS, periodRange, type DashboardPeriod } from './dashboard/period';
 import { CategoryCard } from './categories/CategoryCard';
 import type { CategoryRow } from './categories/types';
 
@@ -9,8 +10,10 @@ const byName = (a: CategoryRow, b: CategoryRow): number => a.name.localeCompare(
 
 /** FR-079–FR-082: add, rename, merge, hide. Nesting is capped at one level. */
 export function Categories(): React.JSX.Element {
+  const [period, setPeriod] = useState<DashboardPeriod>('month');
   const { data, loading, refetch } = useQuery<CategoryRow[]>('categories:list', {
     includeHidden: true,
+    ...periodRange(new Date(), period),
   });
   const [creating, setCreating] = useState(false);
 
@@ -25,11 +28,19 @@ export function Categories(): React.JSX.Element {
     <>
       <PageHeader
         title="Categories"
-        sub={`${groups.length} groups · ${subcategoryCount} subcategories`}
+        sub={`${groups.length} groups · ${subcategoryCount} subcategories · spent this ${period}`}
         actions={
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            + New category
-          </Button>
+          <>
+            <Segmented
+              label="Period"
+              value={period}
+              onChange={setPeriod}
+              options={PERIOD_OPTIONS}
+            />
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              + New category
+            </Button>
+          </>
         }
       />
       {creating && (
