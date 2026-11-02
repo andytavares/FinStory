@@ -107,10 +107,10 @@ Apple ID and an app-specific password.
 
 3. Open <https://github.com/andytavares/FinStory/actions>. The **Release** workflow starts
    for the new tag. It takes about 10–20 minutes, most of it waiting for Apple's notarization.
-4. When it passes, open <https://github.com/andytavares/FinStory/releases>. The release is a
-   **draft** with these files: `Money-<version>-arm64.dmg`, `Money-<version>-arm64-mac.zip`,
-   `latest-mac.yml`, and a `.blockmap` file for each of the two archives.
-5. Click **Edit** on the draft, write the release notes, and click **Publish release**.
+4. When it passes, open <https://github.com/andytavares/FinStory/releases>. The workflow
+   published the release with these files: `Money-<version>-arm64.dmg`,
+   `Money-<version>-arm64-mac.zip`, `latest-mac.yml`, and a `.blockmap` file for each archive.
+5. Optional: click **Edit** on the release to add release notes.
    Installed copies of Money see the update within 6 hours, or at their next launch.
 
 ## Part 6. Check the first release
@@ -141,5 +141,5 @@ Do this once, on the first release, to confirm signing and notarization worked.
 | Release job fails at notarization with "invalid credentials" | `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` or `APPLE_TEAM_ID` is wrong. Create a new app-specific password (Part 3) and update the secret. |
 | Release job fails with "Resource not accessible by integration" | Workflow permissions are read-only. Repeat Part 4 step 4. |
 | macOS says the app "is damaged" or "cannot be opened" | The build was not notarized. Check the notarization step in the job log. |
-| Installed app never offers the update | The release is still a draft. Publish it (Part 5 step 5). |
+| Installed app never offers the update | The release is still a draft: the "Publish the release" step failed. Open the draft and click **Publish release**. |
 | Certificate expires (after 5 years) | Repeat Parts 1, 2 and 4. Existing installs keep working. |
