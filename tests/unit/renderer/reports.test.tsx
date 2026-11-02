@@ -144,6 +144,22 @@ describe('Reports list', () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('reports:delete', { id: 'rep0' }));
   });
 
+  it('sends the day after "To" as the exclusive end, so the last day is included', async () => {
+    const invoke = bridgeSpy({ 'reports:list': [] });
+    render(<ReportsHarness />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Custom range…' }));
+    fireEvent.change(screen.getByLabelText('Report start date'), { target: { value: '2026-10-01' } });
+    fireEvent.change(screen.getByLabelText('Report end date'), { target: { value: '2026-10-31' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('reports:generate', {
+        type: 'custom',
+        periodStart: '2026-10-01T00:00:00.000Z',
+        periodEnd: '2026-11-01T00:00:00.000Z',
+      }),
+    );
+  });
+
   it('shows a custom report by its name rather than its month', async () => {
     installMoneyBridge({
       'reports:list': [SUMMARY, { ...SUMMARY, id: 'rep9', type: 'custom' as const, label: 'Trip to Japan' }],
@@ -261,6 +277,17 @@ describe('Report detail', () => {
     await waitFor(() => screen.getByText('← All reports'));
     fireEvent.click(screen.getByText('← All reports'));
     expect(backed).toBe(true);
+  });
+
+  it('shows a custom report with its figures, since it is built like a monthly report', async () => {
+    installMoneyBridge({
+      'reports:get': { ...MONTHLY, type: 'custom', label: null, periodStart: '2026-10-01T00:00:00Z', periodEnd: '2026-11-01T00:00:00Z', kpiSeries: [] },
+    });
+    render(<ReportDetail reportId="rep1" actions={{ onBack: () => {}, onDeleted: () => {} }} />);
+    await waitFor(() => expect(screen.getByText('18%')).toBeDefined());
+    expect(screen.queryByText(/No activity in this period/)).toBeNull();
+    expect(screen.getByText('Versus last period')).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Oct 1 – 31' })).toBeDefined();
   });
 
   it('reports an empty digest period honestly', async () => {

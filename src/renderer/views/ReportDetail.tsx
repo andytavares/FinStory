@@ -99,7 +99,7 @@ export function ReportDetail({
         dataComplete={data.dataComplete}
         staleInstitutions={data.dataComplete ? [] : ['one or more accounts']}
       />
-      {monthly ? (
+      {data.type !== 'weekly_digest' ? (
         <MonthlyBody content={data.content as MonthlyContent} history={data.kpiSeries} />
       ) : (
         <DigestBody content={data.content as DigestContent} />
