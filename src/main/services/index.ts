@@ -226,6 +226,8 @@ function cashFlowOf(transactions: Parameters<typeof spendingTotalMinor>[0]) {
 
 export class Services implements AppServices {
   private pendingLinkToken: string | null = null;
+  /** The institution a pending Link session repairs, or null for a new connection. */
+  private pendingReauthId: string | null = null;
   /** Set by cancelRecategorize; read by the loop between transactions. */
   private recategorizeCancelled = false;
   private recategorizeRunning = false;
@@ -323,11 +325,12 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
-  async startLink(): Promise<unknown> {
+  async startLink(reauthId: string | null = null, accessToken?: string): Promise<unknown> {
     const client = await this.plaidClient();
     try {
-      const session = await startHostedLink(client, 'local-user');
+      const session = await startHostedLink(client, 'local-user', accessToken);
       this.pendingLinkToken = session.linkToken;
+      this.pendingReauthId = reauthId;
       return session;
     } catch (error) {
       throw this.plaidFailure(error);
@@ -353,6 +356,15 @@ export class Services implements AppServices {
     }
     // Not an error: the user is still in the flow. The renderer keeps polling.
     if (!publicToken) return { pending: true };
+
+    // Update mode repairs the existing access token in place; nothing to exchange.
+    if (this.pendingReauthId && token === this.pendingLinkToken) {
+      const institutionId = this.pendingReauthId;
+      this.pendingLinkToken = null;
+      this.pendingReauthId = null;
+      await this.deps.sync();
+      return { institutionId, accountsAdded: 0 };
+    }
 
     const { accessToken, itemId } = await exchangePublicToken(client, publicToken);
     const fetched = await fetchItemAccounts(client, accessToken);
@@ -504,8 +516,12 @@ export class Services implements AppServices {
     return { ok: true };
   }
 
-  async reauthInstitution(): Promise<unknown> {
-    return this.startLink();
+  async reauthInstitution(id: string): Promise<unknown> {
+    const accessToken = await this.deps.store.get(accessTokenAccount(id));
+    if (!accessToken) {
+      throw new IpcFailure('PLAID_UNCONFIGURED', 'This bank has no saved login; disconnect and connect it again', true);
+    }
+    return this.startLink(id, accessToken);
   }
 
   // ---- Reading money -------------------------------------------------------
