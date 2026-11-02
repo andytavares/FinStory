@@ -49,7 +49,9 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security import "$P12" -P "$CSC_KEY_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
-          security import "$CA" -k "$KEYCHAIN"
+          # The .p12 can already carry this intermediate; a second import fails with "already exists".
+          security find-certificate -c "Developer ID Certification Authority" "$KEYCHAIN" >/dev/null 2>&1 \
+            || security import "$CA" -k "$KEYCHAIN"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           rm -f "$P12"
