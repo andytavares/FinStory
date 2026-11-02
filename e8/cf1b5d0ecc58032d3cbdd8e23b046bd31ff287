@@ -1,0 +1,21 @@
+src/main/index.ts
+  s_745918ebcdb56a::t_9abd70cdacd652 411-413
+docs/user-guide/troubleshooting.md
+  s_745918ebcdb56a::t_9abd70cdacd652 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e8cf1b5d0ecc58032d3cbdd8e23b046bd31ff287",
+  "prompts": {},
+  "sessions": {
+    "s_745918ebcdb56a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "efb9e7c5-8d05-480b-821a-e221fbc979df",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
