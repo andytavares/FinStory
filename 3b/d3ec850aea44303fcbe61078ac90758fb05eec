@@ -1,0 +1,34 @@
+src/main/import/commit.ts
+  s_6b7598c2f6201a::t_4385453e4b49b4 106
+tests/integration/import-migration.test.ts
+  s_6b7598c2f6201a::t_e969d781235653 15,69-82
+  s_6b7598c2f6201a::t_c11323c780d61b 83
+src/renderer/charts/RunwayChart.tsx
+  s_6b7598c2f6201a::t_83fc708602037e 82-104,106-122
+tests/unit/renderer/chart-kit.test.tsx
+  s_6b7598c2f6201a::t_dd4abda704bf23 7,46-58
+src/main/db/migrations/0010_imported_is_everyday.sql
+  s_6b7598c2f6201a::t_4385453e4b49b4 1-4
+tests/integration/import-commit.test.ts
+  s_6b7598c2f6201a::t_13e6e235bbdcd3 216-225
+src/renderer/charts/SpendingOverTime.tsx
+  s_6b7598c2f6201a::t_83fc708602037e 75-77
+src/main/db/migrations/meta/_journal.json
+  s_6b7598c2f6201a::t_4385453e4b49b4 74-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3bd3ec850aea44303fcbe61078ac90758fb05eec",
+  "prompts": {},
+  "sessions": {
+    "s_6b7598c2f6201a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f301a70-3785-4b59-8495-a0d0da5a81ed",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
