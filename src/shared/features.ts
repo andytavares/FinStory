@@ -57,6 +57,7 @@ const CHANNELS: Record<string, ReadonlyArray<readonly [string, string]>> = {
     ['institutions:list', 'Institutions: list'],
     ['institutions:disconnect', 'Institutions: disconnect'],
     ['institutions:reauth', 'Institutions: reconnect'],
+    ['accounts:create', 'Accounts: add by hand'],
     ['accounts:setEveryday', 'Accounts: set day-to-day'],
   ],
   Money: [

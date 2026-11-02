@@ -103,6 +103,6 @@ describe('Accounts and Alerts branches', () => {
     render(<Acc />);
     await waitFor(() => screen.getByRole('button', { name: 'Connect an account' }));
     expect(screen.getByRole('button', { name: 'Connect an account' })).toBeDefined();
-    expect(screen.getByText('Sync now')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Add an account by hand' })).toBeDefined();
   });
 });

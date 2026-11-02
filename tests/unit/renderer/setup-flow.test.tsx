@@ -52,19 +52,32 @@ describe('Setup (two-panel flow)', () => {
       'setup:detectOllama': { running: true, version: '0.5', models: ['llama3.1:8b', 'qwen2.5'] },
     });
     render(<Setup status={STATUS} onComplete={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Skip, I will enter things by hand' }));
     await waitFor(() => screen.getByText('Connected'));
     expect(screen.getByRole('combobox', { name: 'Model' })).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText(/Available after setup in Import/)).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Skip for now' }));
-    expect(screen.getByRole('button', { name: /Save and finish/ })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Finish without Plaid' })).toBeDefined();
+  });
+
+  it('finishes without Plaid, saving no credentials', async () => {
+    const invoke = bridge({ 'setup:detectOllama': { running: false, models: [] } });
+    const onComplete = vi.fn();
+    render(<Setup status={STATUS} onComplete={onComplete} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Skip, I will enter things by hand' }));
+    await waitFor(() => screen.getByText('Not running'));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Skip for now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish without Plaid' }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalled());
+    expect(invoke).not.toHaveBeenCalledWith('setup:saveCredentials', expect.anything());
   });
 
   it('shows Not running when Ollama is absent', async () => {
     bridge({ 'setup:detectOllama': { running: false, models: [] } });
     render(<Setup status={STATUS} onComplete={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Skip, I will enter things by hand' }));
     await waitFor(() => screen.getByText('Not running'));
   });
 
@@ -75,7 +88,7 @@ describe('Setup (two-panel flow)', () => {
       'model:test': { message: 'Sorted 3 of 3 sample charges' },
     });
     render(<Setup status={STATUS} onComplete={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Skip, I will enter things by hand' }));
     await waitFor(() => screen.getByText('Connected'));
     fireEvent.click(screen.getByRole('button', { name: 'Test with 3 sample charges' }));
     await waitFor(() => screen.getByText('Sorted 3 of 3 sample charges'));

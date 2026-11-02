@@ -1,7 +1,11 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: [unversioned template] → 1.0.0 (initial population) → 1.1.0
+Version change: [unversioned template] → 1.0.0 (initial population) → 1.1.0 → 1.2.0
+
+v1.2.0 (2026-11-02) — MINOR: Principle VIII makes the bank feed optional.
+  A user may skip Plaid and keep accounts and transactions by hand. The
+  zero-input rules apply in full whenever a feed is connected.
 
 v1.1.0 (2026-08-29) — MINOR: Principle III materially revised.
   The v1.0.0 rule ("a package maintained by a single individual MUST NOT be
@@ -200,6 +204,9 @@ A feature that reintroduces that effort defeats the entire product, however good
   only as a correction to an automated result, never as a prerequisite for one.
 - Manual transaction entry MAY exist for money the feed cannot see (such as cash). It MUST
   stay optional: nothing may depend on the user entering anything.
+- The bank feed (Plaid) is optional. A user MAY skip it and keep accounts by hand. Then the
+  data is only as current as their entries, and that is their choice. With a feed
+  connected, the rules above apply in full.
 - If the user never opens the application, the system MUST continue to operate, report,
   and deliver correctly.
 - **The test**: if a proposed feature stops working correctly when the user ignores it,
@@ -326,4 +333,4 @@ Compliance is not optional.
 - The constitution version and amendment history are the authoritative record of governance
   decisions affecting this project.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-29 | **Last Amended**: 2026-08-29
+**Version**: 1.2.0 | **Ratified**: 2026-08-29 | **Last Amended**: 2026-11-02

@@ -19,8 +19,8 @@ export interface InstitutionSummary {
   readonly lastSyncedAt: string | null;
   readonly accountCount: number;
   readonly accounts: AccountRow[];
-  /** 'import' institutions hold Quicken history and never sync. */
-  readonly source?: 'plaid' | 'import';
+  /** 'import' holds Quicken history and 'manual' holds accounts made by hand; neither syncs. */
+  readonly source?: 'plaid' | 'import' | 'manual';
 }
 
 export interface ImportPreview {

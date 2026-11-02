@@ -1483,6 +1483,18 @@ describe('Services with realistic data', () => {
       expect(after.cashFlowMinor.spendingMinor - before.cashFlowMinor.spendingMinor).toBe(-1_250);
     });
 
+    it('leaves a bank-synced balance alone, since the bank reports it', async () => {
+      await services.createTransaction({
+        accountId: 'acct_1',
+        postedDate: '2026-08-20',
+        amountMinor: -1_250,
+        payee: 'Farmers market',
+        categoryId: 'groceries',
+      });
+      const [account] = await handle.db.select().from(schema.accounts).where(eq(schema.accounts.id, 'acct_1'));
+      expect(account?.currentBalanceMinor).toBe(84_700);
+    });
+
     it('refuses an account that does not exist', async () => {
       await expect(
         services.createTransaction({

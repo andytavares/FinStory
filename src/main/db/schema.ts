@@ -22,7 +22,7 @@ export const institutions = sqliteTable('institutions', {
   lastSyncedAt: text('last_synced_at'),
   lastAttemptedSyncAt: text('last_attempted_sync_at'),
   createdAt: text('created_at').notNull(),
-  source: text('source', { enum: ['plaid', 'import'] }).notNull().default('plaid'),
+  source: text('source', { enum: ['plaid', 'import', 'manual'] }).notNull().default('plaid'),
 });
 
 export const accounts = sqliteTable('accounts', {
