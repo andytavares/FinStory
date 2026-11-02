@@ -1,0 +1,54 @@
+src/shared/features.ts
+  s_9a9a2a932e4490::t_986ece78fbf32c 68
+src/renderer/views/Accounts.tsx
+  s_9a9a2a932e4490::t_92691b8fb49043 140
+src/preload/index.ts
+  s_9a9a2a932e4490::t_986ece78fbf32c 26
+tests/integration/services-with-data.test.ts
+  s_9a9a2a932e4490::t_0e2767fd391ad9 1498
+  s_9a9a2a932e4490::t_6be93bda8d5e99 1450-1497
+  s_9a9a2a932e4490::t_d6c0b382893ae2 3
+tests/unit/renderer/add-transaction.test.tsx
+  s_9a9a2a932e4490::t_d6c0b382893ae2 1-71
+src/main/services/index.ts
+  s_9a9a2a932e4490::t_c52946e1cf31e9 1011-1012
+  s_9a9a2a932e4490::t_e563ee0e4bd890 6,978-1010
+tests/e2e/connect-and-models.spec.ts
+  s_9a9a2a932e4490::t_92691b8fb49043 23
+tests/unit/ipc/handlers.test.ts
+  s_9a9a2a932e4490::t_6366a9754bdad8 100
+  s_9a9a2a932e4490::t_6be93bda8d5e99 21
+src/renderer/components/TransactionEditor.tsx
+  s_9a9a2a932e4490::t_4199dbeabc5ad0 9
+src/renderer/views/Register.tsx
+  s_9a9a2a932e4490::t_8b145fc2fb3bc9 187
+  s_9a9a2a932e4490::t_4199dbeabc5ad0 6,153,173-180,184-186
+src/shared/schemas.ts
+  s_9a9a2a932e4490::t_986ece78fbf32c 151-160
+src/main/ipc/handlers/services.ts
+  s_9a9a2a932e4490::t_986ece78fbf32c 42
+.specify/memory/constitution.md
+  s_9a9a2a932e4490::t_262d1d1c0a2a57 199-202
+src/main/ipc/handlers/index.ts
+  s_9a9a2a932e4490::t_986ece78fbf32c 36,130
+src/renderer/components/AddTransaction.tsx
+  s_9a9a2a932e4490::t_4199dbeabc5ad0 1-112
+tests/unit/ipc/zero-input-doctrine.test.ts
+  s_9a9a2a932e4490::t_262d1d1c0a2a57 17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9883200d01eb68857925689f6c59425fd6b7de6f",
+  "prompts": {},
+  "sessions": {
+    "s_9a9a2a932e4490": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fcde5970-a658-4156-99ff-d2c469bcf8e8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": null
+    }
+  }
+}
