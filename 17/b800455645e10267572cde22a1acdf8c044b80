@@ -1,0 +1,21 @@
+tests/unit/import/index.test.ts
+  s_7279a6f1c4f824::t_7b1536303ef807 29
+src/main/import/index.ts
+  s_7279a6f1c4f824::t_7b1536303ef807 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "17b800455645e10267572cde22a1acdf8c044b80",
+  "prompts": {},
+  "sessions": {
+    "s_7279a6f1c4f824": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f4ee227-ca21-4b88-9d74-92d1d705dc9e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
