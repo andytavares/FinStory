@@ -33,10 +33,24 @@ async function openMenu(name: string): Promise<void> {
 }
 
 describe('Categories as group cards', () => {
-  it('counts groups and subcategories in the header', async () => {
+  it('counts groups and subcategories in the header and names the period the amounts cover', async () => {
     setup();
     render(<Categories />);
-    await waitFor(() => screen.getByText('2 groups · 1 subcategories'));
+    await waitFor(() => screen.getByText('2 groups · 1 subcategories · spent this month'));
+  });
+
+  it('asks for the chosen period when Week or Year is picked', async () => {
+    const invoke = setup();
+    render(<Categories />);
+    await waitFor(() => screen.getByText(/spent this month/));
+    fireEvent.click(screen.getByRole('button', { name: 'Year' }));
+    await waitFor(() => screen.getByText(/spent this year/));
+    const year = new Date().getFullYear();
+    expect(invoke).toHaveBeenLastCalledWith('categories:list', {
+      includeHidden: true,
+      periodStart: new Date(year, 0, 1).toISOString(),
+      periodEnd: new Date(year + 1, 0, 1).toISOString(),
+    });
   });
 
   it('shows the group spend rolled up and the subcategory spend', async () => {
