@@ -20,7 +20,7 @@ test.describe('connect and model selection', () => {
 
   test('explains what happens before any account is connected', async () => {
     await expect(harness.page.getByText(/No accounts connected yet/)).toBeVisible();
-    await expect(harness.page.getByText(/never enter a transaction by hand/)).toBeVisible();
+    await expect(harness.page.getByText(/never have to enter a transaction by hand/)).toBeVisible();
   });
 
   test('offers all three categorization providers with their privacy stated', async () => {

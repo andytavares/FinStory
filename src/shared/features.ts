@@ -65,6 +65,7 @@ const CHANNELS: Record<string, ReadonlyArray<readonly [string, string]>> = {
     ['breakdown:byMerchant', 'Breakdown: by merchant'],
     ['transactions:query', 'Transactions: list'],
     ['transactions:update', 'Transactions: edit'],
+    ['transactions:create', 'Transactions: add by hand'],
     ['trends:overTime', 'Trends: over time'],
     ['income:list', 'Income: list'],
     ['income:confirm', 'Income: confirm'],

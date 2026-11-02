@@ -39,6 +39,7 @@ export interface AppServices {
   recategorize(input: unknown): Promise<unknown>;
   applyRetroactive(input: unknown): Promise<unknown>;
   updateTransaction(input: unknown): Promise<unknown>;
+  createTransaction(input: unknown): Promise<unknown>;
   dismissFlags(ids: string[]): Promise<unknown>;
 
   listCategories(): Promise<unknown>;

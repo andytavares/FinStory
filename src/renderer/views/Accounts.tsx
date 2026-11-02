@@ -137,7 +137,7 @@ export function Accounts(): React.JSX.Element {
       {list && list.length === 0 && state === 'idle' && (
         <EmptyState
           title="No accounts connected yet"
-          detail="Connect a bank, card, or payment app and Money imports your history automatically. You will never enter a transaction by hand."
+          detail="Connect a bank, card, or payment app and Money imports your history automatically. You never have to enter a transaction by hand."
         />
       )}
 

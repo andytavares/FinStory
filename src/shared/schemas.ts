@@ -148,6 +148,16 @@ export const transactionUpdateSchema = z.object({
   userRecurringOverride: z.enum(['recurring', 'not_recurring']).nullable().optional(),
 });
 
+/** A transaction the user enters by hand. Negative amount = money out. */
+export const transactionCreateSchema = z.object({
+  accountId: z.string().min(1),
+  postedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amountMinor: z.number().int().refine((n) => n !== 0, 'Amount cannot be zero'),
+  payee: z.string().trim().min(1).max(120),
+  categoryId: z.string().min(1),
+  note: z.string().max(2000).optional(),
+});
+
 export const reportGenerateSchema = z
   .object({
     type: z.enum(['weekly_digest', 'monthly_report', 'custom']),

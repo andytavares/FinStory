@@ -23,6 +23,7 @@ export const INVOKE_CHANNELS = [
   'breakdown:byMerchant',
   'transactions:query',
   'transactions:update',
+  'transactions:create',
   'trends:overTime',
   'income:list',
   'income:confirm',

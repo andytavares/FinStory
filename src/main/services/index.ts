@@ -3,6 +3,7 @@ import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { normalizeMerchantKey } from '@main/categorization/local';
 import * as t from '@main/db/schema';
 import type { DatabaseHandle } from '@main/db/client';
 import type { AppServices } from '@main/ipc/handlers/services';
@@ -972,6 +973,41 @@ export class Services implements AppServices {
     const { merchantKey, categoryId } = input as { merchantKey: string; categoryId: string };
     const { updated, skippedOneOffs } = await this.setCategoryRule(merchantKey, categoryId);
     return { updated, skippedUserConfirmed: skippedOneOffs, restatedPeriods: [] };
+  }
+
+  /** Record a transaction the bank feed does not have, such as cash. The user's category is final. */
+  async createTransaction(input: unknown): Promise<unknown> {
+    const p = input as {
+      accountId: string;
+      postedDate: string;
+      amountMinor: number;
+      payee: string;
+      categoryId: string;
+      note?: string;
+    };
+    const accounts = await this.db.select().from(t.accounts).where(eq(t.accounts.id, p.accountId));
+    if (accounts.length === 0) {
+      throw new IpcFailure('VALIDATION_FAILED', 'That account no longer exists', true, 'Choose another');
+    }
+    const id = `txn_${randomUUID().slice(0, 12)}`;
+    const at = this.deps.clock.now().toISOString();
+    await this.db.insert(t.transactions).values({
+      id,
+      accountId: p.accountId,
+      // Unique and never sent by Plaid, so a sync cannot collide with it.
+      plaidTransactionId: `manual:${id}`,
+      amountMinor: p.amountMinor,
+      merchantName: p.payee,
+      merchantKey: normalizeMerchantKey(p.payee),
+      description: p.payee,
+      postedDate: p.postedDate,
+      settlementState: 'posted',
+      userNote: p.note?.trim() || null,
+      firstSeenAt: at,
+      updatedAt: at,
+    });
+    await this.supersede(id, p.categoryId, at);
+    return { id };
   }
 
   /**

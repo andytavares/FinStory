@@ -33,6 +33,7 @@ import {
   alertIdSchema,
   transactionIdsSchema,
   transactionUpdateSchema,
+  transactionCreateSchema,
   ruleUpdateSchema,
   ruleDeleteSchema,
   usageViewSchema,
@@ -126,6 +127,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('review:applyRetroactive', applyRetroactiveSchema, (p) =>
     services.applyRetroactive(p),
   );
+  registry.handle('transactions:create', transactionCreateSchema, (p) => services.createTransaction(p));
   registry.handle('transactions:update', transactionUpdateSchema, (p) =>
     services.updateTransaction(p),
   );
