@@ -1,6 +1,6 @@
 {
   "name": "money",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Automated spend tracking and awareness — a local-first personal finance desktop application",
   "main": "./out/main/index.js",
   "author": "Andrew",
