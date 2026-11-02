@@ -5,7 +5,7 @@ import { parseQif } from './qif';
 import type { CsvColumnMapping, ImportedTransaction, ParseResult } from './types';
 
 const UNSUPPORTED_MESSAGE =
-  "Money can read CSV, QIF, QFX and OFX files. Quicken's own .QDF file cannot be read; in Quicken choose File › Export first.";
+  "Money can read CSV, QIF, QFX and OFX files. Quicken's own .QDF and .QXF files cannot be read; in Quicken choose File › Export › QIF File first.";
 
 type Format = ParseResult['format'];
 

@@ -435,3 +435,79 @@ describe('sync engine edge cases', () => {
     expect(r.skipped).toBe(1);
   });
 });
+
+describe('sync engine restarts pagination when Plaid data changes mid-sync', () => {
+  const mutation = (): Error =>
+    Object.assign(new Error('Underlying transaction data changed'), {
+      code: 'TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION',
+    });
+  const page = (id: string, next: string, hasMore: boolean) => ({
+    added: [plaidTx({ transaction_id: id })],
+    modified: [],
+    removed: [],
+    next_cursor: next,
+    has_more: hasMore,
+  });
+
+  it('restarts from the cursor the run started at', async () => {
+    const store = new FakeStore();
+    const seen: Array<string | null> = [];
+    let failedOnce = false;
+    const source: SyncSource = {
+      institutionId: 'inst_1',
+      cursor: 'c0',
+      fetch: async (cursor) => {
+        seen.push(cursor);
+        if (cursor === 'c0') return page('p1', 'c1', true);
+        if (!failedOnce) {
+          failedOnce = true;
+          throw mutation();
+        }
+        return page('p2', 'c2', false);
+      },
+    };
+    const r = await engineWith(source, store).run([source]);
+
+    expect(seen).toEqual(['c0', 'c1', 'c0', 'c1']);
+    expect(r.failures).toEqual([]);
+    expect(store.transactions).toHaveLength(2);
+    expect(store.cursors.get('inst_1')).toBe('c2');
+  });
+
+  it('restarts from the beginning when the stored cursor itself is rejected', async () => {
+    const store = new FakeStore();
+    const seen: Array<string | null> = [];
+    const source: SyncSource = {
+      institutionId: 'inst_1',
+      cursor: 'saved_mid_pagination',
+      fetch: async (cursor) => {
+        seen.push(cursor);
+        if (cursor === 'saved_mid_pagination') throw mutation();
+        return page('p1', 'c1', false);
+      },
+    };
+    const r = await engineWith(source, store).run([source]);
+
+    expect(seen).toEqual(['saved_mid_pagination', null]);
+    expect(r.failures).toEqual([]);
+    expect(store.cursors.get('inst_1')).toBe('c1');
+    expect(store.syncedAt).toBe(NOW.toISOString());
+  });
+
+  it('gives up and reports the failure when the data keeps changing', async () => {
+    const store = new FakeStore();
+    let calls = 0;
+    const source: SyncSource = {
+      institutionId: 'inst_1',
+      cursor: null,
+      fetch: async () => {
+        calls += 1;
+        throw mutation();
+      },
+    };
+    const r = await engineWith(source, store).run([source]);
+
+    expect(calls).toBe(4);
+    expect(r.failures[0]?.message).toBe('Underlying transaction data changed');
+  });
+});
