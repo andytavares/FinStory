@@ -408,6 +408,9 @@ function showStartupFailure(error: unknown): void {
   void failureWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(failurePageHtml(message))}`);
 }
 
+// Dev builds own the default folder (`money`) with Keychain items under a dev service; sharing it hands the installed app a database it has no key for.
+if (app.isPackaged) app.setPath('userData', join(app.getPath('appData'), 'com.atavares.money'));
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
