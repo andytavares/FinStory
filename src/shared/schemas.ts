@@ -41,6 +41,14 @@ export const credentialsUpdateSchema = z.object({
   anthropicApiKey: z.string().optional(),
 });
 
+/** An account the user makes by hand. A credit balance is what is owed. */
+export const accountCreateSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  type: z.enum(['depository', 'credit']),
+  subtype: z.string().trim().min(1).max(40),
+  currentBalanceMinor: z.number().int(),
+});
+
 export const accountEverydaySchema = z.object({
   accountId: z.string().min(1),
   isEveryday: z.boolean(),

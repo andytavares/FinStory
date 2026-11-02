@@ -10,8 +10,7 @@ import type { SetupStatus } from '@shared/types';
 /**
  * First run.
  *
- * The only screen in the app that asks for input, and it asks once. Everything
- * afterward is read-only by design (Constitution VIII).
+ * Plaid is optional: without it the user adds accounts and transactions by hand.
  *
  * Credentials go straight to the main process and are sealed there; nothing
  * entered here is ever read back (FR-047).
@@ -53,12 +52,16 @@ export function Setup({
     setSaving(true);
     setError(null);
     try {
-      await call('setup:saveCredentials', {
-        plaidClientId: connect.clientId.trim(),
-        plaidSecret: connect.secret.trim(),
-        plaidEnv: connect.environment,
-        ...(anthropicKey ? { anthropicApiKey: anthropicKey } : {}),
-      });
+      if (ready) {
+        await call('setup:saveCredentials', {
+          plaidClientId: connect.clientId.trim(),
+          plaidSecret: connect.secret.trim(),
+          plaidEnv: connect.environment,
+          ...(anthropicKey ? { anthropicApiKey: anthropicKey } : {}),
+        });
+      } else if (anthropicKey) {
+        await call('credentials:update', { anthropicApiKey: anthropicKey });
+      }
       if (sort.provider) {
         await call('settings:update', {
           modelProvider: sort.provider,

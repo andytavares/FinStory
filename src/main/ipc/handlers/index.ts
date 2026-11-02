@@ -5,6 +5,7 @@ import {
   dateRangeSchema,
   saveCredentialsSchema,
   credentialsUpdateSchema,
+  accountCreateSchema,
   linkCompleteSchema,
   institutionIdSchema,
   accountEverydaySchema,
@@ -78,6 +79,7 @@ export function registerHandlers(registry: IpcRegistry, services: AppServices): 
   registry.handle('institutions:reauth', institutionIdSchema, (p) =>
     services.reauthInstitution(p.institutionId),
   );
+  registry.handle('accounts:create', accountCreateSchema, (p) => services.createAccount(p));
   registry.handle('accounts:setEveryday', accountEverydaySchema, (p) =>
     services.setAccountEveryday(p),
   );

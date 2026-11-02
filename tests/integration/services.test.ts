@@ -104,6 +104,50 @@ describe('Services against a real encrypted database', () => {
     expect(c.dataComplete).toBe(false);
   });
 
+  describe('using Money without Plaid', () => {
+    type Listed = Array<{
+      institutionName: string;
+      source: string;
+      accounts: Array<{ id: string; name: string; type: string; currentBalanceMinor: number | null; isEveryday: boolean }>;
+    }>;
+
+    it('adds accounts by hand under one "Entered by hand" group', async () => {
+      await services.createAccount({ name: 'Wallet', type: 'depository', subtype: 'checking', currentBalanceMinor: 12_000 });
+      await services.createAccount({ name: 'Rainy day', type: 'depository', subtype: 'savings', currentBalanceMinor: 500_000 });
+      const listed = (await services.listInstitutions()) as Listed;
+
+      expect(listed).toHaveLength(1);
+      expect(listed[0]).toMatchObject({ institutionName: 'Entered by hand', source: 'manual' });
+      expect(listed[0]?.accounts.map((a) => [a.name, a.currentBalanceMinor, a.isEveryday])).toEqual([
+        ['Wallet', 12_000, true],
+        ['Rainy day', 500_000, false],
+      ]);
+    });
+
+    it('moves a hand-made account balance by each transaction entered by hand', async () => {
+      const { id: cash } = (await services.createAccount({
+        name: 'Wallet', type: 'depository', subtype: 'checking', currentBalanceMinor: 12_000,
+      })) as { id: string };
+      const { id: card } = (await services.createAccount({
+        name: 'Visa', type: 'credit', subtype: 'credit card', currentBalanceMinor: 30_000,
+      })) as { id: string };
+      const add = (accountId: string, amountMinor: number): Promise<unknown> =>
+        services.createTransaction({ accountId, postedDate: '2026-08-20', amountMinor, payee: 'Farmers market', categoryId: 'groceries' });
+
+      await add(cash, -2_000);
+      await add(card, -5_000);
+      const balances = ((await services.listInstitutions()) as Listed)[0]?.accounts.map((a) => a.currentBalanceMinor);
+
+      // A card balance is what is owed, so spending raises it.
+      expect(balances).toEqual([10_000, 35_000]);
+    });
+
+    it('counts totals as complete when no bank is connected but accounts exist', async () => {
+      await services.createAccount({ name: 'Wallet', type: 'depository', subtype: 'checking', currentBalanceMinor: 0 });
+      expect((await services.completeness()).dataComplete).toBe(true);
+    });
+  });
+
   it('serves an empty dashboard without throwing', async () => {
     const d = (await services.dashboard({
       periodStart: '2026-08-01T00:00:00Z',

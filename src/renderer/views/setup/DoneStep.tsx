@@ -13,11 +13,13 @@ export function DoneStep({ status, onBack, onFinish }: DoneStepProps): React.JSX
       <Eyebrow>Step 4 of 4</Eyebrow>
       <h2 className="m-0 text-[21px] font-semibold">You are ready</h2>
       <p className="ds-faint m-0">
-        Money saves your choices encrypted on this Mac, then takes you to Accounts to connect your
-        bank.
+        Money saves your choices encrypted on this Mac, then takes you to Accounts.
       </p>
       {!ready && (
-        <p className="ds-muted m-0">Enter your Plaid Client ID and Secret in step 1 first.</p>
+        <p className="ds-muted m-0">
+          No Plaid credentials: add accounts and transactions by hand. You can connect a bank later
+          in Settings.
+        </p>
       )}
       <div className="ds-row mt-2">
         <Button variant="ghost" onClick={onBack}>
@@ -26,10 +28,10 @@ export function DoneStep({ status, onBack, onFinish }: DoneStepProps): React.JSX
         <Button
           variant="primary"
           className="ml-auto"
-          disabled={!ready || saving}
+          disabled={saving}
           onClick={onFinish}
         >
-          {saving ? 'Saving…' : 'Save and finish'}
+          {saving ? 'Saving…' : ready ? 'Save and finish' : 'Finish without Plaid'}
         </Button>
       </div>
     </>

@@ -18,6 +18,7 @@ export interface AppServices {
   completeLink(linkToken: string): Promise<unknown>;
   listInstitutions(): Promise<unknown>;
   disconnectInstitution(id: string): Promise<unknown>;
+  createAccount(input: unknown): Promise<unknown>;
   setAccountEveryday(input: unknown): Promise<unknown>;
   reauthInstitution(id: string): Promise<unknown>;
 

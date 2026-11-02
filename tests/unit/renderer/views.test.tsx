@@ -403,10 +403,10 @@ describe('Setup (first run)', () => {
     encryptionAvailable: true,
   };
 
-  it('asks for Plaid credentials and makes the one-time promise explicit', () => {
+  it('asks for Plaid credentials and says Plaid is optional', () => {
     render(<Setup status={ok} onComplete={() => {}} />);
     expect(screen.getByText(/Connect your accounts/)).toBeDefined();
-    expect(screen.getByText(/no logging, no reconciling, no budgets to allocate/)).toBeDefined();
+    expect(screen.getByText(/Plaid is optional/)).toBeDefined();
   });
 
   it('disables the save button until both required fields are filled', () => {

@@ -4,6 +4,7 @@ import { EmptyState } from '../components/EmptyState';
 import { money } from '../lib/format';
 import { Button, Card, PageHeader } from '../components/ui';
 import { BankCard } from './accounts/BankCard';
+import { AddAccount } from './accounts/AddAccount';
 import type { InstitutionSummary } from '@shared/types';
 
 interface LinkSession {
@@ -47,6 +48,7 @@ export function Accounts(): React.JSX.Element {
   const [added, setAdded] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncNote, setSyncNote] = useState<{ text: string; bad: boolean } | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const sync = async (): Promise<void> => {
     setSyncing(true);
@@ -93,6 +95,7 @@ export function Accounts(): React.JSX.Element {
   const busy = state === 'opening' || state === 'waiting' || state === 'importing';
   const list = institutions.data;
   const summary = netSummary(list);
+  const hasBank = (list ?? []).some((i) => (i.source ?? 'plaid') === 'plaid');
 
   return (
     <>
@@ -101,9 +104,12 @@ export function Accounts(): React.JSX.Element {
         {...(summary ? { sub: summary } : {})}
         actions={
           <>
-            <Button disabled={syncing} onClick={() => void sync()}>
-              {syncing ? 'Syncing…' : 'Sync now'}
-            </Button>
+            {hasBank && (
+              <Button disabled={syncing} onClick={() => void sync()}>
+                {syncing ? 'Syncing…' : 'Sync now'}
+              </Button>
+            )}
+            <Button onClick={() => setAdding(true)}>Add an account by hand</Button>
             <Button variant="primary" disabled={busy} onClick={() => void connect()}>
               {busy ? 'Connecting…' : 'Connect an account'}
             </Button>
@@ -111,6 +117,7 @@ export function Accounts(): React.JSX.Element {
         }
       />
 
+      {adding && <AddAccount onClose={() => setAdding(false)} onAdded={institutions.refetch} />}
       {syncNote && (
         <p role="status" className={`text-[12px] ${syncNote.bad ? 'ds-muted' : 'ds-faint'}`}>
           {syncNote.text}
@@ -137,7 +144,7 @@ export function Accounts(): React.JSX.Element {
       {list && list.length === 0 && state === 'idle' && (
         <EmptyState
           title="No accounts connected yet"
-          detail="Connect a bank, card, or payment app and Money imports your history automatically. You never have to enter a transaction by hand."
+          detail="Connect a bank through Plaid and Money imports your history automatically, or add an account by hand and enter transactions yourself."
         />
       )}
 

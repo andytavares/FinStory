@@ -161,9 +161,9 @@ export function App(): React.JSX.Element {
     );
   }
 
-  // First run: there is nothing to show until an account is connected, so the
-  // setup screen is the app rather than a banner on an empty dashboard.
-  if (status.data && !status.data.plaidConfigured && !setupDismissed) {
+  // First run: nothing to show until Plaid is set up or an account exists, so
+  // the setup screen is the app. Accounts made by hand mean Plaid was skipped.
+  if (status.data && !status.data.plaidConfigured && status.data.accountCount === 0 && !setupDismissed) {
     return (
       <Setup
         status={status.data}

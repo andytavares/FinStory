@@ -1,5 +1,5 @@
 /** A credit or loan balance is what is owed, so spending raises it. */
-const OWED_TYPES = new Set(['credit', 'loan']);
+export const OWED_TYPES = new Set(['credit', 'loan']);
 
 /**
  * The balance after each transaction, working back from the bank's current balance.

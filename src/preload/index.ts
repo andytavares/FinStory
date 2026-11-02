@@ -17,6 +17,7 @@ export const INVOKE_CHANNELS = [
   'institutions:list',
   'institutions:disconnect',
   'institutions:reauth',
+  'accounts:create',
   'accounts:setEveryday',
   'dashboard:get',
   'breakdown:byCategory',

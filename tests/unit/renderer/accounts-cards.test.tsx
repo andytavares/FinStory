@@ -69,3 +69,48 @@ describe('Accounts as bank cards', () => {
     expect(invoke).toHaveBeenCalledWith('institutions:disconnect', { institutionId: 'i2' });
   });
 });
+
+describe('Accounts without Plaid', () => {
+  const MANUAL = {
+    id: 'i9', institutionName: 'Entered by hand', status: 'healthy', lastSyncedAt: null, accountCount: 1, source: 'manual',
+    accounts: [{ id: 'a9', name: 'Wallet', mask: null, type: 'depository', subtype: 'checking', currentBalanceMinor: 12000, balanceAsOf: null, isEveryday: true }],
+  };
+  function withList(list: unknown[]): ReturnType<typeof vi.fn> {
+    const invoke = vi.fn((channel: string) =>
+      channel === 'institutions:list' ? Promise.resolve(list) : Promise.resolve({ id: 'a10' }),
+    );
+    Object.defineProperty(globalThis.window, 'money', { configurable: true, value: { invoke, on: () => () => {} } });
+    return invoke;
+  }
+
+  it('adds an account by hand with its balance', async () => {
+    const invoke = withList([]);
+    render(<Accounts />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add an account by hand' }));
+    fireEvent.change(screen.getByLabelText('Account name'), { target: { value: 'Visa' } });
+    fireEvent.change(screen.getByLabelText('Account kind'), { target: { value: 'credit card' } });
+    fireEvent.change(screen.getByLabelText('Current balance'), { target: { value: '300.50' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('accounts:create', {
+        name: 'Visa', type: 'credit', subtype: 'credit card', currentBalanceMinor: 30050,
+      }),
+    );
+  });
+
+  it('hides Sync now when no bank is connected', async () => {
+    withList([MANUAL]);
+    render(<Accounts />);
+    await screen.findByText('Wallet');
+    expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
+  });
+
+  it('shows no sync status or Disconnect on the hand-made group', async () => {
+    withList([MANUAL]);
+    render(<Accounts />);
+    await screen.findByText('Wallet');
+    expect(screen.queryByText('Connected')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Disconnect' })).toBeNull();
+    expect(screen.getByText('Not synced: entered by hand')).toBeDefined();
+  });
+});

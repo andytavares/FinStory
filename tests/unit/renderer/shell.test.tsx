@@ -67,3 +67,12 @@ describe('app shell', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Search: whole foods Clear search' })).toBeDefined());
   });
 });
+
+describe('Money without Plaid', () => {
+  it('opens the app, not setup, once accounts exist without Plaid', async () => {
+    bridge({ 'setup:status': { ...CONFIGURED, plaidConfigured: false, plaidClientIdConfigured: false, plaidSecretConfigured: false } });
+    render(<App />);
+    await waitFor(() => expect(screen.queryByText(/Opening your data/)).toBeNull());
+    expect(screen.queryByText(/Never type a transaction again/)).toBeNull();
+  });
+});

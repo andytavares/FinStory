@@ -11,6 +11,7 @@ const STATUS_CHIP: Record<InstitutionSummary['status'], { tone: ChipTone; label:
 };
 
 function syncLine(institution: InstitutionSummary): string {
+  if (institution.source === 'manual') return 'Not synced: entered by hand';
   if (institution.status === 'healthy') {
     return institution.lastSyncedAt ? `Synced ${relativeAge(institution.lastSyncedAt)}` : 'Not synced yet';
   }
@@ -32,6 +33,8 @@ export function BankCard({
   signingIn: boolean;
 }): React.JSX.Element {
   const chip = STATUS_CHIP[institution.status];
+  // Disconnect would delete every hand-entered account and transaction in one click.
+  const manual = institution.source === 'manual';
   return (
     <Card>
       <div className="ds-row">
@@ -40,7 +43,7 @@ export function BankCard({
           <div className="font-semibold">{institution.institutionName}</div>
           <div className="ds-caption">{syncLine(institution)}</div>
         </div>
-        <Chip tone={chip.tone}>{chip.label}</Chip>
+        {!manual && <Chip tone={chip.tone}>{chip.label}</Chip>}
       </div>
       {institution.accounts.map((account) => (
         <AccountBlock key={account.id} account={account} onChanged={onChanged} />
@@ -51,14 +54,16 @@ export function BankCard({
             Sign in again
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto"
-          onClick={() => void call('institutions:disconnect', { institutionId: institution.id }).then(onChanged)}
-        >
-          Disconnect
-        </Button>
+        {!manual && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            onClick={() => void call('institutions:disconnect', { institutionId: institution.id }).then(onChanged)}
+          >
+            Disconnect
+          </Button>
+        )}
       </div>
     </Card>
   );

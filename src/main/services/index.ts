@@ -90,7 +90,7 @@ import type { ImportCommitInput, ImportPreviewInput } from '@shared/schemas';
 import { commitImport } from '@main/import/commit';
 import { selectPlaidInstitutions } from '@main/import/institutions';
 import { previewImport } from '@main/import/preview';
-import { runningBalances } from '@main/analysis/running-balance';
+import { OWED_TYPES, runningBalances } from '@main/analysis/running-balance';
 
 /** Register order: newest posted date first, then newest time on that date. */
 const newestFirst = (a: TransactionRow, b: TransactionRow): number => {
@@ -251,6 +251,10 @@ export class Services implements AppServices {
 
   async completeness(): Promise<Completeness> {
     const rows = await selectPlaidInstitutions(this.db);
+    // No bank to wait on: accounts made by hand or imported are complete as entered.
+    if (rows.length === 0 && (await this.db.select({ id: t.accounts.id }).from(t.accounts).limit(1)).length > 0) {
+      return { dataComplete: true, staleInstitutions: [] };
+    }
     const states: InstitutionState[] = rows.map((r) => ({
       id: r.id,
       name: r.institutionName,
@@ -498,6 +502,37 @@ export class Services implements AppServices {
           isEveryday: a.isEveryday,
         })),
     }));
+  }
+
+  /** Make an account by hand. All of them share one "Entered by hand" institution. */
+  async createAccount(input: unknown): Promise<unknown> {
+    const p = input as { name: string; type: string; subtype: string; currentBalanceMinor: number };
+    const at = this.deps.clock.now().toISOString();
+    const [existing] = await this.db.select().from(t.institutions).where(eq(t.institutions.source, 'manual'));
+    const institutionId = existing?.id ?? `inst_${uuid().slice(0, 8)}`;
+    if (!existing) {
+      await this.db.insert(t.institutions).values({
+        id: institutionId,
+        accessTokenEncrypted: '',
+        institutionName: 'Entered by hand',
+        source: 'manual',
+        createdAt: at,
+      });
+    }
+    const id = `acct_${uuid().slice(0, 8)}`;
+    await this.db.insert(t.accounts).values({
+      id,
+      institutionId,
+      // Unique and never sent by Plaid, so a sync cannot collide with it.
+      plaidAccountId: `manual:${id}`,
+      name: p.name,
+      type: p.type,
+      subtype: p.subtype,
+      currentBalanceMinor: p.currentBalanceMinor,
+      balanceAsOf: at,
+      isEveryday: isEverydayAccount(p.type, p.subtype),
+    });
+    return { id };
   }
 
   /** Include or exclude an account from day-to-day money. */
@@ -986,8 +1021,8 @@ export class Services implements AppServices {
       categoryId: string;
       note?: string;
     };
-    const accounts = await this.db.select().from(t.accounts).where(eq(t.accounts.id, p.accountId));
-    if (accounts.length === 0) {
+    const [account] = await this.db.select().from(t.accounts).where(eq(t.accounts.id, p.accountId));
+    if (!account) {
       throw new IpcFailure('VALIDATION_FAILED', 'That account no longer exists', true, 'Choose another');
     }
     const id = `txn_${randomUUID().slice(0, 12)}`;
@@ -1008,7 +1043,20 @@ export class Services implements AppServices {
       updatedAt: at,
     });
     await this.supersede(id, p.categoryId, at);
+    await this.moveManualBalance(account, p.amountMinor, at);
     return { id };
+  }
+
+  /** No bank reports a hand-made account's balance, so each entry moves it. */
+  private async moveManualBalance(account: typeof t.accounts.$inferSelect, amountMinor: number, at: string): Promise<void> {
+    if (account.currentBalanceMinor === null) return;
+    const [institution] = await this.db.select().from(t.institutions).where(eq(t.institutions.id, account.institutionId));
+    if (institution?.source !== 'manual') return;
+    const sign = OWED_TYPES.has(account.type) ? -1 : 1;
+    await this.db
+      .update(t.accounts)
+      .set({ currentBalanceMinor: account.currentBalanceMinor + sign * amountMinor, balanceAsOf: at })
+      .where(eq(t.accounts.id, account.id));
   }
 
   /**
