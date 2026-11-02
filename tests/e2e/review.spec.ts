@@ -23,10 +23,12 @@ test.describe('review queue', () => {
     ).toBeVisible();
   });
 
-  test('offers no manual transaction entry anywhere (SC-021)', async () => {
-    for (const label of ['Dashboard', 'Transactions', 'Review']) {
+  test('offers manual entry only as an option on Transactions (SC-021, Constitution VIII)', async () => {
+    for (const label of ['Dashboard', 'Review']) {
       await harness.page.getByRole('button', { name: label }).click();
       await expect(harness.page.getByRole('button', { name: /add transaction/i })).toHaveCount(0);
     }
+    await harness.page.getByRole('button', { name: 'Transactions' }).click();
+    await expect(harness.page.getByRole('button', { name: /add transaction/i })).toHaveCount(1);
   });
 });
