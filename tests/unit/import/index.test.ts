@@ -26,7 +26,7 @@ describe('parseImportFile', () => {
 
   it.each(['file.qdf', 'file.qxf', 'file.bin'])('rejects %s', async (name) => {
     await expect(parseImportFile(name, 'binary')).rejects.toThrow(
-      "Money can read CSV, QIF, QFX and OFX files. Quicken's own .QDF file cannot be read; in Quicken choose File › Export first.",
+      "Money can read CSV, QIF, QFX and OFX files. Quicken's own .QDF and .QXF files cannot be read; in Quicken choose File › Export › QIF File first.",
     );
   });
 });
