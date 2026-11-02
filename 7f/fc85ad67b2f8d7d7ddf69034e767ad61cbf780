@@ -1,0 +1,16 @@
+package-lock.json
+  h_16ba00fe96244d 3,9
+package.json
+  h_16ba00fe96244d 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7ffc85ad67b2f8d7d7ddf69034e767ad61cbf780",
+  "prompts": {},
+  "humans": {
+    "h_16ba00fe96244d": {
+      "author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
