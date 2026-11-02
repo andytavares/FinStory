@@ -1,0 +1,27 @@
+src/renderer/views/reports/CustomRangeForm.tsx
+  s_7279a6f1c4f824::t_9c52936a63b99d 3,48
+  s_7279a6f1c4f824::t_2769d01edd80de 47
+tests/unit/renderer/reports.test.tsx
+  s_7279a6f1c4f824::t_bb6c3fc135a9ee 147-162,282-291
+  s_7279a6f1c4f824::t_9d91ff1c8e3c48 292
+src/renderer/views/reports/period.ts
+  s_7279a6f1c4f824::t_9c52936a63b99d 4
+src/renderer/views/ReportDetail.tsx
+  s_7279a6f1c4f824::t_2769d01edd80de 102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ed33e4750e1d02a5dbb6b8bb1b18d8bf3fe4e97",
+  "prompts": {},
+  "sessions": {
+    "s_7279a6f1c4f824": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f4ee227-ca21-4b88-9d74-92d1d705dc9e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andrew <andrew.tavaes87@gmail.com>"
+    }
+  }
+}
