@@ -37,4 +37,11 @@ describe('release workflow signing', () => {
   it("adds Apple's Developer ID intermediate so the signature chains to a trusted root", () => {
     expect(release).toMatch(/DeveloperIDG2CA\.cer/);
   });
+
+  it('ships a 1024px app icon where electron-builder looks for it', () => {
+    expect(config).toMatch(/buildResources: resources/);
+    const png = readFileSync('resources/icon.png');
+    // PNG header: width and height are big-endian at bytes 16 and 20.
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1024, 1024]);
+  });
 });
