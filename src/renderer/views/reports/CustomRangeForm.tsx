@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Card, Field, TextInput } from '../../components/ui';
+import { DAY_MS } from './period';
 
 export interface CustomRange {
   readonly periodStart: string;
@@ -43,7 +44,8 @@ export function CustomRangeForm({
           onClick={() =>
             onGenerate({
               periodStart: new Date(from).toISOString(),
-              periodEnd: new Date(to).toISOString(),
+              // Report ends are exclusive; end at the start of the day after "To".
+              periodEnd: new Date(new Date(to).getTime() + DAY_MS).toISOString(),
               ...(label.trim() ? { label: label.trim() } : {}),
             })
           }
