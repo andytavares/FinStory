@@ -31,7 +31,7 @@ import { taxonomyPromptList } from './db/seed-categories';
 import { EMPTY_SYNC, type SyncOutcome } from '@main/sync/outcome';
 import { SyncEngine, type SyncPage } from './sync/engine';
 import { DrizzleSyncStore } from './sync/store';
-import { createPlaidClient } from './plaid/client';
+import { createPlaidClient, plaidError } from './plaid/client';
 import {
   settings as settingsTable,
   alertRules as alertRulesTable,
@@ -171,10 +171,11 @@ async function bootstrap(): Promise<void> {
       const accessToken = await secretStore.get(accessTokenAccount(inst.id));
       if (!accessToken)
         throw new Error(`No access token in the Keychain for ${inst.institutionName}`);
-      const response = await client.transactionsSync({
-        access_token: accessToken,
-        ...(cursor ? { cursor } : {}),
-      });
+      const response = await client
+        .transactionsSync({ access_token: accessToken, ...(cursor ? { cursor } : {}) })
+        .catch((error: unknown) => {
+          throw plaidError(error);
+        });
       // Plaid's Transaction type carries more fields than ingestion reads;
       // the shape is structurally compatible with PlaidTransactionLike.
       return response.data as unknown as SyncPage;

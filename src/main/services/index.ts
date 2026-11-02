@@ -78,7 +78,7 @@ import type { Clock } from '@shared/clock';
 import type { AppSettings, ImportProgress } from '@shared/types';
 import { detectOllama, listOllamaModels } from '@main/categorization/ollama';
 import { explainModelError } from '@main/categorization/errors';
-import { createPlaidClient, type PlaidEnvironment } from '@main/plaid/client';
+import { createPlaidClient, plaidError, type PlaidEnvironment } from '@main/plaid/client';
 import { exchangePublicToken, pollForPublicToken, startHostedLink } from '@main/plaid/link';
 import { fetchItemAccounts } from '@main/plaid/accounts';
 import { isEverydayAccount } from '@main/accounts/everyday';
@@ -445,7 +445,8 @@ export class Services implements AppServices {
   }
 
   private plaidFailure(error: unknown): IpcFailure {
-    const message = error instanceof Error ? error.message : 'Plaid request failed';
+    const failure = plaidError(error);
+    const message = failure instanceof Error ? failure.message : 'Plaid request failed';
     if (/ITEM_LOGIN_REQUIRED|PENDING_EXPIRATION/i.test(message)) {
       return new IpcFailure('PLAID_REAUTH_REQUIRED', 'Reconnect this account', true, 'Reconnect');
     }

@@ -34,3 +34,12 @@ export function createPlaidClient(credentials: PlaidCredentials): PlaidApi {
     }),
   );
 }
+
+/** Plaid's error body as an Error; the SDK's own message is only "Request failed with status code 400". */
+export function plaidError(error: unknown): unknown {
+  const body = (error as { response?: { data?: { error_code?: string; error_message?: string } } } | null)
+    ?.response?.data;
+  if (!body?.error_code) return error;
+  const message = `${body.error_message ?? 'Plaid request failed'} (${body.error_code})`;
+  return Object.assign(new Error(message), { code: body.error_code });
+}

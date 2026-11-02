@@ -74,6 +74,12 @@ export interface SyncResult {
 }
 
 const DEFAULT_MAX_PAGES = 200;
+const MAX_PAGINATION_RESTARTS = 3;
+
+/** Plaid's signal to throw away this pagination and start it again. */
+function isMutationDuringPagination(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === 'TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION';
+}
 
 export class SyncEngine {
   constructor(private readonly deps: SyncEngineDeps) {}
@@ -121,9 +127,11 @@ export class SyncEngine {
     newlyIngested: StoredTransaction[];
   }> {
     const maxPages = this.deps.maxPages ?? DEFAULT_MAX_PAGES;
-    let cursor = source.cursor;
+    let startCursor = source.cursor;
+    let cursor = startCursor;
     let hasMore = true;
     let pages = 0;
+    let restarts = 0;
 
     let added = 0;
     let updated = 0;
@@ -132,7 +140,18 @@ export class SyncEngine {
     const newlyIngested: StoredTransaction[] = [];
 
     while (hasMore && pages < maxPages) {
-      const page = await source.fetch(cursor);
+      let page: SyncPage;
+      try {
+        page = await source.fetch(cursor);
+      } catch (error) {
+        if (!isMutationDuringPagination(error) || restarts >= MAX_PAGINATION_RESTARTS) throw error;
+        restarts += 1;
+        // A rejected start cursor was itself saved mid-pagination; only a full
+        // re-fetch recovers it. Replayed pages are deduplicated by Plaid ID.
+        if (cursor === startCursor) startCursor = null;
+        cursor = startCursor;
+        continue;
+      }
       const existing = await this.deps.store.loadTransactions();
 
       const mapped = await this.mapAll(page.added);
